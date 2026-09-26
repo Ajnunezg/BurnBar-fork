@@ -150,6 +150,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failed with `5 NOT_FOUND` and the background worker path was dead.
 
 ### Changed
+- **Daemon RPC domains and surface ceiling** — the daemon socket router now
+  dispatches on a typed `BurnBarDaemonRPCDomain` instead of a 196-case method
+  switch. Chat, membership, client, tooling, fleet and War Room RPCs run in
+  isolated domain handlers off the `BurnBarDaemonServer` actor (172 methods
+  remain actor-bound). `scripts/debt/check-rpc-domain-ceiling.sh` now runs in
+  fast-feedback: it caps domains at 36 methods and the surface at 210, and
+  freezes the actor-bound surface as shrink-only. The previously orphaned
+  `check-rpc-method-freeze.sh` now runs there too. Linux privacy RPCs report
+  their own `privacy` domain in the IPC canon. See
+  [ADR 017](docs/architecture/017-daemon-rpc-domains.md).
 - **Receipts chat** — every slip now shows a summary of what the session
   was actually about, a Chat lens with the indexed transcript, and
   clickable links: `openburnbar://receipts/{id}` lands on that slip,

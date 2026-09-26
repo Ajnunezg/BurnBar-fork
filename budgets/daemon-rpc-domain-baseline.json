@@ -1,0 +1,24 @@
+{
+  "note": "Daemon RPC surface ceiling. maxMethodsPerDomain is the structural cap: a domain that outgrows it must be split. maxTotalMethods is the hard ceiling on the whole socket RPC surface (196 live; one strangler wave of headroom). maxActorBoundMethods and actorBoundDomains freeze the methods still served on the BurnBarDaemonServer actor: they may only shrink, so new methods land in an isolated domain handler (OpenBurnBarDaemon/Sources/OpenBurnBarDaemon/RPC/Domains/). Enforced by scripts/debt/check-rpc-domain-ceiling.sh.",
+  "maxMethodsPerDomain": 36,
+  "maxTotalMethods": 210,
+  "maxActorBoundMethods": 172,
+  "actorBoundDomains": {
+    "auth": 13,
+    "code": 13,
+    "computer_use": 11,
+    "config": 22,
+    "database_recovery": 3,
+    "inbox": 14,
+    "lifecycle": 4,
+    "media": 10,
+    "memory": 13,
+    "mission_control": 34,
+    "observability": 5,
+    "privacy": 6,
+    "run_workspace_approval": 13,
+    "search": 4,
+    "switcher": 1,
+    "usage": 6
+  }
+}

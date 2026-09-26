@@ -112,6 +112,10 @@ budgets/xctskip-baseline.json
 # Exact-set matched both ways: new divergences AND stale entries fail CI.
 budgets/migrator-parity-baseline.json
 budgets/force-unwrap-baseline.json
+# Daemon RPC domain ceiling: structural per-domain cap, total-surface ceiling, and
+# a shrink-only freeze of methods served on the BurnBarDaemonServer actor;
+# scripts/debt/check-rpc-domain-ceiling.sh fails on any growth.
+budgets/daemon-rpc-domain-baseline.json
 
 # --- Filename false positive: not a lint baseline ---
 # GitHub Actions workflow for the protected one-time P-25 Linux release-baseline

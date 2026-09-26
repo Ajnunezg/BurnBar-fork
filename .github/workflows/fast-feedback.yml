@@ -1723,6 +1723,18 @@ jobs:
       - name: BurnBarRPC IPC canon is current
         run: node tools/ipc/generate-burnbarrpc-canon.mjs --check
 
+      # Daemon RPC surface: every method added must be acknowledged against the
+      # protocol baseline (freeze), and must fit the domain ceiling — no domain
+      # past 36 methods, no growth of the methods served on the
+      # BurnBarDaemonServer actor, a hard cap on the total surface.
+      - name: Daemon RPC method freeze
+        run: ./scripts/debt/check-rpc-method-freeze.sh
+
+      - name: Daemon RPC domain ceiling (shrink-only actor-bound surface)
+        run: |
+          ./scripts/debt/check-rpc-domain-ceiling.test.sh
+          ./scripts/debt/check-rpc-domain-ceiling.sh
+
       - name: Migration rollback catalog covers the single migrator
         run: |
           node --test scripts/ci/verify-migration-rollback-catalog.test.mjs

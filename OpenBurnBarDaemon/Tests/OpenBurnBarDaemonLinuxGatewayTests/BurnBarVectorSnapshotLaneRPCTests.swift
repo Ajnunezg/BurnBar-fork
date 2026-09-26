@@ -82,7 +82,7 @@ final class BurnBarVectorSnapshotLaneRPCTests: XCTestCase {
     func testVectorSnapshotUpsertCarriesSearchWriteCapabilityInSearchDomain() {
         let method = BurnBarRPCMethod.searchVectorSnapshotUpsert
         XCTAssertEqual(BurnBarRPCCapability.capability(for: method), .searchWrite)
-        XCTAssertEqual(BurnBarDaemonSocketRPCCoverage.domain(for: method), "search")
+        XCTAssertEqual(BurnBarDaemonSocketRPCCoverage.domain(for: method), .search)
     }
 
     private func makeServer() throws -> BurnBarDaemonServer {
