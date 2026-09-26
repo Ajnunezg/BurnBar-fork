@@ -1446,6 +1446,7 @@ jobs:
           filter: blob:none
           sparse-checkout: |
             AgentLens/Services/DataStore
+            AgentLens/Services/Settings/Stores
             OpenBurnBarMobile/Models
             OpenBurnBarCore/Sources/OpenBurnBarKernel/Budget
             scripts/ci/check-budget-fork-drift.sh

@@ -4,8 +4,8 @@ using System.Globalization;
 namespace OpenBurnBar.App.MemorySearch.Memory;
 
 // PORTED (faithful) from
-//   AgentLens/Services/Memory/MemoryRecallBudget.swift
-//   AgentLens/Services/ContextBuilder.swift          (PromptTokenArbiter.estimateProseTokens)
+//   AgentLens/Services/Memory/Contracts/MemoryRecallBudget.swift
+//   AgentLens/Services/Memory/Contracts/PromptTokenArbiter.swift (PromptTokenArbiter.estimateProseTokens)
 //   OpenBurnBarCore/.../LogParser/TokenExtractionUtility.swift (estimatedTokenCount)
 //
 // High-recall's lever is the LIMIT (how many distinct approved facts are eligible), NOT a larger

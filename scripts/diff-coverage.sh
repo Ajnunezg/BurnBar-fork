@@ -510,7 +510,7 @@ COVERAGE_ALLOWLIST = {
         "manager behavior; default singleton-backed constructor lines require "
         "the app runtime to line-hit."
     ),
-    "AgentLens/Services/OpenBurnBarDaemon/OpenBurnBarDaemonSocketClient.swift": (
+    "AgentLens/Services/DaemonIPC/OpenBurnBarDaemonSocketClient.swift": (
         "Socket transport adapter for the generated Computer Use capability "
         "state RPC. BurnBarRPC contract/canon tests and daemon RPC tests own "
         "method shape and response decoding; the app socket call requires a "

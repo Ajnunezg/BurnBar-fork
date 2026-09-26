@@ -7,7 +7,7 @@ namespace OpenBurnBar.App.MemorySearch.Search;
 // PORTED (faithful) from
 //   AgentLens/Services/Search/SearchService+Health.swift        (per-query status + error mapping)
 //   AgentLens/Services/Search/RetrievalHealthService.swift       (degradedModes classification)
-//   AgentLens/Services/Search/SearchTypes.swift                  (health-state records)
+//   AgentLens/Services/Search/Contracts/SearchTypes.swift                  (health-state records)
 //   AgentLens/Services/Search/OpenBurnBarSearchPerformanceTimer.swift (monotonic latency)
 //
 // Retrieval-health has NO percentile / recall / hit-rate / empty-rate aggregation (verified in
