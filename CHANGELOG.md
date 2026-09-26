@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **AgentLens/Services has an enforced dependency direction** — a new fitness
+  gate (`scripts/debt/check-services-layering.sh`, ADR 017) resolves every type
+  reference in the macOS app to a layered component and fails CI on any new
+  upward or cycle-forming reference. The persistence layer (`DataStore`) is now
+  a dependency leaf: its misfiled value types moved into `<Feature>/Contracts/`,
+  the daemon socket transport into `Services/DaemonIPC/`, and logging and keychain
+  into `Services/Foundation/`. No behaviour changed. The app's largest dependency
+  cycle shrank from 37 to 34 components. See
+  `docs/SERVICES_DECOMPOSITION_PROGRAM.md` for the remaining waves.
+
 ### Fixed
 - **Cloud sync is now opt-in** — the master switch defaults to off and
   persists on-device; nothing leaves the Mac until it is turned on in
