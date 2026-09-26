@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Every callable now has a declared rate policy** — a central registry
+  (`CALLABLE_RATE_POLICIES` in `packages/functions-shared`) classifies each
+  of the 166 catalog callables as `limited` (central per-uid burst + sustained
+  windows enforced inside `wrapCallableHandler` before the handler runs),
+  `handler-enforced` (existing bespoke limiter), or `exempt` (read-only /
+  bulk-sync / per-object-bounded / admin-only). Mission event appends are now
+  capped at 20,000 per mission instead of being bounded per account. Missing policies fail closed at callable definition
+  time, so an undeclared endpoint can never deploy unbounded.
+  `submitBugReport` — which creates a Linear issue, posts to Slack, and queues
+  a privileged CLI agent mission — is limited to 3 reports per 10 minutes and
+  10 per day. Rate-limit rejections log a `callable_rate_limited` warning
+  rather than polluting Sentry.
+- **Bug reports no longer fabricate Linear issues** — `submitBugReport`
+  previously invented `BB-###` identifiers and URLs when Linear was
+  unconfigured or the create call failed, and surfaced them to the user, the
+  Slack triage post, and the CLI-agent mission prompt. `LinearClient` now
+  returns an explicit `created | unconfigured | failed` status; the report doc,
+  mission, and Slack post record `linearStatus` honestly (Slack says "Linear:
+  not filed"), reports still save and missions still queue when Linear is down,
+  and a production instance without `LINEAR_API_KEY` logs one
+  `linear_integration_unconfigured` error on its first unconfigured filing. Clients (Mac, iOS, Android) decode
+  `linearIssue` as optional and show "Filed as <reportId>" when no issue
+  exists.
 - **Cloud sync is now opt-in** — the master switch defaults to off and
   persists on-device; nothing leaves the Mac until it is turned on in
   Settings → Devices & Sync, where a real toggle now lives. Fresh installs
