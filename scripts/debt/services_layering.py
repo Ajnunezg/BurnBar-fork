@@ -49,6 +49,7 @@ Options: --root DIR (repo root), --baseline PATH, --manifest PATH.
 from __future__ import annotations
 
 import argparse
+import bisect
 import collections
 import json
 import os
@@ -63,88 +64,160 @@ EXCLUDED_PARTS = {".build", ".derived-data", ".swiftpm"}
 
 # Strings keep their interpolation: `"\(Type.member)"` is executable code the
 # linker must resolve, so blanking the whole literal would erase real edges.
-_STRIP = re.compile(
-    r'#*"""[\s\S]*?"""#*'  # multi-line string literals (raw included)
-    r'|#+"[\s\S]*?"#+'  # raw strings (#"..."#, ##"..."##)
-    r'|"(?:\\.|[^"\\\n])*"'  # ordinary string literals
-    r"|/\*[\s\S]*?\*/"  # block comments
-    r"|//[^\n]*"  # line comments
-)
+# Comments and literals are removed by a depth-aware scanner, not regex: Swift
+# block comments nest, and a literal's `\( )` expressions can contain literals
+# of their own (`"\(String(format: "%@", X))"`).
 _DECL = re.compile(r"\b(?:class|struct|enum|actor|protocol|typealias|func|var|let)\s+([A-Za-z_][A-Za-z0-9_]*)")
 _IDENT = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
 _PRIV = re.compile(r"\b(?:private|fileprivate)\b")
 
 
-def _blank_literal(text: str) -> str:
-    """Blank one literal, keeping `\\(expr)` interpolation code visible."""
-    raw = len(text) - len(text.lstrip("#"))
-    marker = "\\" + "#" * raw + "("
-    out = [c if c == "\n" else " " for c in text]
-    i = 0
-    while True:
-        j = text.find(marker, i)
-        while 0 < j and text[j - 1] == "\\":
-            j = text.find(marker, j + 1)
-        if j < 0:
-            return "".join(out)
-        depth, k = 1, j + len(marker)
-        while k < len(text) and depth:
-            depth += text[k] == "("
-            depth -= text[k] == ")"
-            k += 1
-        if depth:
-            return "".join(out)
-        out[j + len(marker) : k - 1] = text[j + len(marker) : k - 1]
-        i = k
+def _scan_block_comment(text: str, start: int) -> int:
+    """End offset of the `/*` comment at `start` (Swift nests them)."""
+    depth, i, n = 1, start + 2, len(text)
+    while i < n - 1 and depth:
+        if text.startswith("/*", i):
+            depth += 1
+            i += 2
+        elif text.startswith("*/", i):
+            depth -= 1
+            i += 2
+        else:
+            i += 1
+    return i
+
+
+def _scan_literal(text: str, start: int) -> tuple[int, list[tuple[int, int]]]:
+    """End offset of the literal at `start`, plus its `\\( )` code spans.
+
+    `start` is on the literal itself: optional `#` markers then a single or
+    triple quote. Raw strings need `\\#`-style escapes and `\\#( )`
+    interpolation; nested literals inside an interpolation are skipped
+    recursively so an inner quote is never mistaken for the outer close.
+    """
+    n = len(text)
+    hashes = 0
+    while start + hashes < n and text[start + hashes] == "#":
+        hashes += 1
+    quote_at = start + hashes
+    triple = text.startswith('"""', quote_at)
+    opener, closer = ('"""', '"""' + "#" * hashes) if triple else ('"', '"' + "#" * hashes)
+    escape = "\\" + "#" * hashes
+    marker = escape + "("
+    exprs: list[tuple[int, int]] = []
+    i = quote_at + len(opener)
+    while i < n:
+        if text.startswith(escape, i):
+            if text.startswith(marker, i):
+                depth, j = 1, i + len(marker)
+                while j < n and depth:
+                    if text.startswith(escape, j):
+                        j += len(escape) + 1
+                    elif text.startswith("//", j):
+                        eol = text.find("\n", j)
+                        j = n if eol < 0 else eol
+                    elif text.startswith("/*", j):
+                        j = _scan_block_comment(text, j)
+                    elif text[j] == '"':
+                        j, _ = _scan_literal(text, j)
+                    else:
+                        depth += text[j] == "("
+                        depth -= text[j] == ")"
+                        j += 1
+                exprs.append((i + len(marker), j - 1))
+                i = j
+            else:
+                i += len(escape) + 1  # escaped character
+        elif text.startswith(closer, i):
+            return i + len(closer), exprs
+        else:
+            i += 1
+    return n, exprs
+
+
+def _blank(out: list[str], start: int, end: int) -> None:
+    for k in range(start, end):
+        if out[k] != "\n":
+            out[k] = " "
 
 
 def strip_source(text: str) -> str:
     """Blank comments and string literals, preserving line structure."""
-
-    def repl(match: re.Match) -> str:
-        matched = match.group(0)
-        if matched.startswith(("//", "/*")):
-            return "\n" * matched.count("\n") + " "
-        return _blank_literal(matched)
-
-    return _STRIP.sub(repl, text)
+    out = list(text)
+    i, n = 0, len(text)
+    while i < n:
+        if text.startswith("//", i):
+            end = text.find("\n", i)
+            end = n if end < 0 else end
+            _blank(out, i, end)
+            i = end
+        elif text.startswith("/*", i):
+            end = _scan_block_comment(text, i)
+            _blank(out, i, end)
+            i = end
+        elif text[i] in '"#':
+            j = i
+            while j < n and text[j] == "#":
+                j += 1
+            if j >= n or text[j] != '"':
+                i += 1
+                continue
+            end, exprs = _scan_literal(text, i)
+            _blank(out, i, end)
+            for a, b in exprs:
+                out[a:b] = strip_source(text[a:b])  # literals/comments inside blank too
+            i = end
+        else:
+            i += 1
+    return "".join(out)
 
 
 def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int]]]]:
     """(top-level owned names, name -> lexical shadow ranges) for one file.
 
-    A file only owns names it declares at top level and only names it can hand
-    to another component, so `private`/`fileprivate` declarations are never
-    owned — but they still shadow their name file-wide. A nested declaration
-    shadows its name only inside the body of the scope that encloses it, which
-    is what makes `struct Outer { struct Foo {} }` different from a top-level
-    `Foo`: outside `Outer`, `Foo` still refers to the other component's type.
+    Ranges are character offsets. A file only owns names it declares outside
+    every brace, and only names it can hand to another component, so
+    `private`/`fileprivate` declarations are never owned — but they still
+    shadow their name file-wide. A nested declaration shadows its name only
+    inside the body of the scope enclosing it, which is what makes
+    `struct Outer { struct Foo {} }` different from a top-level `Foo`: outside
+    `Outer`, `Foo` still refers to the other component's type. Scope is
+    resolved at each declaration's offset, so `{ let x: Int }` on one line
+    never promotes `x` to a top-level owner.
     """
-    lines = stripped.splitlines()
-    # Innermost enclosing '{' line for every line, plus each pair's close line.
+    # Every brace pair in the file, as (open, close) character offsets.
     stack: list[int] = []
     close_of: dict[int, int] = {}
-    opens_before: list[int] = []
-    for i, line in enumerate(lines):
-        opens_before.append(stack[-1] if stack else -1)
-        for ch in line:
-            if ch == "{":
-                stack.append(i)
-            elif ch == "}" and stack:
-                close_of[stack.pop()] = i
-    last = len(lines) - 1
+    for pos, ch in enumerate(stripped):
+        if ch == "{":
+            stack.append(pos)
+        elif ch == "}" and stack:
+            close_of[stack.pop()] = pos
+    opens = sorted(close_of)
+
+    def enclosing(pos: int) -> tuple[int, int] | None:
+        """Innermost pair containing pos; pairs nest properly, so the greatest
+        open before pos whose close is after pos is the innermost enclosing."""
+        i = bisect.bisect_right(opens, pos) - 1
+        while i >= 0:
+            if close_of[opens[i]] > pos:
+                return opens[i], close_of[opens[i]]
+            i -= 1
+        return None
+
+    n = len(stripped)
     top: set[str] = set()
     shadows: dict[str, list[tuple[int, int]]] = collections.defaultdict(list)
-    for i, line in enumerate(lines):
-        for match in _DECL.finditer(line):
-            name = match.group(1)
-            open_line = opens_before[i]
-            if open_line < 0:
-                shadows[name].append((0, last))
-                if not _PRIV.search(line[: match.start()]):
-                    top.add(name)
-            else:
-                shadows[name].append((open_line, close_of.get(open_line, last)))
+    for match in _DECL.finditer(stripped):
+        name = match.group(1)
+        pair = enclosing(match.start())
+        if pair is None:
+            shadows[name].append((0, n))
+            line_start = stripped.rfind("\n", 0, match.start()) + 1
+            if not _PRIV.search(stripped[line_start : match.start()]):
+                top.add(name)
+        else:
+            shadows[name].append(pair)
     return top, shadows
 
 
@@ -244,10 +317,8 @@ class Graph:
             for match in _IDENT.finditer(text):
                 name = match.group(0)
                 ranges = shadows.get(name)
-                if ranges:
-                    line_no = text.count("\n", 0, match.start())
-                    if any(start <= line_no <= end for start, end in ranges):
-                        continue
+                if ranges and any(start <= match.start() <= end for start, end in ranges):
+                    continue
                 target = owner.get(name)
                 if target is not None and target != component:
                     self.refs[(component, target)][name].add(rel)

@@ -40,4 +40,4 @@ permissions in its own voice before macOS ever asks.
 - Todo: C3 trust-overview card, C4–C6, MAS configuration build.
 - Parent goal: none. Source plan: `~/.claude/plans/but-when-users-first-modular-hanrahan.md`.
 | `burnbar-dmg-live-2026-08-25` | active | none | `.agent/runs/burnbar-dmg-live-2026-08-25/` | 2026-08-25T16:26:58Z |
-| `services-decomposition-2026-09-26` | Wave 0 (layering + acyclicity fitness gate) + Wave 1 (DataStore a dependency leaf; largest cycle 37 → 34, upward refs 157 → 60) verified, one PR; next: Wave 2 (dissolve Services root) | none | `.agent/runs/services-decomposition-2026-09-26/` | 2026-09-26T21:27:25Z |
+| `services-decomposition-2026-09-26` | Wave 0 (layering + acyclicity fitness gate) + Wave 1 (DataStore a dependency leaf; largest cycle 37 → 34, upward refs 157 → 62) verified, one PR; next: Wave 2 (dissolve Services root) | none | `.agent/runs/services-decomposition-2026-09-26/` | 2026-09-26T21:27:25Z |

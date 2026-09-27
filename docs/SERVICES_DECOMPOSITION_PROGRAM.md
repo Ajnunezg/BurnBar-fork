@@ -36,9 +36,13 @@ Every wave preserves behaviour and is judged by the gate's numbers, not by prose
 | Components | 47 | 57 | — |
 | Largest dependency cycle (components) | **37** | **34** | 0 |
 | Components in any cycle | 37 | 34 | 0 |
-| Upward-layer references (R1) | 157 | 60 | 0 |
-| References along a cycle (R2) | 3,054 | 1,637 | 0 |
+| Upward-layer references (R1) | 157 | 62 | 0 |
+| References along a cycle (R2) | 3,054 | 1,643 | 0 |
 | Files in `Services/` root (R3) | 62 | 58 | 0 |
+
+The after-column is the current `--report` on the PR head: Wave 1's moves put it at 60/1,637,
+and the sharper resolver (free functions, `\( )` interpolation, lexical scoping) surfaces five
+more pre-existing edges, now baselined.
 
 Singletons, measured the same day (they are edges too, since `Foo.shared` references `Foo`):
 **59** `static let/var shared` declarations in AgentLens (**52** in Services), **49** app-owned

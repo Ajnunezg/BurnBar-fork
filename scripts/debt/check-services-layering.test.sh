@@ -376,6 +376,38 @@ run_case "references inside string interpolation count as edges" 1 stderr "R1 up
 run_case "private/fileprivate duplicate names do not trip R5" 0 stdout "services-layering: OK" clean mut_q
 run_case "Preview Content files are scanned and gated" 1 stderr "R1 upward" clean mut_r
 
+mut_s() { cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreNestedLiteral {
+    // A literal INSIDE an interpolation must not end the outer literal:
+    // the outer one ends at its own quote, so FeatureAThing still counts.
+    let label = "\(String(format: "%@", FeatureAThing.self))"
+}
+SWIFT
+}
+mut_t() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+// Both braces on the declaration line: these members are NOT top-level owners.
+struct EntryA { let sharedProp: String }
+SWIFT
+  cat >>"${1}/AgentLens/Services/FeatureB/B.swift" <<'SWIFT'
+
+struct EntryB { let sharedProp: String }
+SWIFT
+}
+mut_u() { cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+/* outer /* nested comment mentioning FeatureAThing */ still comment */
+struct DataStoreAfterNestedComment {
+    let id: String
+}
+SWIFT
+}
+run_case "a literal inside an interpolation does not close the outer literal" 1 stderr "R1 upward" clean mut_s
+run_case "members declared after { on one line are not top-level owners" 0 stdout "services-layering: OK" clean mut_t
+run_case "nested block comments are stripped completely" 0 stdout "services-layering: OK" clean mut_u
+
 # ── Regression: the gate is wired into the CI debt-budgets job ───────────────
 workflow="${here}/../../.github/workflows/fast-feedback.yml"
 if [[ -f "${workflow}" ]] && grep -q "check-services-layering.sh" "${workflow}"; then
