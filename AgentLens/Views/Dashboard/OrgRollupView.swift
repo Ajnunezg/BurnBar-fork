@@ -149,6 +149,24 @@ struct OrgRollupView: View {
 }
 
 extension OrgGroupBy {
+    var label: String {
+        switch self {
+        case .user: return "User / Seat"
+        case .project: return "Project"
+        case .credential: return "Credential"
+        case .provider: return "Provider"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .user: return "person.2.fill"
+        case .project: return "folder.fill"
+        case .credential: return "key.fill"
+        case .provider: return "server.rack"
+        }
+    }
+
     var tint: Color {
         switch self {
         case .user: return DesignSystem.Colors.whimsy

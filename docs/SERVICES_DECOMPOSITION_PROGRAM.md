@@ -98,7 +98,7 @@ door-tested targets. They sit behind contracts as adapters that the app target c
 
 ## The gate
 
-`scripts/debt/check-services-layering.sh` (the `--check` mode) enforces four rules against
+`scripts/debt/check-services-layering.sh` (the `--check` mode) enforces five rules against
 `budgets/services-layering-baseline.json`:
 
 | Rule | Fails when |
@@ -106,12 +106,15 @@ door-tested targets. They sit behind contracts as adapters that the app target c
 | **R1 layering** | a component references a component on a higher layer |
 | **R2 acyclic** | a reference lies on a component-level dependency cycle |
 | **R3 root** | a new file appears directly in `AgentLens/Services/` |
-| **R4 declared** | an `AgentLens/Services/<Dir>` is missing from the manifest (it would be ungated) |
+| **R4 declared** | an `AgentLens/Services/<Dir>` is missing from the manifest (it would be ungated), including one that holds only `<Dir>/Contracts` |
+| **R5 unique** | a top-level type name is declared in two components (the resolver could not own it, so its edges would vanish and baselined debt would look retired) |
 
 Debt is keyed `src -> dst : Symbol` with the number of referencing files. A new key fails, a
 count may only shrink, and moves inside a component never touch the baseline. When a change
-retires debt, the gate prints `Improved:` and asks for `--update`. The baseline numbers also
-answer to `check-baseline-monotonic.sh`.
+retires debt, the gate prints `Improved:` and asks for `--update`. The committed baseline is
+itself held to the base commit's (`--base`, fed by CI from the PR or merge-group base): a key
+absent at base, a higher count, or a new root file fails, so running `--update` cannot launder
+new debt into the same change.
 
 Resolution is conservative. Only top-level declarations own a name, a file never references a
 name it declares itself, and comments and string literals are stripped. The analyzer runs over
@@ -145,7 +148,7 @@ behaviour. Exit criteria are gate numbers.
 
 | Wave | Theme | Exit criterion (gate) | Status |
 |---|---|---|---|
-| **0** | Fitness gate, manifest, baseline, CI wiring, self-test | gate green on main; self-test covers R1–R4, growth, shrink, shadowing, stripping, contracts | ✅ landed with W1 |
+| **0** | Fitness gate, manifest, baseline, CI wiring, self-test | gate green on main; self-test covers R1–R5, growth, shrink, shadowing, stripping, contracts, base-relative ratchet | ✅ landed with W1 |
 | **1** | Persistence becomes a leaf | `--explain Services/DataStore` all `ok`; DataStore, Models, Foundation, DaemonIPC, `*.Contracts` in no cycle | ✅ see §Wave 1 |
 | **2** | Dissolve `Services/` root; composition root → `App/` | `servicesRootFiles` = 0; `OpenBurnBarRuntimeContext` lives in `App/` | planned |
 | **3** | Singletons → phased composition root | widen `check-singleton-budget.sh` to Core + Daemon sources first; `static shared` in Services ≤ 10 (from 52) | planned |

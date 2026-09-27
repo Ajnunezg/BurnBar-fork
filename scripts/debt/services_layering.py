@@ -4,7 +4,7 @@
 docs/SERVICES_DECOMPOSITION_PROGRAM.md explains why this exists: the app's
 Services tree has no god files but one strongly connected dependency graph, so
 it can only be decomposed once edges point one way. This gate measures that
-graph from source and holds it to four rules:
+graph from source and holds it to five rules:
 
   R1 layering   A component may reference only components on a strictly lower
                 layer, or its own layer (then R2 governs). Upward references are
@@ -13,32 +13,41 @@ graph from source and holds it to four rules:
                 cycle is debt.
   R3 root       No new file may land in AgentLens/Services/ root.
   R4 declared   Every AgentLens/Services/<Dir> must be declared in the layer
-                manifest; an undeclared directory would be silently ungated.
+                manifest, including one that holds only <Dir>/Contracts; an
+                undeclared directory would be silently ungated.
+  R5 unique     No top-level type name may be declared in two components. The
+                resolver cannot own such a name, so every edge through it would
+                vanish from the graph and baselined debt would look retired.
 
 Resolution is name based and deliberately conservative: only TOP-LEVEL type
 declarations (class/struct/enum/actor/protocol/typealias at brace depth 0) own
-a name; names declared at more than one component are ambiguous and ignored; a
-file never references a name it declares itself at any depth (nested-type
+a name (R5 keeps that ownership unique); a file never references a name it declares itself at any depth (nested-type
 shadowing). Comments and string literals are stripped first.
 
 Debt is keyed `src -> dst : Symbol` with the number of referencing files, so a
 move inside a component never churns the baseline, a new debt edge fails, and a
-known debt edge may carry fewer references but never more.
+known debt edge may carry fewer references but never more. With --base REF the
+committed baseline itself is compared against the one at REF, so a change
+cannot raise the allowance it is checked against.
 
 Usage:
   services_layering.py [--check]           compare against the baseline (CI)
+  services_layering.py --check --base REF  also hold the baseline to REF's
   services_layering.py --update            rewrite the baseline (shrink review)
   services_layering.py --report [--json]   summarise the graph
   services_layering.py --explain COMPONENT list a component's outgoing debt
   services_layering.py --simulate PLAN     apply {"files": {old: new}} first
 Options: --root DIR (repo root), --baseline PATH, --manifest PATH.
 """
+
 from __future__ import annotations
 
 import argparse
 import collections
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -47,11 +56,11 @@ SERVICES = "AgentLens/Services"
 EXCLUDED_PARTS = {".build", ".derived-data", ".swiftpm", "Preview Content"}
 
 _STRIP = re.compile(
-    r'"""[\s\S]*?"""'           # multi-line string literals
-    r'|#+"[\s\S]*?"#+'          # raw strings (#"..."#, ##"..."##)
-    r'|"(?:\\.|[^"\\\n])*"'     # ordinary string literals
-    r"|/\*[\s\S]*?\*/"          # block comments
-    r"|//[^\n]*"                # line comments
+    r'"""[\s\S]*?"""'  # multi-line string literals
+    r'|#+"[\s\S]*?"#+'  # raw strings (#"..."#, ##"..."##)
+    r'|"(?:\\.|[^"\\\n])*"'  # ordinary string literals
+    r"|/\*[\s\S]*?\*/"  # block comments
+    r"|//[^\n]*"  # line comments
 )
 _DECL = re.compile(r"\b(?:class|struct|enum|actor|protocol|typealias)\s+([A-Z][A-Za-z0-9_]*)")
 _IDENT = re.compile(r"\b[A-Z][A-Za-z0-9_]*\b")
@@ -96,14 +105,21 @@ class Manifest:
             for prefix in component["paths"]:
                 self.prefixes.append((prefix.rstrip("/") + "/", name))
         self.prefixes.sort(key=lambda item: -len(item[0]))
+        self.declared_dirs = {prefix for prefix, _ in self.prefixes}
         if self.root_component not in self.components:
             raise SystemExit(f"manifest: servicesRootComponent {self.root_component} is not declared")
 
     def component(self, rel: str) -> str | None:
         """Map a repo-relative path to its component; None means undeclared."""
         parts = rel.split("/")
-        # <Feature>/Contracts/** is the feature's contract component, by convention.
-        if rel.startswith(SERVICES + "/") and len(parts) > 4 and parts[3] == self.contracts_dir:
+        # <Feature>/Contracts/** is the feature's contract component, by convention,
+        # but only for a declared feature: contracts cannot smuggle in a new directory.
+        if (
+            rel.startswith(SERVICES + "/")
+            and len(parts) > 4
+            and parts[3] == self.contracts_dir
+            and f"{SERVICES}/{parts[2]}/" in self.declared_dirs
+        ):
             return f"{parts[2]}.{self.contracts_dir}"
         for prefix, name in self.prefixes:
             if rel.startswith(prefix):
@@ -138,6 +154,7 @@ class Graph:
         self.file_component: dict[str, str] = {}
         declared_here: dict[str, set[str]] = {}
         owners: dict[str, set[str]] = collections.defaultdict(set)
+        declared_in: dict[str, set[str]] = collections.defaultdict(set)
         for rel, text in sources.items():
             component = manifest.component(rel)
             if component is None:
@@ -151,7 +168,9 @@ class Graph:
             declared_here[rel] = every
             for name in top:
                 owners[name].add(component)
-        self.ambiguous = sorted(name for name, comps in owners.items() if len(comps) > 1)
+                declared_in[name].add(rel)
+        # name -> files declaring it, for every name owned by more than one component (R5).
+        self.ambiguous = {name: sorted(declared_in[name]) for name, comps in sorted(owners.items()) if len(comps) > 1}
         owner = {name: next(iter(comps)) for name, comps in owners.items() if len(comps) == 1}
 
         # refs[(src, dst)][symbol] = set(files)
@@ -268,9 +287,16 @@ def write_baseline(graph: Graph, path: Path) -> None:
             "Generated by scripts/debt/services_layering.py --update. Shrink-only: a new key or a "
             "higher count fails CI. See docs/SERVICES_DECOMPOSITION_PROGRAM.md."
         ),
-        "summary": {key: summary[key] for key in (
-            "largestCycle", "componentsInCycles", "upwardReferences", "cyclicReferences", "servicesRootFiles"
-        )},
+        "summary": {
+            key: summary[key]
+            for key in (
+                "largestCycle",
+                "componentsInCycles",
+                "upwardReferences",
+                "cyclicReferences",
+                "servicesRootFiles",
+            )
+        },
         "servicesRootFiles": sorted(graph.root_files),
         "upward": debt["upward"],
         "cyclic": debt["cyclic"],
@@ -278,18 +304,54 @@ def write_baseline(graph: Graph, path: Path) -> None:
     path.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
 
 
-def check(graph: Graph, baseline: dict) -> int:
-    failures: list[str] = []
+def base_regressions(repo: Path, ref: str, baseline_path: Path, baseline: dict) -> list[str]:
+    """Where the committed baseline allows more debt than the baseline at `ref` did."""
+    resolved = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+        capture_output=True,
+        text=True,
+    )
+    if resolved.returncode != 0:
+        if os.environ.get("CI"):
+            return [f"base: {ref} does not resolve, so the baseline cannot be held to it"]
+        print(f"services-layering: base {ref} does not resolve; base-relative check skipped")
+        return []
+    rel = baseline_path.resolve().relative_to(repo).as_posix()
+    shown = subprocess.run(["git", "-C", str(repo), "show", f"{ref}:{rel}"], capture_output=True, text=True)
+    if shown.returncode != 0:
+        print(f"services-layering: {rel} is new relative to {ref}; allowed")
+        return []
+    old = json.loads(shown.stdout)
+    raised: list[str] = []
+    for rule in ("upward", "cyclic"):
+        before = old.get(rule, {})
+        for key, count in baseline.get(rule, {}).items():
+            if key not in before:
+                raised.append(f"baseline adds {rule} key {key} (absent at base)")
+            elif count > before[key]:
+                raised.append(f"baseline raises {rule} {key} {before[key]} -> {count}")
+    for key, value in baseline.get("summary", {}).items():
+        if key in old.get("summary", {}) and value > old["summary"][key]:
+            raised.append(f"baseline raises summary {key} {old['summary'][key]} -> {value}")
+    for rel_file in sorted(set(baseline.get("servicesRootFiles", [])) - set(old.get("servicesRootFiles", []))):
+        raised.append(f"baseline adds Services root file {rel_file} (absent at base)")
+    return raised
+
+
+def check(graph: Graph, baseline: dict, base_failures: list[str]) -> int:
+    failures: list[str] = [f"shrink-only {line}" for line in base_failures]
     improvements: list[str] = []
     for directory in sorted(graph.undeclared):
+        failures.append(f"R4 undeclared: {directory} has no layer. Declare it in config/services-layers.json.")
+    for name, files in graph.ambiguous.items():
         failures.append(
-            f"R4 undeclared: {directory} has no layer. Declare it in config/services-layers.json."
+            f"R5 ambiguous: {name} is declared at top level in {', '.join(files)}. Rename one or "
+            "nest it so exactly one component owns the name."
         )
     known_root = set(baseline.get("servicesRootFiles", []))
     for rel in sorted(set(graph.root_files) - known_root):
         failures.append(
-            f"R3 root: {rel} is a new file in AgentLens/Services/ root. Home it in the feature "
-            "directory that owns it."
+            f"R3 root: {rel} is a new file in AgentLens/Services/ root. Home it in the feature directory that owns it."
         )
     if known_root - set(graph.root_files):
         improvements.append(f"{len(known_root - set(graph.root_files))} Services root file(s) rehomed")
@@ -308,10 +370,7 @@ def check(graph: Graph, baseline: dict) -> int:
             improvements.append(f"{label}: {retired} reference(s) retired")
 
     summary = graph.summary()
-    print(
-        "services-layering: "
-        + ", ".join(f"{key}={value}" for key, value in summary.items())
-    )
+    print("services-layering: " + ", ".join(f"{key}={value}" for key, value in summary.items()))
     if failures:
         print(f"FAIL: {len(failures)} layering violation(s):", file=sys.stderr)
         for line in failures:
@@ -374,6 +433,7 @@ def main() -> int:
     mode.add_argument("--explain", metavar="COMPONENT")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--simulate", metavar="PLAN")
+    parser.add_argument("--base", metavar="REF", help="with --check, hold the baseline to the one at REF")
     parser.add_argument("--root", default=str(Path(__file__).resolve().parents[2]))
     parser.add_argument("--manifest")
     parser.add_argument("--baseline")
@@ -387,10 +447,17 @@ def main() -> int:
 
     if args.update:
         if graph.undeclared:
-            print("Refusing to baseline undeclared directories: " + ", ".join(sorted(graph.undeclared)), file=sys.stderr)
+            print(
+                "Refusing to baseline undeclared directories: " + ", ".join(sorted(graph.undeclared)), file=sys.stderr
+            )
+            return 1
+        if graph.ambiguous:
+            print("Refusing to baseline ambiguous type names: " + ", ".join(graph.ambiguous), file=sys.stderr)
             return 1
         write_baseline(graph, baseline_path)
-        print(f"services-layering: baseline written to {baseline_path.relative_to(repo) if baseline_path.is_relative_to(repo) else baseline_path}")
+        print(
+            f"services-layering: baseline written to {baseline_path.relative_to(repo) if baseline_path.is_relative_to(repo) else baseline_path}"
+        )
         return 0
     if args.report:
         report(graph, args.json)
@@ -401,7 +468,9 @@ def main() -> int:
     if not baseline_path.exists():
         print(f"missing baseline {baseline_path}; run --update", file=sys.stderr)
         return 1
-    return check(graph, load_json(baseline_path))
+    baseline = load_json(baseline_path)
+    base_failures = base_regressions(repo, args.base, baseline_path, baseline) if args.base else []
+    return check(graph, baseline, base_failures)
 
 
 if __name__ == "__main__":

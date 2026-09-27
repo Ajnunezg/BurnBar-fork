@@ -15,7 +15,7 @@
 
     Parity sources (macOS):
       • AgentLens/Views/Memory/MemoryReviewInboxModel.swift   -> Memory/MemoryReviewInboxModel.cs
-      • AgentLens/Models/TranscriptBlockParser.swift         -> SessionLogs/TranscriptBlockParser.cs
+      • AgentLens/Services/TranscriptBlockParser.swift         -> SessionLogs/TranscriptBlockParser.cs
       • AgentLens/Views/SessionLogs/SessionLogsView.swift      -> SessionLogs/SessionLogGrouping.cs + SessionLogsViewModel.cs
       • OpenBurnBarCore/.../Memory/MemoryServing.swift         -> Memory/MemoryModels.cs (record subset the inbox reads)
       • OpenBurnBarCore/.../MissionControl/MissionConsoleTypes.swift -> MissionControl/MissionEnums.cs + MissionModels.cs + MissionForecastComputer.cs + MissionFormatting.cs

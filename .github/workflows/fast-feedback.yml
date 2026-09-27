@@ -1687,8 +1687,19 @@ jobs:
       # Services-decomposition fitness gate (docs/SERVICES_DECOMPOSITION_PROGRAM.md):
       # layering + acyclicity over AgentLens/Services components; a new debt key
       # or a grown reference count fails, retired debt ratchets down via --update.
+      # The committed baseline is also held to the base commit's, so a change
+      # cannot raise the allowance it is checked against.
       - name: Services layering (layering + acyclicity fitness gate, shrink-only)
-        run: ./scripts/debt/check-services-layering.sh
+        env:
+          BASE_CANDIDATE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          if [[ -n "${BASE_CANDIDATE}" && ! "${BASE_CANDIDATE}" =~ ^0+$ ]]; then
+            git fetch --no-tags --depth=1 origin "${BASE_CANDIDATE}"
+            export SERVICES_LAYERING_BASE="${BASE_CANDIDATE}"
+          else
+            echo "::notice::services-layering: no base commit for this event; base-relative check skipped."
+          fi
+          ./scripts/debt/check-services-layering.sh
 
       - name: Services layering gate self-test
         run: bash scripts/debt/check-services-layering.test.sh

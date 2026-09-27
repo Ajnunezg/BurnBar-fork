@@ -225,6 +225,55 @@ struct FeatureAContract {
 SWIFT
 }
 
+mut_k() {
+  mkdir -p "${1}/AgentLens/Services/Rogue/Contracts"
+  cat >"${1}/AgentLens/Services/Rogue/Contracts/X.swift" <<'SWIFT'
+import Foundation
+
+struct RogueContract {
+    let id: String
+}
+SWIFT
+}
+mut_l() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+struct SharedName {
+    let id: String
+}
+SWIFT
+  cat >>"${1}/AgentLens/Services/FeatureB/B.swift" <<'SWIFT'
+
+struct SharedName {
+    let id: String
+}
+SWIFT
+}
+
+# run_base_case <label> <want_rc> <needle> <variant> <commit-baseline: yes|no> <mutator-fn> [base-ref]
+# Commits the fixture to a throwaway git repo (with or without its baseline),
+# applies the mutator, re-baselines with --update, then runs --check --base
+# against the commit, so the committed baseline is held to the base's.
+run_base_case() {
+  local label="${1}" want="${2}" needle="${3}" variant="${4}" with_baseline="${5}" mutator="${6}" ref="${7:-}"
+  local r out rc
+  r="$(new_fixture "${variant}")"
+  if [[ "${with_baseline}" == "yes" ]]; then
+    python3 "${tool}" --root "${r}" --update >/dev/null 2>&1
+  fi
+  git -C "${r}" init -q
+  git -C "${r}" add -A
+  git -C "${r}" -c user.name=selftest -c user.email=selftest@example.invalid commit -qm base
+  "${mutator}" "${r}"
+  python3 "${tool}" --root "${r}" --update >/dev/null 2>&1
+  set +e
+  out="$(CI=true python3 "${tool}" --root "${r}" --check --base "${ref:-HEAD}" 2>&1)"
+  rc=$?
+  set -e
+  assert_case "${label}" "${want}" "combined" "${needle}" "${out}" "${rc}"
+  rm -rf "${r}"
+}
+
 echo "check-services-layering self-test"
 
 run_case "clean tree passes" 0 stdout "services-layering: OK" clean noop
@@ -237,6 +286,14 @@ run_case "retired baselined debt passes and reports improvement" 0 stdout "Impro
 run_case "nested type shadowing a feature type name is not an edge" 0 stdout "services-layering: OK" clean mut_h
 run_case "type names in comments/strings are not edges" 0 stdout "services-layering: OK" clean mut_i
 run_case "R1: contracts referencing persistence fails" 1 stderr "R1 upward" clean mut_j
+run_case "R4: contracts-only dir under an undeclared feature fails" 1 stderr "R4 undeclared" clean mut_k
+run_case "R5: a top-level type declared in two components fails" 1 stderr "R5 ambiguous" clean mut_l
+run_base_case "base: baseline raised to cover a grown edge fails" 1 "shrink-only baseline raises upward" debt yes mut_f
+run_base_case "base: baseline adding a new debt key fails" 1 "shrink-only baseline adds upward key" clean yes mut_b
+run_base_case "base: baseline unchanged vs base passes" 0 "services-layering: OK" debt yes noop
+run_base_case "base: baseline shrunk vs base passes" 0 "services-layering: OK" debt yes mut_g
+run_base_case "base: baseline absent at base is allowed" 0 "is new relative to" clean no noop
+run_base_case "base: unresolvable base fails closed in CI" 1 "does not resolve" clean yes noop 0000000000000000000000000000000000000000
 
 # ── Regression: the gate is wired into the CI debt-budgets job ───────────────
 workflow="${here}/../../.github/workflows/fast-feedback.yml"

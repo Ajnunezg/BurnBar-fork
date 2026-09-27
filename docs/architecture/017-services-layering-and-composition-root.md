@@ -37,8 +37,9 @@ module.
    `App/`. Each runtime phase is a plain struct built by constructor injection. New code must not
    add optional post-construction slots, `configureShared` hooks, or `static shared` owners.
 7. **Fitness function, not convention.** `scripts/debt/services_layering.py` resolves type
-   references from source and enforces rules 1, 2, 5 and manifest completeness in CI. Existing
-   debt is a shrink-only baseline keyed by component edge and symbol.
+   references from source and enforces rules 1, 2, 5, manifest completeness and unique top-level
+   type names in CI. Existing debt is a baseline keyed by component edge and symbol, and CI holds
+   that baseline to the base commit's so it can only shrink.
 8. **Modularize last.** SwiftPM targets are carved bottom-up only after a layer is acyclic
    (program Wave 5). Door-tested targets exclude Firebase and AppKit/SwiftUI adapters.
 
