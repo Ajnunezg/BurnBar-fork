@@ -3074,6 +3074,7 @@
 		A8273CBF00D7DA68B06F6025 /* UsageMemoryConsolidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A5B24C0DB2CC0696A9DDB3A /* UsageMemoryConsolidationTests.swift */; };
 		2EED0D85FBFBE1334D7B7615 /* ControlPlaneStore+UsageMemoryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 589A9A25DC224F4F95E63996 /* ControlPlaneStore+UsageMemoryPolicy.swift */; };
 		780876B7394330E5410D9F8E /* UsageMemoryPromoteSelfHealTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1280E101FDBB88467676F89B /* UsageMemoryPromoteSelfHealTests.swift */; };
+		A556002A4CC0A7D7141F5802 /* UsageMemoryAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 192353D1D4D9BD23EDD4AFEE /* UsageMemoryAcceptanceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -6229,6 +6230,7 @@
 		3A5B24C0DB2CC0696A9DDB3A /* UsageMemoryConsolidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryConsolidationTests.swift"; path = "AgentLensTests/Active/UsageMemoryConsolidationTests.swift"; sourceTree = SOURCE_ROOT; };
 		589A9A25DC224F4F95E63996 /* ControlPlaneStore+UsageMemoryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ControlPlaneStore+UsageMemoryPolicy.swift"; path = "AgentLens/Services/DataStore/ControlPlaneStore+UsageMemoryPolicy.swift"; sourceTree = SOURCE_ROOT; };
 		1280E101FDBB88467676F89B /* UsageMemoryPromoteSelfHealTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryPromoteSelfHealTests.swift"; path = "AgentLensTests/Active/UsageMemoryPromoteSelfHealTests.swift"; sourceTree = SOURCE_ROOT; };
+		192353D1D4D9BD23EDD4AFEE /* UsageMemoryAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryAcceptanceTests.swift"; path = "AgentLensTests/Active/UsageMemoryAcceptanceTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -14250,6 +14252,7 @@
 				92CC331E97F46CB4894D282B /* UsageMemoryStage2Tests.swift in Sources */,
 				A8273CBF00D7DA68B06F6025 /* UsageMemoryConsolidationTests.swift in Sources */,
 				780876B7394330E5410D9F8E /* UsageMemoryPromoteSelfHealTests.swift in Sources */,
+				A556002A4CC0A7D7141F5802 /* UsageMemoryAcceptanceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
