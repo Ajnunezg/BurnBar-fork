@@ -59,7 +59,10 @@ import com.openburnbar.R
 import com.openburnbar.data.models.AgentProvider
 import com.openburnbar.ui.components.AuroraSettingsToggle
 import com.openburnbar.ui.components.ProviderLogo
+import com.openburnbar.ui.components.SwarmBackgroundCondition
+import com.openburnbar.ui.components.SwarmBackgroundLocation
 import com.openburnbar.ui.components.WebsiteBackground
+import com.openburnbar.ui.components.rememberSwarmBackgroundPreferences
 import com.openburnbar.ui.theme.AppAppearance
 import com.openburnbar.ui.theme.AuroraColors
 import com.openburnbar.ui.theme.AuroraRadius
@@ -757,7 +760,9 @@ internal fun ThemePrefsHighlightEffect(router: SettingsRouter) {
             pending == SettingsAnchor.USE_PREMIUM_SOTA_UX ||
                 pending == SettingsAnchor.USE_WEBSITE_BACKGROUND ||
                 pending == SettingsAnchor.MOBILE_BACKDROP_KERNEL ||
-                pending == SettingsAnchor.ENABLE_SWARM_SPARKLES
+                pending == SettingsAnchor.ENABLE_SWARM_SPARKLES ||
+                pending == SettingsAnchor.SWARM_LOCATION ||
+                pending == SettingsAnchor.SWARM_CONDITION
         if (pending != null && isSwarmSettingsAnchor) {
             router.consumePendingAnchor(pending)
             kotlinx.coroutines.delay(1_400)
@@ -775,6 +780,8 @@ internal data class ThemePrefsScreenState(
     val usePremiumSOTAUX: Boolean,
     val enableSwarmSparkles: Boolean,
     val excludeBrandShapes: Boolean,
+    val swarmLocation: SwarmBackgroundLocation,
+    val swarmCondition: SwarmBackgroundCondition,
     val customizeProviderGlyphs: Boolean,
     val onCustomizeProviderGlyphsChange: (Boolean) -> Unit,
     val providerGlyphs: Set<AgentProvider>,
@@ -803,36 +810,48 @@ internal fun ThemePrefsScreenBody(router: SettingsRouter, onBack: () -> Unit, st
         Spacer(modifier = Modifier.height(AuroraSpacing.LG.dp))
         ThemePrefsTopBar(onBack = onBack, useWebsiteBackground = useWebsiteBackground)
         Spacer(modifier = Modifier.height(AuroraSpacing.SM.dp))
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(AuroraRadius.LG.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = if (useWebsiteBackground) 0.35f else 0.6f),
-        ) {
-            Column(modifier = Modifier.fillMaxWidth().padding(AuroraSpacing.MD.dp), verticalArrangement = Arrangement.spacedBy(AuroraSpacing.MD.dp)) {
-                ThemePrefsToggleSection(
-                    router,
-                    state.haptic,
-                    state.usePremiumSOTAUX,
-                    state.backgroundStyle,
-                    state.mobileBackdropKernel,
-                    state.enableSwarmSparkles,
-                    state.excludeBrandShapes,
-                )
-                ThemePrefsLivingThemesRow(useWebsiteBackground)
-                ThemePrefsWallpaperRow(router, useWebsiteBackground)
-                ThemePrefsAppearanceSelector(useWebsiteBackground, state.haptic)
-                ThemePrefsUIModeSelector(useWebsiteBackground, state.haptic)
-                ThemePrefsColorPaletteSection(useWebsiteBackground)
-                ThemePrefsProviderGlyphsSection(
-                    useWebsiteBackground,
-                    state.customizeProviderGlyphs,
-                    state.onCustomizeProviderGlyphsChange,
-                    state.providerGlyphs,
-                )
-                ThemePrefsTabLayoutNote(useWebsiteBackground)
-            }
-        }
+        ThemePrefsScreenBodyCard(router, state, useWebsiteBackground)
         Spacer(modifier = Modifier.height(48.dp))
+    }
+}
+
+@Composable
+private fun ThemePrefsScreenBodyCard(router: SettingsRouter, state: ThemePrefsScreenState, useWebsiteBackground: Boolean) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(AuroraRadius.LG.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = if (useWebsiteBackground) 0.35f else 0.6f),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(AuroraSpacing.MD.dp), verticalArrangement = Arrangement.spacedBy(AuroraSpacing.MD.dp)) {
+            ThemePrefsToggleSection(
+                router,
+                state.haptic,
+                state.usePremiumSOTAUX,
+                state.backgroundStyle,
+                state.mobileBackdropKernel,
+                state.enableSwarmSparkles,
+                state.excludeBrandShapes,
+            )
+            ThemePrefsSwarmSchedulingSection(
+                router,
+                state.swarmLocation,
+                state.swarmCondition,
+                useWebsiteBackground,
+                state.haptic,
+            )
+            ThemePrefsLivingThemesRow(useWebsiteBackground)
+            ThemePrefsWallpaperRow(router, useWebsiteBackground)
+            ThemePrefsAppearanceSelector(useWebsiteBackground, state.haptic)
+            ThemePrefsUIModeSelector(useWebsiteBackground, state.haptic)
+            ThemePrefsColorPaletteSection(useWebsiteBackground)
+            ThemePrefsProviderGlyphsSection(
+                useWebsiteBackground,
+                state.customizeProviderGlyphs,
+                state.onCustomizeProviderGlyphsChange,
+                state.providerGlyphs,
+            )
+            ThemePrefsTabLayoutNote(useWebsiteBackground)
+        }
     }
 }
 
@@ -846,6 +865,7 @@ fun ThemePrefsScreen(router: SettingsRouter, onBack: () -> Unit) {
     val usePremiumSOTAUX by rememberPremiumSOTAUX()
     val enableSwarmSparkles by rememberSwarmSparkles()
     val excludeBrandShapes by rememberExcludeBrandShapesFromSwarm()
+    val swarmPrefs by rememberSwarmBackgroundPreferences()
     var customizeProviderGlyphs by rememberSaveable { mutableStateOf(false) }
     val providerGlyphs by rememberProviderGlyphs()
 
@@ -866,6 +886,8 @@ fun ThemePrefsScreen(router: SettingsRouter, onBack: () -> Unit) {
                 usePremiumSOTAUX = usePremiumSOTAUX,
                 enableSwarmSparkles = enableSwarmSparkles,
                 excludeBrandShapes = excludeBrandShapes,
+                swarmLocation = swarmPrefs.location,
+                swarmCondition = swarmPrefs.condition,
                 customizeProviderGlyphs = customizeProviderGlyphs,
                 onCustomizeProviderGlyphsChange = { customizeProviderGlyphs = it },
                 providerGlyphs = providerGlyphs,

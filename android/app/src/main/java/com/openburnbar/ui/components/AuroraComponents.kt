@@ -136,7 +136,10 @@ fun AuroraBackdrop(isDark: Boolean = isSystemInDarkTheme(), density: AuroraDensi
         } else {
             when (backgroundStyle) {
                 BackgroundStyle.SWARM -> WebsiteBackground(accentColor = AuroraColors.ember)
-                BackgroundStyle.DOT_CONSTELLATION -> DotConstellationBackground()
+                // The constellation is a swarm renderer — it checks out of the
+                // same Where/When plan (iOS ConstellationBackgroundView
+                // resolves the plan itself) rather than bypassing the gate.
+                BackgroundStyle.DOT_CONSTELLATION -> SwarmPlanGate { DotConstellationBackground() }
                 // The aurora orb/ribbon animations only exist in the AURORA branch, so
                 // their infinite transitions live there too — SWARM and DOT_CONSTELLATION
                 // never spin an idle aurora clock behind their own renderers.
@@ -163,7 +166,7 @@ fun AuroraBackdrop(isDark: Boolean = isSystemInDarkTheme(), density: AuroraDensi
  * static 0f frame without creating an infinite transition at all.
  */
 @Composable
-private fun AuroraAnimatedBackdrop(isDark: Boolean, density: AuroraDensity, reduceMotion: Boolean) {
+internal fun AuroraAnimatedBackdrop(isDark: Boolean, density: AuroraDensity, reduceMotion: Boolean) {
     AuroraBackdropGradientLayer(isDark = isDark)
     if (reduceMotion) {
         AuroraBackdropAnimatedLayers(
@@ -216,34 +219,40 @@ private fun AuroraAnimatedBackdrop(isDark: Boolean, density: AuroraDensity, redu
 fun WebsiteBackground(accentColor: Color = AuroraColors.ember, modifier: Modifier = Modifier, forceLight: Boolean = false) {
     val backgroundStyle by rememberBackgroundStyle()
     val mobileKernel by rememberMobileBackdropKernel()
-    // Editorial forces the light dot-crest, so it bypasses the constellation
-    // style and always renders the swarm in light mode.
-    if (!forceLight && backgroundStyle == BackgroundStyle.DOT_CONSTELLATION) {
-        DotConstellationBackground(modifier = modifier)
-        return
-    }
-    if (!forceLight && backgroundStyle == BackgroundStyle.SWARM) {
-        if (mobileKernel.rendererFamily == com.openburnbar.ui.settings.MobileBackdropKernelFamily.CONSTELLATION) {
-            DotConstellationBackground(modifier = modifier)
-        } else {
-            MobileKernelBackdrop(kernel = mobileKernel, accentColor = accentColor, modifier = modifier)
-        }
-        return
-    }
-
     val themePalette by rememberThemePalette()
     val providerGlyphs by rememberProviderGlyphs()
     val excludeBrandShapes by rememberExcludeBrandShapesFromSwarm()
+    val isDark = if (forceLight) false else isSystemInDarkTheme()
 
-    SwarmBackground(
-        accentColor = accentColor,
-        modifier = modifier,
-        pace = if (forceLight) SwarmPace.CINEMATIC else SwarmPace.ENERGETIC,
-        enabledProviderGlyphs = providerGlyphs,
-        paletteName = themePalette,
-        excludeBrandShapes = excludeBrandShapes,
-        forceLight = forceLight,
-    )
+    // The Where/When pickers gate EVERY swarm-family renderer from the single
+    // dispatch point — kernel, constellation, and the classic swarm all check
+    // out of the same plan (iOS WebsiteBackgroundView.swarmBody). Without this
+    // the active renderer (MobileKernelBackdrop / DotConstellationBackground)
+    // would keep its infinite loops running behind a "Disabled" or "Only when
+    // charging" pref.
+    SwarmPlanGate(modifier = modifier, isDark = isDark) {
+        // Editorial forces the light dot-crest, so it bypasses the
+        // constellation style and always renders the swarm in light mode.
+        if (!forceLight && backgroundStyle == BackgroundStyle.DOT_CONSTELLATION) {
+            DotConstellationBackground(modifier = modifier)
+        } else if (!forceLight && backgroundStyle == BackgroundStyle.SWARM) {
+            if (mobileKernel.rendererFamily == com.openburnbar.ui.settings.MobileBackdropKernelFamily.CONSTELLATION) {
+                DotConstellationBackground(modifier = modifier)
+            } else {
+                MobileKernelBackdrop(kernel = mobileKernel, accentColor = accentColor, modifier = modifier)
+            }
+        } else {
+            SwarmBackground(
+                accentColor = accentColor,
+                modifier = modifier,
+                pace = if (forceLight) SwarmPace.CINEMATIC else SwarmPace.ENERGETIC,
+                enabledProviderGlyphs = providerGlyphs,
+                paletteName = themePalette,
+                excludeBrandShapes = excludeBrandShapes,
+                forceLight = forceLight,
+            )
+        }
+    }
 }
 
 @Composable

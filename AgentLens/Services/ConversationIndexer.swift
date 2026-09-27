@@ -12,11 +12,6 @@ struct ConversationIndexingReport: Equatable {
     }
 }
 
-struct IndexedConversationWrite: Sendable {
-    let record: ConversationRecord
-    let jobType: ProjectionJobType
-}
-
 final class ConversationIndexer {
     static var shared: ConversationIndexer {
         ConversationIndexer()

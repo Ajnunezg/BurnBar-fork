@@ -111,6 +111,9 @@ complexity:
       - '**/ui/components/DotConstellationBackground.kt'
       - '**/ui/components/EasterEggOverlay.kt'
       - '**/ui/components/SwarmBackground.kt'
+      # Hermes logo point table extracted from SwarmBackground.kt; a generated
+      # coordinate list, not a long method in the maintainable sense.
+      - '**/ui/components/SwarmHermesLogoPoints.kt'
       - '**/ui/components/aurora/AuroraNavGlyphs.kt'
       - '**/ui/computeruse/ComputerUseAgentWatchScreen.kt'
       - '**/ui/control/ControlCenterScreen.kt'

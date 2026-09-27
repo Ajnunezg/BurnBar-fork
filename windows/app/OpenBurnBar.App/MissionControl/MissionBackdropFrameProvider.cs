@@ -44,8 +44,11 @@ public sealed class MissionBackdropFrameProvider
         }
     }
 
-    /// <summary>Build the ambient frame for a canvas of the given size at <paramref name="seconds"/>.</summary>
-    public SwarmSubstrateFrame Build(double width, double height, double seconds)
+    /// <summary>Build the ambient frame for a canvas of the given size at <paramref name="seconds"/>.
+    /// <paramref name="reduced"/> and <paramref name="batteryThrottled"/> come from the live
+    /// render-plan owner so substrates see the real accessibility/power flags — never
+    /// hardcoded, since mesh substrates change their draw path on them.</summary>
+    public SwarmSubstrateFrame Build(double width, double height, double seconds, bool reduced, bool batteryThrottled)
     {
         if (width <= 0 || height <= 0)
         {
@@ -86,7 +89,7 @@ public sealed class MissionBackdropFrameProvider
         var stage = new SubstrateStage(Ember, Aureate, new Rgba(0.09, 0.03, 0.02, 1.0), dark: true);
 
         return new SwarmSubstrateFrame(
-            width: width, height: height, dark: true, reduced: false, batteryThrottled: false,
+            width: width, height: height, dark: true, reduced: reduced, batteryThrottled: batteryThrottled,
             uiMode: UIMode.Standard, isShapeMode: false, formed: false, settleProgress: 0,
             t: t, dt: 1.0, stage: stage, backdrop: null,
             dots: dots, cx: cx, cy: cy, cloudRadius: Math.Min(width, height) * 0.5,

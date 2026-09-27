@@ -57,14 +57,6 @@ struct OpenBurnBarDaemonProviderConfiguration: Equatable, Identifiable {
     }
 
     var id: String { providerID }
-
-    /// Brand metadata for rendering logos — works for all catalog providers.
-    var brand: ProviderBrand {
-        if let provider {
-            return ProviderBrand(from: provider)
-        }
-        return ProviderBrand(providerID: providerID)
-    }
 }
 
 extension OpenBurnBarDaemonProviderConfiguration.CredentialSlot {

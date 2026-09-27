@@ -36,7 +36,7 @@ public sealed class SystemConnectorClock : IConnectorClock
 
 /// <summary>
 /// Secret store seam. Windows peer of <c>KeychainStore</c>
-/// (AgentLens/Services/CursorConnector/KeychainStore.swift). The Mac backs this
+/// (AgentLens/Services/Foundation/KeychainStore.swift). The Mac backs this
 /// with the login Keychain (<c>kSecClassGenericPassword</c>, non-interactive
 /// reads); Windows backs it with DPAPI/CNG in the deferred .Windows adapter.
 ///

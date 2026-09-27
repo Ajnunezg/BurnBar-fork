@@ -157,7 +157,7 @@ extension ControlPlaneStore {
             // anyway, because "these shapes happen not to collide" is a weaker
             // guarantee than "this statement cannot reach a team row", and this
             // one reopens rows for the engine to act on (PR3 Cursor ruling, T2).
-            arguments: [engineMemoryID, userID, memoryIDHmac, "\(TeamMemoryPullService.inboxDocIDPrefix)%"]
+            arguments: [engineMemoryID, userID, memoryIDHmac, "\(TeamMemoryIdentity.inboxDocIDPrefix)%"]
         )
         return db.changesCount
     }
@@ -194,7 +194,7 @@ extension ControlPlaneStore {
                 UNION
                 SELECT engine_memory_id FROM agent_memory_bodies
                 """,
-                arguments: [userID, "\(TeamMemoryPullService.inboxDocIDPrefix)%"]
+                arguments: [userID, "\(TeamMemoryIdentity.inboxDocIDPrefix)%"]
             )
         }
     }
@@ -387,7 +387,7 @@ extension ControlPlaneStore {
 
     /// Matches every inbox cursor belonging to ONE account — the personal one
     /// (`accountUid = <uid>`) and every TEAM one (`accountUid =
-    /// "team:<teamId>:<uid>"`, `TeamMemoryPullService.watermarkAccountKey`).
+    /// "team:<teamId>:<uid>"`, `TeamMemoryIdentity.watermarkAccountKey`).
     ///
     /// `RemoteSyncCollectionKind` is a closed enum, so the team lane's cursors
     /// ride in the free-form `accountUid` column under the same `collectionKind`

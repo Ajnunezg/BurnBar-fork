@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 import OpenBurnBarCore
 
 // MARK: - Dashboard Usage ViewModel
@@ -159,15 +158,6 @@ final class DashboardUsageViewModel {
         case .heavy: return "Heavy day"
         case .baseline: return "Building baseline..."
         case .quiet: return "Quiet day"
-        }
-    }
-
-    var moodColor: Color {
-        switch moodBand {
-        case .light: return DesignSystem.Colors.success
-        case .onPace: return DesignSystem.Colors.textSecondary
-        case .heavy: return DesignSystem.Colors.warning
-        case .baseline, .quiet: return DesignSystem.Colors.textMuted
         }
     }
 

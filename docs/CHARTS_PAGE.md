@@ -27,7 +27,7 @@ deck chart tap ──▶ navigate(.charts) ──▶ ChartsPageView
 |---|---|
 | Registry & layout model | `AgentLens/Models/Charts/ChartKind.swift` |
 | Pure math | `AgentLens/Models/Charts/ChartBucketing.swift` |
-| Prepared data | `AgentLens/Services/Charts/ChartsSnapshot.swift` |
+| Prepared data | `AgentLens/Services/Charts/Contracts/ChartsSnapshot.swift` |
 | Service | `AgentLens/Services/Charts/ChartsDataService.swift` |
 | AI insights | `AgentLens/Services/Charts/ChartInsightEngine.swift` |
 | Page & cards | `AgentLens/Views/Charts/*.swift` |
