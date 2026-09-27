@@ -92,7 +92,7 @@ final class TeamMemorySyncTests: XCTestCase {
     private func teamWatermark(_ fixture: PullFixture) async throws -> Date? {
         try await RemoteSyncWatermarkStore(dbQueue: fixture.queue)
             .fetchWatermark(
-                accountUid: TeamMemoryPullService.watermarkAccountKey(
+                accountUid: TeamMemoryIdentity.watermarkAccountKey(
                     teamID: fixture.teamID,
                     localUserID: fixture.localUserID
                 ),
@@ -1686,7 +1686,7 @@ final class TeamMemorySyncTests: XCTestCase {
         let gateway = ReadCountingGateway(wrapping: fixture.gateway)
         let domain = makeTeamDomain(fixture, gateway: gateway, pullService: RecordingTeamPullService())
         let watermarks = RemoteSyncWatermarkStore(dbQueue: fixture.queue)
-        let accountKey = TeamMemoryPullService.watermarkAccountKey(
+        let accountKey = TeamMemoryIdentity.watermarkAccountKey(
             teamID: teamID,
             localUserID: fixture.uid
         )
@@ -1761,10 +1761,10 @@ final class TeamMemorySyncTests: XCTestCase {
         let watermarks = RemoteSyncWatermarkStore(dbQueue: queue)
         let instant = Date(timeIntervalSince1970: 1_700_009_000)
 
-        let leaving = TeamMemoryPullService.watermarkAccountKey(teamID: "team_a", localUserID: "uid_bob")
-        let kept = TeamMemoryPullService.watermarkAccountKey(teamID: "team_b", localUserID: "uid_bob")
-        let otherMember = TeamMemoryPullService.watermarkAccountKey(teamID: "team_a", localUserID: "uid_bobby")
-        let wildcardTrap = TeamMemoryPullService.watermarkAccountKey(teamID: "team_a", localUserID: "uidXbob")
+        let leaving = TeamMemoryIdentity.watermarkAccountKey(teamID: "team_a", localUserID: "uid_bob")
+        let kept = TeamMemoryIdentity.watermarkAccountKey(teamID: "team_b", localUserID: "uid_bob")
+        let otherMember = TeamMemoryIdentity.watermarkAccountKey(teamID: "team_a", localUserID: "uid_bobby")
+        let wildcardTrap = TeamMemoryIdentity.watermarkAccountKey(teamID: "team_a", localUserID: "uidXbob")
         for accountUid in [leaving, kept, otherMember, wildcardTrap] {
             try await watermarks.recordTeamMemoryPushInstant(accountUid: accountUid, instant: instant)
         }
@@ -1834,7 +1834,7 @@ final class TeamMemorySyncTests: XCTestCase {
         let fixture = try await makePushFixture(count: 1)
         let domain = makeTeamDomain(fixture, pullService: RecordingTeamPullService())
         let watermarks = RemoteSyncWatermarkStore(dbQueue: fixture.queue)
-        let teamKey = TeamMemoryPullService.watermarkAccountKey(
+        let teamKey = TeamMemoryIdentity.watermarkAccountKey(
             teamID: teamID,
             localUserID: fixture.uid
         )
@@ -1894,10 +1894,10 @@ final class TeamMemorySyncTests: XCTestCase {
         let watermarks = RemoteSyncWatermarkStore(dbQueue: queue)
         let instant = Date(timeIntervalSince1970: 1_700_009_000)
 
-        let leaving = TeamMemoryPullService.watermarkAccountKey(teamID: "team_a", localUserID: "uid_bob")
-        let kept = TeamMemoryPullService.watermarkAccountKey(teamID: "team_b", localUserID: "uid_bob")
-        let otherMember = TeamMemoryPullService.watermarkAccountKey(teamID: "team_a", localUserID: "uid_bobby")
-        let wildcardTrap = TeamMemoryPullService.watermarkAccountKey(teamID: "team_a", localUserID: "uidXbob")
+        let leaving = TeamMemoryIdentity.watermarkAccountKey(teamID: "team_a", localUserID: "uid_bob")
+        let kept = TeamMemoryIdentity.watermarkAccountKey(teamID: "team_b", localUserID: "uid_bob")
+        let otherMember = TeamMemoryIdentity.watermarkAccountKey(teamID: "team_a", localUserID: "uid_bobby")
+        let wildcardTrap = TeamMemoryIdentity.watermarkAccountKey(teamID: "team_a", localUserID: "uidXbob")
         for accountUid in [leaving, kept, otherMember, wildcardTrap] {
             try await watermarks.advanceWatermark(
                 accountUid: accountUid,
@@ -2051,16 +2051,16 @@ final class TeamMemorySyncTests: XCTestCase {
         let domain = makeTeamDomain(fixture, pullService: RecordingTeamPullService())
         let watermarks = RemoteSyncWatermarkStore(dbQueue: fixture.queue)
         let instant = fixture.updatedAt
-        let leavingKey = TeamMemoryPullService.watermarkAccountKey(
+        let leavingKey = TeamMemoryIdentity.watermarkAccountKey(
             teamID: teamID,
             localUserID: fixture.uid
         )
         let keptTeam = "team_fedcba9876543210"
-        let keptKey = TeamMemoryPullService.watermarkAccountKey(
+        let keptKey = TeamMemoryIdentity.watermarkAccountKey(
             teamID: keptTeam,
             localUserID: fixture.uid
         )
-        let otherMemberKey = TeamMemoryPullService.watermarkAccountKey(
+        let otherMemberKey = TeamMemoryIdentity.watermarkAccountKey(
             teamID: teamID,
             localUserID: "uid_carol"
         )
@@ -2727,7 +2727,7 @@ final class TeamMemorySyncTests: XCTestCase {
     /// that derives its expectation from either of them would move with it.
     func test_the_swift_convergence_key_matches_the_python_one() {
         XCTAssertEqual(
-            TeamMemorySyncService.convergenceKey(
+            TeamMemoryIdentity.convergenceKey(
                 teamProjectId: "burnbar-core",
                 engineScope: "project",
                 bodyHash: "5f2b8c1d9e0a4736bd8241c05e7a93f6ab12cd34ef5601789abcdef012345678"
@@ -2737,7 +2737,7 @@ final class TeamMemorySyncTests: XCTestCase {
         XCTAssertEqual(Self.goldenConvergenceDigest.count, 32)
         // Pipes, not colons — the separator the held design sketch got wrong.
         XCTAssertNotEqual(
-            TeamMemorySyncService.convergenceKey(
+            TeamMemoryIdentity.convergenceKey(
                 teamProjectId: "burnbar-core",
                 engineScope: "project",
                 bodyHash: "5f2b8c1d9e0a4736bd8241c05e7a93f6ab12cd34ef5601789abcdef012345678"
@@ -3234,7 +3234,7 @@ final class TeamMemorySyncTests: XCTestCase {
     private func linkRecord(_ fixture: PullFixture) async throws -> Set<String> {
         try await RemoteSyncWatermarkStore(dbQueue: fixture.queue)
             .fetchTeamMemoryLinkedProjectIDs(
-                accountUid: TeamMemoryPullService.watermarkAccountKey(
+                accountUid: TeamMemoryIdentity.watermarkAccountKey(
                     teamID: fixture.teamID,
                     localUserID: fixture.localUserID
                 )
@@ -3498,11 +3498,11 @@ final class TeamMemorySyncTests: XCTestCase {
         // second is the wildcard trap `substr` exists for.
         let watermarks = RemoteSyncWatermarkStore(dbQueue: fixture.queue)
         let keptTeam = "team_fedcba9876543210"
-        let keptKey = TeamMemoryPullService.watermarkAccountKey(
+        let keptKey = TeamMemoryIdentity.watermarkAccountKey(
             teamID: keptTeam,
             localUserID: fixture.localUserID
         )
-        let otherMemberKey = TeamMemoryPullService.watermarkAccountKey(
+        let otherMemberKey = TeamMemoryIdentity.watermarkAccountKey(
             teamID: teamID,
             localUserID: "uid_carol"
         )

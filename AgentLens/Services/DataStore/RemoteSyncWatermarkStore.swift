@@ -222,7 +222,7 @@ final class RemoteSyncWatermarkStore: Sendable {
     /// `BurnBarMemoryDeviceSyncMarker.collectionKind` is not one: nothing PULLS
     /// a collection by this name, so the sync code must never iterate it. It
     /// rides on `remote_sync_watermarks` under the SAME `accountUid` as the team
-    /// lane's pull cursor (`TeamMemoryPullService.watermarkAccountKey` —
+    /// lane's pull cursor (`TeamMemoryIdentity.watermarkAccountKey` —
     /// `team:<teamId>:<uid>`), which is what makes it per-team AND per-member
     /// without a new table and without a migration across the eight schema
     /// surfaces a new table would touch.
@@ -341,7 +341,7 @@ final class RemoteSyncWatermarkStore: Sendable {
     /// one must not (nothing became readable, and a rewind would re-read the
     /// whole collection to refuse the same documents again). A hash says only
     /// "changed", which cannot tell those two apart. The id is already bounded
-    /// to `TeamMemorySyncService.teamProjectIDPattern`
+    /// to `TeamMemoryIdentity.teamProjectIDPattern`
     /// (`^[A-Za-z0-9_.:-]{1,128}$`) at both ends of the lane, so it is a safe,
     /// self-describing key rather than an opaque digest.
     ///
@@ -458,7 +458,7 @@ final class RemoteSyncWatermarkStore: Sendable {
     /// The third of the three team records, and the one whose absence made the
     /// other two a half-measure. The cursor is
     /// `collectionKind = memory_facts` under the team account key
-    /// (`TeamMemoryPullService.watermarkAccountKey`), and it means "every
+    /// (`TeamMemoryIdentity.watermarkAccountKey`), and it means "every
     /// document at or below this instant has been considered".
     ///
     /// WHY IT MUST GO WITH THE OTHER TWO. The scan filter is strictly
@@ -530,7 +530,7 @@ final class RemoteSyncWatermarkStore: Sendable {
         localUserID: String
     ) async throws -> Int {
         guard !teamID.isEmpty, !localUserID.isEmpty else { return 0 }
-        let accountUid = TeamMemoryPullService.watermarkAccountKey(
+        let accountUid = TeamMemoryIdentity.watermarkAccountKey(
             teamID: teamID,
             localUserID: localUserID
         )
@@ -570,7 +570,7 @@ final class RemoteSyncWatermarkStore: Sendable {
     ) async throws -> Int {
         guard !localUserID.isEmpty else { return 0 }
         let keep = Set(teamIDs.map {
-            TeamMemoryPullService.watermarkAccountKey(teamID: $0, localUserID: localUserID)
+            TeamMemoryIdentity.watermarkAccountKey(teamID: $0, localUserID: localUserID)
         })
         let mine: [String] = try await dbQueue.read { db in
             try String.fetchAll(db, sql: """

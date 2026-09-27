@@ -273,7 +273,7 @@ extension ControlPlaneStore {
                         ORDER BY inbox.remote_updated_at DESC
                         LIMIT 1
                         """,
-                        arguments: [memoryID, userID, "\(TeamMemoryPullService.inboxDocIDPrefix)%"]
+                        arguments: [memoryID, userID, "\(TeamMemoryIdentity.inboxDocIDPrefix)%"]
                     )
                 }
 
@@ -302,7 +302,7 @@ extension ControlPlaneStore {
                 // and lowercases `engineScope`, strips `teamID` — and RECOMPUTES
                 // the body hash from the gated body, refusing on principle to
                 // take the sender's word for it. This side does the same: the
-                // hash is `TeamMemorySyncService.canonicalBodyHash` over the
+                // hash is `TeamMemoryIdentity.canonicalBodyHash` over the
                 // body this device already holds, so a payload that arrives
                 // non-canonical, or whose body this device's gate redacted,
                 // still badges — and the attacker-controlled part of the
@@ -476,7 +476,7 @@ extension ControlPlaneStore {
         if let cached = derivationCache[cacheKey] {
             derived = cached
         } else {
-            derived = TeamMemoryPullService.teamLocalEngineMemoryID(
+            derived = TeamMemoryIdentity.teamLocalEngineMemoryID(
                 teamID: payload.teamID,
                 projectID: payload.projectID,
                 engineScope: payload.engineScope,
@@ -536,7 +536,7 @@ extension ControlPlaneStore {
         // refuses `EMPTY_MEMORY` — so a scrubbed row asks no question here.
         guard engineMemoryID.isEmpty == false, body.isEmpty == false else { return nil }
 
-        let teamPrefix = "\(TeamMemoryPullService.inboxDocIDPrefix)%"
+        let teamPrefix = "\(TeamMemoryIdentity.inboxDocIDPrefix)%"
         let hasTeamRows = try Bool.fetchOne(
             db,
             sql: """
@@ -548,7 +548,7 @@ extension ControlPlaneStore {
         ) ?? false
         guard hasTeamRows else { return nil }
 
-        let canonicalBodyHash = TeamMemorySyncService.canonicalBodyHash(body)
+        let canonicalBodyHash = TeamMemoryIdentity.canonicalBodyHash(body)
         var derivationCache: [String: String] = [:]
         let payloads = try String.fetchCursor(
             db,

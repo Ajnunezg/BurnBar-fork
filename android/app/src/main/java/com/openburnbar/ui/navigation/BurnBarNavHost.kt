@@ -33,6 +33,7 @@ import com.openburnbar.ui.components.EasterEggController
 import com.openburnbar.ui.components.EasterEggOverlay
 import com.openburnbar.ui.components.FloatingChatMode
 import com.openburnbar.ui.components.rememberEasterEggController
+import com.openburnbar.ui.theme.LocalSwarmAgentsTabSurface
 
 /**
  * Tab catalog. Route strings are deep-link addressable via `burnbar://`.
@@ -211,7 +212,12 @@ fun BurnBarNavHost(
     InboxWarmDeepLinkNavigator(navController = navController, isSignedIn = currentUser.isSignedIn)
     OsWarmDeepLinkNavigator(navController = navController, isSignedIn = currentUser.isSignedIn)
 
-    CompositionLocalProvider(LocalWindowSizeClass provides windowSizeClass) {
+    CompositionLocalProvider(
+        LocalWindowSizeClass provides windowSizeClass,
+        // "Agents Tab Only" swarm location: the HERMES route is the agents
+        // ("Assistants") surface; every other destination is ineligible.
+        LocalSwarmAgentsTabSurface provides (currentTab == BurnBarTab.HERMES),
+    ) {
         Box(modifier = modifier.fillMaxSize().nestedScroll(easterEggController.nestedScrollConnection)) {
             AuroraBackdrop()
 

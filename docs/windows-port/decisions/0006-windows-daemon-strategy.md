@@ -27,7 +27,7 @@ coupled services behind one LaunchAgent process plus six auxiliary executables
 (`OpenBurnBarDaemon/Package.swift` products: daemon, CLI, remote-access agent,
 virtual-HID bridge, privileged-input execution, red-team probe, kill-switch
 watchdog). The macOS *app* talks to it over a Unix-socket JSON-RPC client
-(`AgentLens/Services/OpenBurnBarDaemon/OpenBurnBarDaemonSocketClient.swift`,
+(`AgentLens/Services/DaemonIPC/OpenBurnBarDaemonSocketClient.swift`,
 lifecycle in `OpenBurnBarDaemonManager+Lifecycle.swift`), but most app surfaces
 do not require the daemon to be running — the daemon exists for the local HTTP
 gateway, headless agent runs, Mission Control execution, and the privileged

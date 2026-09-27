@@ -18,7 +18,7 @@ namespace OpenBurnBar.App.MemorySearch.Search;
 
 /// <summary>
 /// Distance metric for vector similarity. Swift: <c>enum EmbeddingDistanceMetric</c>
-/// (AgentLens/Services/DataStore/DataStoreTypes.swift). Raw values match the Swift
+/// (AgentLens/Services/DataStore/Contracts/DataStoreTypes.swift). Raw values match the Swift
 /// String rawValues exactly (used in embedding-version fingerprints).
 /// </summary>
 public enum EmbeddingDistanceMetric

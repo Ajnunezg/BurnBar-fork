@@ -778,6 +778,13 @@ object AuroraMotion {
 // ── Reduce-motion CompositionLocal ──
 val LocalAuroraReduceMotion = compositionLocalOf { false }
 
+// ── Agents-tab surface CompositionLocal ──
+// True only while the composition sits on the agents surface (the HERMES /
+// "Assistants" tab). The swarm power policy's "Agents Tab Only" location reads
+// it through SwarmBackgroundPowerPolicy.resolve's surfaceEligible input; the
+// strict default keeps an unset surface from rendering a tab-scoped swarm.
+val LocalSwarmAgentsTabSurface = compositionLocalOf { false }
+
 // ── Composable Theme Wrapper ──
 @Composable
 fun AuroraTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {

@@ -7,8 +7,8 @@ namespace OpenBurnBar.App.MemorySearch.Search;
 
 // PORTED (faithful) from
 //   AgentLens/Services/Search/Embedding/EmbeddingProviderProtocol.swift  (the provider seams)
-//   AgentLens/Services/Search/Embedding/EmbeddingTypes.swift             (descriptor + identity)
-//   AgentLens/Services/ProjectionPipeline/ProjectionPipelineCore.swift   (ProjectionIdentity.sha256Hex)
+//   AgentLens/Services/Search/Contracts/EmbeddingTypes.swift             (descriptor + identity)
+//   AgentLens/Services/ProjectionPipeline/Contracts/ProjectionPipelineCore.swift   (ProjectionIdentity.sha256Hex)
 //
 // The INJECTABLE NETWORK BOUNDARY is `EmbeddingAsync(string) -> Task<float[]>` on both
 // IChunkEmbeddingProvider and IQueryEmbeddingProvider. OpenAIEmbeddingProvider is the

@@ -5924,6 +5924,41 @@ final class SwarmBackgroundPowerPolicyTests: XCTestCase {
         XCTAssertEqual(conditionPlan.mode, .staticBackdrop)
     }
 
+    func testAgentsTabOnlyRendersStaticOffTheAgentsSurface() {
+        let onSurface = SwarmBackgroundPowerPolicy.resolve(
+            location: .agentsTab,
+            conditionMet: true,
+            requestedVisibility: .prominent,
+            scenePhaseActive: true,
+            isLowPowerModeEnabled: false,
+            reduceMotion: false,
+            surfaceEligible: true
+        )
+        let offSurface = SwarmBackgroundPowerPolicy.resolve(
+            location: .agentsTab,
+            conditionMet: true,
+            requestedVisibility: .prominent,
+            scenePhaseActive: true,
+            isLowPowerModeEnabled: false,
+            reduceMotion: false,
+            surfaceEligible: false
+        )
+        let everywhereOffSurface = SwarmBackgroundPowerPolicy.resolve(
+            location: .everywhere,
+            conditionMet: true,
+            requestedVisibility: .prominent,
+            scenePhaseActive: true,
+            isLowPowerModeEnabled: false,
+            reduceMotion: false,
+            surfaceEligible: false
+        )
+
+        XCTAssertEqual(onSurface.mode, .live)
+        XCTAssertEqual(offSurface.mode, .staticBackdrop)
+        // Eligibility only constrains the tab-scoped location.
+        XCTAssertEqual(everywhereOffSurface.mode, .live)
+    }
+
     private func staticPlan(
         requestedVisibility: MobileBackgroundVisibility,
         scenePhaseActive: Bool,

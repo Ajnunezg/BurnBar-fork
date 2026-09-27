@@ -4,6 +4,7 @@
 
 using System;
 using System.Linq;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using OpenBurnBar.App.Dashboard.Layout;
 using OpenBurnBar.App.Particles;
@@ -34,6 +35,7 @@ namespace OpenBurnBar.App.Dashboard;
 public sealed class DashboardBackdrop : IDisposable
 {
     private readonly SwarmCanvasHost _host = new();
+    private readonly SwarmRenderPlanOwner _planOwner;
     private readonly UISettings _uiSettings = new();
     private SwarmSubstrateDot[] _dots = Array.Empty<SwarmSubstrateDot>();
     private double _fieldWidth;
@@ -46,11 +48,17 @@ public sealed class DashboardBackdrop : IDisposable
     {
         _stage = BuildStage(_family);
         _host.FrameProvider = ProvideFrame;
+        _planOwner = new SwarmRenderPlanOwner(_host);
         SetLayout(DashboardLayoutMeta.Default);
     }
 
     /// <summary>The XAML image to place at the back of the dashboard visual tree.</summary>
     public Image Control => _host.Control;
+
+    /// <summary>Feed the plan owner's scene gate from the hosting window's activation
+    /// transitions (see <see cref="SwarmRenderPlanOwner.AttachTo"/>) so a minimized or
+    /// unfocused dashboard resolves to the static plan.</summary>
+    public void AttachSceneGate(Window window) => _planOwner.AttachTo(window);
 
     /// <summary>Pauses compositor-driven invalidation while the WebGL layer is active.</summary>
     public bool Paused
@@ -195,5 +203,9 @@ public sealed class DashboardBackdrop : IDisposable
         return new SubstrateStage(accent, accent2, ink, dark: _isDark);
     }
 
-    public void Dispose() => _host.Dispose();
+    public void Dispose()
+    {
+        _planOwner.Dispose();
+        _host.Dispose();
+    }
 }

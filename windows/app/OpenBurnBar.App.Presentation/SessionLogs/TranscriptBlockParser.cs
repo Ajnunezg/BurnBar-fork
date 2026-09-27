@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace OpenBurnBar.App.Presentation.SessionLogs;
 
-// PORTED (faithful, line-for-line) from AgentLens/Services/TranscriptBlockParser.swift.
+// PORTED (faithful, line-for-line) from AgentLens/Models/TranscriptBlockParser.swift.
 //
 // Parses raw session transcript text (Claude Code, Codex, etc.) into structured
 // blocks for the beautified detail transcript. Pure string logic, no dependencies —
