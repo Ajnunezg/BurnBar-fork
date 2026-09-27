@@ -121,6 +121,7 @@ const CATALOG_OVERRIDES = {
       },
     ],
     highRiskComputerUse: false,
+    publicJustification: undefined,
   },
   reconcileGooglePlayVoidedPurchasesDaily: {
     trigger: "scheduled",
@@ -1422,6 +1423,36 @@ CATALOG_OVERRIDES.arenaMatchup = {
   ],
   highRiskComputerUse: false,
 };
+const MEMORY_PACK_AUTH_ONLY_CALLABLES = [
+  ["listMemoryPacks", "callables/memoryPacks.ts"],
+  ["createMemoryPackCheckoutSession", "callables/memoryPacks.ts"],
+  ["redeemPlayMemoryPack", "callables/memoryPacks.ts"],
+  ["settlePendingMemoryPacks", "callables/memoryPacks.ts"],
+  ["redeemAppleMemoryPack", "appstore/callable.ts"],
+];
+
+for (const [exportedName, handlerModule] of MEMORY_PACK_AUTH_ONLY_CALLABLES) {
+  CATALOG_OVERRIDES[exportedName] = {
+    trigger: "callable",
+    authMethod: "Firebase Auth with callable-level ownership checks",
+    appCheck: "required",
+    tenantSource: "request.auth.uid",
+    objectIdsFromClient: [],
+    ownershipCheck: "handler derives uid from request.auth.uid only",
+    handlerModule,
+    bolaCoverage: [
+      {
+        file: "functions/src/__tests__/bola/authOnly.bola.test.ts",
+        test: "rejects unauthenticated callable access",
+        kind: "auth-only",
+        covers: [exportedName],
+        expectedOutcome: "throws",
+        expectedCode: "unauthenticated",
+      },
+    ],
+    highRiskComputerUse: false,
+  };
+}
 
 CATALOG_OVERRIDES.writeSignalAtRestDocument = {
   authMethod: "Firebase Auth with callable-level user-path and Signal-envelope validation",
@@ -1571,6 +1602,20 @@ CATALOG_OVERRIDES.reapExpiredCounterDayBuckets = {
   highRiskComputerUse: false,
 };
 
+function assertUniqueCatalogOverrideKeys() {
+  const source = readFileSync(resolve(import.meta.dirname, "generate-endpoint-catalog.mjs"), "utf8");
+  const keys = [...source.matchAll(/^  ([A-Za-z0-9_]+): \{/gm)].map((match) => match[1]);
+  const seen = new Set();
+  for (const key of keys) {
+    if (seen.has(key)) {
+      throw new Error(
+        `Duplicate CATALOG_OVERRIDES key ${key}; later assignment silently wins and can reclassify the endpoint.`,
+      );
+    }
+    seen.add(key);
+  }
+}
+
 function defaultEntry(exportedName) {
   return {
     exportedName,
@@ -1647,6 +1692,7 @@ ${indent(level)}}`;
 }
 
 const names = exportedNames();
+assertUniqueCatalogOverrideKeys();
 const existing = readFileSync(outPath, "utf8");
 const existingJson = existing.match(
   /export const endpointAuthorizationCatalog:\s*EndpointAuthorizationEntry\[\]\s*=\s*(\[[\s\S]*\])\s*as\s*EndpointAuthorizationEntry\[\];/u,

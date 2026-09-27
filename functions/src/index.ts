@@ -28,3 +28,9 @@ export {
 } from "./domains/scheduled/scheduledExports.js";
 export { backfillPrivacyPlaintext, backfillPrivacyPlaintextScheduled } from "./domains/compliance/privacyBackfill.js";
 export { scanLegacyPlaintextArtifacts } from "./domains/ops/sharedArtifactLegacyScan.js";
+export {
+  listMemoryPacks,
+  createMemoryPackCheckoutSession,
+  redeemPlayMemoryPack,
+  settlePendingMemoryPacks,
+} from "./callables/memoryPacks.js";

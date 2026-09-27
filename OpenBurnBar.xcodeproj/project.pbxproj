@@ -3075,6 +3075,8 @@
 		2EED0D85FBFBE1334D7B7615 /* ControlPlaneStore+UsageMemoryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 589A9A25DC224F4F95E63996 /* ControlPlaneStore+UsageMemoryPolicy.swift */; };
 		780876B7394330E5410D9F8E /* UsageMemoryPromoteSelfHealTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1280E101FDBB88467676F89B /* UsageMemoryPromoteSelfHealTests.swift */; };
 		A556002A4CC0A7D7141F5802 /* UsageMemoryAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 192353D1D4D9BD23EDD4AFEE /* UsageMemoryAcceptanceTests.swift */; };
+		5A9DACE75C2127C320D22F26 /* MacMemoryWalletStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 149BE6EB45A5F6754AB34D28 /* MacMemoryWalletStore.swift */; };
+		0D39A2131004D2828E4EE32B /* MemoryWalletStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 915121817C11A80C7D79652E /* MemoryWalletStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -6231,6 +6233,8 @@
 		589A9A25DC224F4F95E63996 /* ControlPlaneStore+UsageMemoryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ControlPlaneStore+UsageMemoryPolicy.swift"; path = "AgentLens/Services/DataStore/ControlPlaneStore+UsageMemoryPolicy.swift"; sourceTree = SOURCE_ROOT; };
 		1280E101FDBB88467676F89B /* UsageMemoryPromoteSelfHealTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryPromoteSelfHealTests.swift"; path = "AgentLensTests/Active/UsageMemoryPromoteSelfHealTests.swift"; sourceTree = SOURCE_ROOT; };
 		192353D1D4D9BD23EDD4AFEE /* UsageMemoryAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryAcceptanceTests.swift"; path = "AgentLensTests/Active/UsageMemoryAcceptanceTests.swift"; sourceTree = SOURCE_ROOT; };
+		149BE6EB45A5F6754AB34D28 /* MacMemoryWalletStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MacMemoryWalletStore.swift"; path = "AgentLens/Services/MacMemoryWalletStore.swift"; sourceTree = SOURCE_ROOT; };
+		915121817C11A80C7D79652E /* MemoryWalletStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MemoryWalletStore.swift"; path = "OpenBurnBarMobile/Services/MemoryWalletStore.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -13714,6 +13718,7 @@
 				D3FF0780F6322116F7573F7B /* iOSFileTransferService.swift in Sources */,
 				246D2AEBA4BACDE7BEDCDDF0 /* iPadDevicesSettingsView.swift in Sources */,
 				F245D4DC520716319AFB1F4B /* iPadMultiCamCaptureService.swift in Sources */,
+				0D39A2131004D2828E4EE32B /* MemoryWalletStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -15395,6 +15400,7 @@
 				F29805310BC43E826F0D7505 /* ControlPlaneStore+MemoryConsolidation.swift in Sources */,
 				5DE13E25B2DA40A44B636F3C /* MemoryConsolidationWorker.swift in Sources */,
 				2EED0D85FBFBE1334D7B7615 /* ControlPlaneStore+UsageMemoryPolicy.swift in Sources */,
+				5A9DACE75C2127C320D22F26 /* MacMemoryWalletStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
