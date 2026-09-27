@@ -66,278 +66,6 @@ extension RoutingClientWiring {
             export OPENAI_BASE_URL=\(openAIBaseURL)
             export OPENAI_API_KEY=\(token)
             """
-        case .grok:
-            return """
-            # OpenBurnBar — wire Grok Build CLI through the local gateway
-            # Settings -> Agents -> CLIs writes [model.openburnbar] into ~/.grok/config.toml.
-            export XAI_API_KEY=\(token)
-            export OPENBURNBAR_GATEWAY_TOKEN=\(token)
-            """
-        case .antigravity:
-            return """
-            # OpenBurnBar — Antigravity currently uses profile-scoped config
-            # directories rather than a file-based OpenAI-compatible gateway
-            # setting that BurnBar can safely rewrite. Use OpenBurnBar's
-            # Antigravity profile launcher for account-scoped sessions.
-            export AGY_CONFIG_HOME=$HOME/.gemini/antigravity-cli
-            export ANTIGRAVITY_HOME=$HOME/.gemini/antigravity-cli
-            """
-        case .cursorAgent:
-            return """
-            # OpenBurnBar — Cursor Agent currently uses profile-scoped config
-            # directories rather than a file-based OpenAI-compatible gateway
-            # setting that BurnBar can safely rewrite. Use OpenBurnBar's
-            # Cursor Agent profile launcher for account-scoped sessions.
-            export CURSOR_AGENT_HOME=$HOME/.cursor-agent
-            export CURSOR_AGENT_CONFIG_PATH=$HOME/.cursor-agent
-            """
-        }
-    }
-
-    func advertisedModels(
-        gateway: RoutingClientGateway,
-        session: URLSession = .shared,
-        timeoutSeconds: TimeInterval = 8
-    ) async -> [RoutingClientAdvertisedModel] {
-        guard let url = URL(string: gateway.baseURL)?.appending(path: "v1/models") else {
-            return []
-        }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = timeoutSeconds
-        if !gateway.authToken.isEmpty {
-            request.setValue("Bearer \(gateway.authToken)", forHTTPHeaderField: "Authorization")
-        }
-        do {
-            let (data, response) = try await session.data(for: request)
-            guard let http = response as? HTTPURLResponse,
-                  (200..<300).contains(http.statusCode),
-                  let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let rows = object["data"] as? [[String: Any]] else {
-                return []
-            }
-            let models: [RoutingClientAdvertisedModel] = rows.compactMap { row -> RoutingClientAdvertisedModel? in
-                guard let id = (row["id"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-                      !id.isEmpty else {
-                    return nil
-                }
-                let providerID = (row["provider_id"] as? String)
-                    ?? (row["owned_by"] as? String)
-                    ?? "openburnbar"
-                let providerName = (row["provider_name"] as? String)
-                    ?? providerID
-                let modelCapabilities = row["model_capabilities"] as? [String: Any]
-                return RoutingClientAdvertisedModel(
-                    id: id,
-                    displayName: (row["display_name"] as? String) ?? id,
-                    providerID: providerID,
-                    providerName: providerName,
-                    formatFamily: (row["format_family"] as? String) ?? "openai_compat",
-                    servedEndpoints: (row["served_endpoints"] as? [String]) ?? [],
-                    capabilities: (row["capabilities"] as? [String]) ?? [],
-                    contextWindowTokens: modelCapabilities?["contextWindowTokens"] as? Int,
-                    inputModalities: (modelCapabilities?["inputModalities"] as? [String]) ?? ["text"],
-                    routeEligible: (row["route_eligible"] as? Bool) ?? true
-                )
-            }
-            return Self.logicalProviderModelCatalog(models)
-        } catch {
-            AppLogger.network.error("routing_client_probe_models_failed", metadata: ["error": error.localizedDescription])
-            return []
-        }
-    }
-
-    static func logicalProviderModelCatalog(
-        _ models: [RoutingClientAdvertisedModel]
-    ) -> [RoutingClientAdvertisedModel] {
-        let normalizedRows = models.map { model in
-            normalizedLegacyAccountScopedModel(model)
-        }
-        let duplicateRawIDs = Set(
-            Dictionary(grouping: normalizedRows) {
-                $0.id.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            }
-            .compactMap { entry -> String? in
-                let id = entry.key
-                let providerIDs = Set(entry.value.map { $0.providerID.lowercased() })
-                return id.isEmpty || providerIDs.count < 2 ? nil : id
-            }
-        )
-
-        var seen: Set<String> = []
-        var logicalRows: [RoutingClientAdvertisedModel] = []
-        for row in normalizedRows {
-            let rawID = row.id.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !rawID.isEmpty else { continue }
-            let routedID = duplicateRawIDs.contains(rawID.lowercased())
-                ? "\(row.providerID)/\(rawID)"
-                : rawID
-            let key = "\(row.providerID.lowercased())|\(routedID.lowercased())"
-            guard seen.insert(key).inserted else { continue }
-            logicalRows.append(
-                RoutingClientAdvertisedModel(
-                    id: routedID,
-                    displayName: row.displayName,
-                    providerID: row.providerID,
-                    providerName: row.providerName,
-                    formatFamily: row.formatFamily,
-                    servedEndpoints: row.servedEndpoints,
-                    capabilities: row.capabilities,
-                    contextWindowTokens: row.contextWindowTokens,
-                    inputModalities: row.inputModalities,
-                    routeEligible: row.routeEligible
-                )
-            )
-        }
-        return logicalRows
-    }
-
-    private static func normalizedLegacyAccountScopedModel(
-        _ model: RoutingClientAdvertisedModel
-    ) -> RoutingClientAdvertisedModel {
-        let parts = model.id.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
-        guard parts.count >= 3,
-              parts[0].caseInsensitiveCompare(model.providerID) == .orderedSame else {
-            return model
-        }
-        let rawModelID = parts.dropFirst(2).joined(separator: "/")
-        guard !rawModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return model
-        }
-        return RoutingClientAdvertisedModel(
-            id: rawModelID,
-            displayName: model.displayName,
-            providerID: model.providerID,
-            providerName: model.providerName,
-            formatFamily: model.formatFamily,
-            servedEndpoints: model.servedEndpoints,
-            capabilities: model.capabilities,
-            contextWindowTokens: model.contextWindowTokens,
-            inputModalities: model.inputModalities,
-            routeEligible: model.routeEligible
-        )
-    }
-
-    /// POSIX-safe single-quoted shell argument. Embedded single quotes are
-    /// emitted as the standard `'\''` sequence.
-    static func shellQuote(_ value: String) -> String {
-        let escaped = value.replacingOccurrences(of: "'", with: "'\\''")
-        return "'\(escaped)'"
-    }
-
-    // MARK: - Probe
-
-    /// Compose the Connections-row detail for a failed 1-token probe.
-    /// When the ping actually selected a model, name that model and its
-    /// provider so a Grok-labeled card cannot be read as "Grok CLI is missing"
-    /// when the hop that failed was Codex.
-    static func userVisibleProbeFailure(
-        status: Int,
-        upstreamMessage: String,
-        modelID: String?,
-        providerID: String?,
-        target: RoutingClientWiringTarget
-    ) -> String {
-        let trimmed = upstreamMessage.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed == target.missingRouteReadyAccountMessage {
-            return trimmed
-        }
-        let model = modelID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let provider = providerID?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !model.isEmpty, !provider.isEmpty {
-            let clause = "while probing `\(model)` (provider `\(provider)`) for \(target.displayName)"
-            if trimmed.isEmpty {
-                return status <= 0
-                    ? "Local gateway test failed \(clause)."
-                    : "Local gateway test failed with HTTP \(status) \(clause)."
-            }
-            if status <= 0 {
-                return "Local gateway request failed \(clause). \(trimmed)"
-            }
-            return "Local gateway returned HTTP \(status) \(clause). \(trimmed)"
-        }
-        if trimmed.isEmpty {
-            return status <= 0
-                ? "Local gateway test failed."
-                : "Local gateway test failed with HTTP \(status)."
-        }
-        if status <= 0 {
-            return trimmed
-        }
-        return "Local gateway returned HTTP \(status). \(trimmed)"
-    }
-
-    /// Hit the local gateway with a `max_tokens: 1` request shaped for the
-    /// target's wire format. Confirms the gateway responds before the helper
-    /// reports "wired". Surfaces the upstream status code so failures point
-    /// the user at the right account-management UI.
-    func probe(
-        target: RoutingClientWiringTarget,
-        gateway: RoutingClientGateway,
-        advertisedModels: [RoutingClientAdvertisedModel] = [],
-        session: URLSession = .shared,
-        timeoutSeconds: TimeInterval = 8
-    ) async -> RoutingClientWiringProbe {
-        guard let url = probeURL(target: target, gateway: gateway) else {
-            return .skipped(reason: "Could not construct probe URL for \(gateway.baseURL).")
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = timeoutSeconds
-        if !gateway.authToken.isEmpty {
-            request.setValue("Bearer \(gateway.authToken)", forHTTPHeaderField: "Authorization")
-        }
-
-        let body: [String: Any]
-        let probeModel: String
-        let probeProviderID: String
-        switch target {
-        case .antigravity:
-            return .skipped(reason: "Antigravity is launched through profile switching, not routed client wiring.")
-        case .cursorAgent:
-            return .skipped(reason: "Cursor Agent is launched through profile switching, not routed client wiring.")
-        case .claudeCode:
-            let models = advertisedModels.isEmpty
-                ? await self.advertisedModels(gateway: gateway, session: session, timeoutSeconds: timeoutSeconds)
-                : advertisedModels
-            guard let liveModel = firstGatewayServedModel(models, target: .claudeCode) else {
-                return .failed(
-                    status: 503,
-                    message: "No route-eligible gateway models are advertised for /v1/messages.",
-                    modelID: nil,
-                    providerID: nil
-                )
-            }
-            probeModel = liveModel.id
-            probeProviderID = liveModel.providerID
-            // Anthropic Messages uses `max_tokens`. Older versions of the
-            // Messages API rejected requests that didn't include this field,
-            // so we send it explicitly even for a 1-token probe.
-            body = [
-                "model": probeModel,
-                "max_tokens": 1,
-                "messages": [["role": "user", "content": "ping"]]
-            ]
-        case .codex:
-            let models = advertisedModels.isEmpty
-                ? await self.advertisedModels(gateway: gateway, session: session, timeoutSeconds: timeoutSeconds)
-                : advertisedModels
-            guard let liveModel = firstGatewayServedModel(models, target: .codex) else {
-                return .failed(
-                    status: 503,
-                    message: "No route-eligible gateway models are advertised for /v1/responses.",
-                    modelID: nil,
-                    providerID: nil
-                )
-            }
-            probeModel = codexProxyModelID(for: liveModel)
-            probeProviderID = liveModel.providerID
-            body = [
-                "model": probeModel,
-                "input": "ping",
-                "max_output_tokens": 1
-            ]
-        case .grok:
             let models = advertisedModels.isEmpty
                 ? await self.advertisedModels(gateway: gateway, session: session, timeoutSeconds: timeoutSeconds)
                 : advertisedModels
@@ -360,7 +88,10 @@ extension RoutingClientWiring {
             let models = advertisedModels.isEmpty
                 ? await self.advertisedModels(gateway: gateway, session: session, timeoutSeconds: timeoutSeconds)
                 : advertisedModels
-            guard let liveModel = firstGatewayServedModel(models, target: target) else {
+            // P2: `.first` after provider-name sort is not a health oracle.
+            // Skip local-CLI executors when any HTTP provider is advertised
+            // so Droid / Forge / OpenCode do not ping Codex/Factory by default.
+            guard let liveModel = preferredOpenAICompatProbeModel(models, target: target) else {
                 return .failed(
                     status: 503,
                     message: "No route-eligible gateway models are advertised by /v1/models.",
@@ -428,6 +159,31 @@ extension RoutingClientWiring {
         gatewayServedModels(advertisedModels, target: .grok).first { model in
             model.providerID.caseInsensitiveCompare("xai") == .orderedSame
         }
+    }
+
+    /// Local-CLI executors that advertise OpenAI-compat rows and sort first
+    /// on a default install. A generic Chat Completions health ping must not
+    /// treat those rows as readiness when any HTTP provider is advertised —
+    /// that is how a Droid / Forge / OpenCode card showed a missing-`codex`
+    /// 503 (#2616 P2). Grok stays on `firstXAIGatewayServedModel` (P1).
+    static let localCLIExecutorProviderIDs: Set<String> = ["codex", "factory"]
+
+    static func isLocalCLIExecutorProvider(_ providerID: String) -> Bool {
+        localCLIExecutorProviderIDs.contains(
+            providerID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        )
+    }
+
+    /// Prefer an HTTP-provider row for generic OpenAI-compat probes. When
+    /// the catalog is local-CLI only, keep the first remaining row so a
+    /// Codex-only ping still carries P0 model + provider attribution.
+    func preferredOpenAICompatProbeModel(
+        _ advertisedModels: [RoutingClientAdvertisedModel],
+        target: RoutingClientWiringTarget
+    ) -> RoutingClientAdvertisedModel? {
+        let served = gatewayServedModels(advertisedModels, target: target)
+        let httpModels = served.filter { !Self.isLocalCLIExecutorProvider($0.providerID) }
+        return httpModels.first ?? served.first
     }
 
     // MARK: - Private helpers
