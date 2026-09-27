@@ -125,6 +125,10 @@ _IDENT = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
 # Words that can legitimately continue a signature after a newline
 # (`func f()\nwhere T: Equatable {`, `async`, `throws`).
 _SIG_CONTINUATION = {"where", "async", "throws", "rethrows"}
+_WHERE = re.compile(r"\bwhere\b")
+_COND = re.compile(r"\b(if|while|for|case|catch|guard)\b")
+_CASE = re.compile(r"\b(?:case|default)\b")
+_TUPLE_DECL = re.compile(r"\b(let|var)\s*\.?\w*\(")
 _PRIV = re.compile(r"\b(?:private|fileprivate)\b(?!\s*\()")
 _SCOPE_KW = re.compile(r"\b(class|struct|enum|actor|protocol|extension|func|init|deinit|var|let)\b")
 _TYPE_SCOPE_KW = {"class", "struct", "enum", "actor", "protocol", "extension"}
@@ -532,24 +536,40 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
             j += 1
         return None
 
-    def record_params(sig_name_end: int) -> tuple[tuple[str, str], ...] | None:
+    def generic_params(pos: int) -> tuple[list[tuple[str, int, int]], int] | None:
+        """`func map<Result>` — the bound type-parameter names plus the `>`
+        position. Constraint types (`T: FeatureThing`) stay live references."""
+        while pos < n and stripped[pos] in " \t":
+            pos += 1
+        if pos >= n or stripped[pos] != "<":
+            return None
+        end = pos + 1
+        d = 1
+        while end < n and d:
+            d += stripped[end] == "<"
+            d -= stripped[end] == ">"
+            end += 1
+        if d:
+            return None
+        names: list[tuple[str, int, int]] = []
+        for seg_start, _seg_end, head_end in split_segments(pos + 1, end - 1):
+            ids = list(_IDENT.finditer(stripped[seg_start:head_end]))
+            if ids:
+                m = ids[0]
+                names.append((m.group(0), seg_start + m.start(), seg_start + m.end()))
+        return names, end
+
+    def record_params(sig_name_end: int) -> tuple[tuple[tuple[str, str], ...], str] | None:
         """Shadow parameter names: at their binding site and across the
         function's body. Parameter types stay live references. Returns the
-        parameter signature so overloads can be told apart."""
+        overload signature ((label, annotation) params, return type) so R5
+        can tell real overloads from redeclarations."""
         j = sig_name_end
         while j < n and stripped[j] in " \t?!":
             j += 1
-        if j < n and stripped[j] == "<":
-            d = 0
-            while j < n:
-                if stripped[j] == "<":
-                    d += 1
-                elif stripped[j] == ">":
-                    d -= 1
-                    if d == 0:
-                        j += 1
-                        break
-                j += 1
+        generics = generic_params(j)
+        if generics is not None:
+            names, j = generics
             while j < n and stripped[j] in " \t":
                 j += 1
         if j >= n or stripped[j] != "(":
@@ -561,11 +581,108 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
             k += 1
         spans = binding_spans(j + 1, k - 1)
         open_pos = body_open(k)
+        scope_end = close_of.get(open_pos, n) if open_pos is not None else k
+        if generics is not None:
+            # Each generic parameter name binds at its token and holds across
+            # the signature and body (`func map<Result>(v: Result)`).
+            for gname, gs, _ge in generics[0]:
+                shadows[gname].append((gs, scope_end))
         for pname, ps, pe in spans:
             shadows[pname].append((ps, pe))
-            if open_pos is not None and open_pos in close_of:
-                shadows[pname].append((open_pos, close_of[open_pos]))
-        return param_sig(j + 1, k - 1)
+            if open_pos is not None:
+                shadows[pname].append((open_pos, scope_end))
+        ret_end = open_pos if open_pos is not None else min(k + 400, n)
+        ret = ""
+        arrow = stripped.find("->", k, ret_end)
+        if arrow != -1:
+            bound = ret_end
+            w = _WHERE.search(stripped, arrow + 2, ret_end)
+            if w:
+                bound = w.start()
+            ret = " ".join(stripped[arrow + 2 : bound].split())
+        return param_sig(j + 1, k - 1), ret
+
+    def branch_open(pos: int) -> int | None:
+        """The `{` opening the branch of the statement at pos. `{`s preceded
+        by `=(:,` are closures inside an initializer and are skipped."""
+        depth, i = 0, pos
+        while i < n:
+            c = stripped[i]
+            if c in "([":
+                depth += 1
+            elif c in ")]":
+                depth -= 1
+            elif c == "{":
+                if depth == 0:
+                    p = i - 1
+                    while p >= pos and stripped[p] in " \t\r\n":
+                        p -= 1
+                    if p >= pos and stripped[p] not in "=(:,{":
+                        return i
+                depth += 1
+            elif c == "}":
+                if depth == 0:
+                    return None
+                depth -= 1
+            elif c == ";" and depth == 0:
+                return None
+            i += 1
+        return None
+
+    def cond_scope(let_pos: int) -> tuple[int, int] | None:
+        """Scope for an if/while/catch/case conditional binding: its branch
+        plus the else chain. `guard` and unrecognized shapes keep the
+        default (statement -> enclosing scope) shadow."""
+        ss = max(stripped.rfind(c, 0, let_pos) for c in ";{}") + 1
+        lead = _COND.search(stripped, ss, let_pos)
+        if lead is None or lead.group(1) == "guard":
+            return None
+        kw = lead.group(1)
+        if kw == "case":
+            # `case let .p(x):` — the binding holds until the next
+            # case/default label or the switch's closing brace.
+            colon = stripped.find(":", let_pos)
+            if colon == -1:
+                return None
+            depth, j = 0, colon + 1
+            while j < n:
+                c = stripped[j]
+                if depth == 0 and (c == "}" or _CASE.match(stripped, j)):
+                    break
+                if c in "([{":
+                    depth += 1
+                elif c in ")]}":
+                    depth -= 1
+                j += 1
+            return (colon + 1, j)
+        bo = branch_open(let_pos)
+        if bo is None or bo not in close_of:
+            return None
+        scope_end = close_of[bo]
+        if kw == "if":
+            j = scope_end
+            while True:
+                while j < n and stripped[j] in " \t\r\n":
+                    j += 1
+                m = _IDENT.match(stripped, j)
+                if m is None or m.group(0) != "else":
+                    break
+                j = m.end()
+                while j < n and stripped[j] in " \t\r\n":
+                    j += 1
+                m2 = _IDENT.match(stripped, j)
+                if m2 is not None and m2.group(0) == "if":
+                    bo2 = branch_open(j)
+                    if bo2 is None or bo2 not in close_of:
+                        break
+                    scope_end = close_of[bo2]
+                    j = scope_end
+                elif j < n and stripped[j] == "{" and j in close_of:
+                    scope_end = close_of[j]
+                    j = scope_end
+                else:
+                    break
+        return (bo, scope_end)
 
     for match in _DECL.finditer(stripped):
         keyword, name = match.group(1), match.group(2)
@@ -593,6 +710,16 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
                         bound.append((extra.group(0), j, j + len(extra.group(0))))
                 i += 1
         sig = record_params(match.end()) if keyword == "func" else None
+        if keyword in _TYPE_SCOPE_KW and keyword != "extension":
+            gp = generic_params(match.end())
+            if gp is not None:
+                bo = body_open(gp[1])
+                gscope = close_of[bo] if bo is not None and bo in close_of else end
+                for gname, gs, _ge in gp[0]:
+                    shadows[gname].append((gs, gscope))
+        cond = None
+        if keyword in ("let", "var") and pair is not None and not is_type_scope(pair[0]):
+            cond = cond_scope(match.start())
         for bound_name, bound_start, bound_end in bound:
             if pair is None:
                 shadows[bound_name].append((0, n))
@@ -600,9 +727,39 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
                     top[bound_name].append((keyword, sig))
             elif keyword in ("let", "var") and not is_type_scope(pair[0]):
                 shadows[bound_name].append((bound_start, bound_end))
-                shadows[bound_name].append((end, pair[1]))
+                shadows[bound_name].append(cond if cond is not None else (end, pair[1]))
             else:
                 shadows[bound_name].append(pair)
+    # Tuple and pattern destructuring: `let (a, b) = ...`,
+    # `case let .p(x) = ...` — `_DECL` cannot see these names.
+    for match in _TUPLE_DECL.finditer(stripped):
+        keyword = match.group(1)
+        pair = enclosing(match.start())
+        seg_start = max(stripped.rfind(c, 0, match.start()) for c in ";{}\n") + 1
+        private = bool(_PRIV.search(stripped[seg_start : match.start()]))
+        p0 = stripped.find("(", match.start())
+        d, k = 0, p0
+        while k < n:
+            d += stripped[k] == "("
+            d -= stripped[k] == ")"
+            k += 1
+            if d == 0:
+                break
+        bound = [
+            (m.group(0), m.start(), m.end()) for m in _IDENT.finditer(stripped, p0 + 1, k - 1) if m.group(0) != "_"
+        ]
+        end = statement_end(match.start())
+        cond = None
+        if pair is not None and not is_type_scope(pair[0]):
+            cond = cond_scope(match.start())
+        for bound_name, bound_start, bound_end in bound:
+            if pair is None:
+                shadows[bound_name].append((0, n))
+                if not private:
+                    top[bound_name].append((keyword, None))
+            else:
+                shadows[bound_name].append((bound_start, bound_end))
+                shadows[bound_name].append(cond if cond is not None else (end, pair[1]))
     # Top-level operator functions own their operator name (`func <~>`).
     for match in _OP_DECL.finditer(stripped):
         name = match.group(1)
@@ -646,6 +803,69 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
             if body is not None:
                 shadows[pname].append((match.end(), body))
     return top, shadows
+
+
+def _call_labels(text: str, pos: int) -> tuple[str, ...] | None:
+    """Argument labels at a call site: `f(x: 1, y: 2)` -> ('x', 'y');
+    positional arguments label as `_`. None when `pos` isn't a `(`."""
+    n = len(text)
+    j = pos
+    while j < n and text[j] in " \t?!":
+        j += 1
+    if j >= n or text[j] != "(":
+        return None
+    d, k = 1, j + 1
+    while k < n and d:
+        d += text[k] == "("
+        d -= text[k] == ")"
+        k += 1
+    labels: list[str] = []
+    depth, angle, seg_start = 0, 0, j + 1
+    end = k - 1
+    for i in range(seg_start, end + 1):
+        c = text[i] if i < end else ","
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+        elif c == "<" and i + 1 < end and text[i + 1] not in "=<> \t":
+            angle += 1
+        elif c == ">" and angle:
+            angle -= 1
+        elif c == "," and depth == 0 and angle == 0:
+            head_end, hd, ha = i, 0, 0
+            for p in range(seg_start, i):
+                c2 = text[p]
+                if c2 in "([{":
+                    hd += 1
+                elif c2 in ")]}":
+                    hd -= 1
+                elif c2 == "<" and p + 1 < i and text[p + 1] not in "=<> \t":
+                    ha += 1
+                elif c2 == ">" and ha:
+                    ha -= 1
+                elif c2 == ":" and hd == 0 and ha == 0:
+                    head_end = p
+                    break
+            if not text[seg_start:i].strip():
+                seg_start = i + 1
+                continue
+            ids = _IDENT.findall(text[seg_start:head_end])
+            labels.append(ids[0] if (head_end != i and ids) else "_")
+            seg_start = i + 1
+    return tuple(labels)
+
+
+def _resolve_overload(text: str, pos: int, cand: list[tuple[str, tuple | None]]) -> set[str]:
+    """The component a call through an overloaded name can bind to: a
+    single owner when the call-site labels select one signature, else
+    every candidate (legal overloads must not launder R1/R2 debt)."""
+    labels = _call_labels(text, pos)
+    if labels is not None:
+        matched = {comp for comp, sig in cand if sig is not None and tuple(lbl for lbl, _anno in sig[0]) == labels}
+        if len(matched) == 1:
+            return matched
+    return {comp for comp, _sig in cand}
 
 
 class Manifest:
@@ -758,6 +978,14 @@ class Graph:
                     seen[sig] = comp
             if conflict:
                 self.ambiguous[name] = sorted(declared_in[name])
+        # Legal overloads keep their candidate owners: a use resolves by
+        # call-site labels, and an unresolvable use edges to every
+        # candidate, so overloads cannot launder R1/R2 debt.
+        candidates: dict[str, list[tuple[str, tuple | None]]] = {
+            name: [(comp, sig) for comp, _kind, sig in entries]
+            for name, entries in decl_entries.items()
+            if name not in self.ambiguous and len({comp for comp, _kind, _sig in entries}) > 1
+        }
         owner = {name: next(iter(comps)) for name, comps in owners.items() if len(comps) == 1}
         # Custom operators (`func <~>`) carry dependencies too; `_IDENT`
         # cannot see them, so each owned operator is matched as a maximal
@@ -782,8 +1010,13 @@ class Graph:
                 if ranges and any(start <= match.start() <= end for start, end in ranges):
                     continue
                 target = owner.get(name)
-                if target is not None and target != component:
-                    self.refs[(component, target)][name].add(rel)
+                if target is not None:
+                    if target != component:
+                        self.refs[(component, target)][name].add(rel)
+                    continue
+                for t in _resolve_overload(text, match.end(), candidates.get(name, [])):
+                    if t != component:
+                        self.refs[(component, t)][name].add(rel)
             for name, pattern in op_patterns.items():
                 target = owner[name]
                 if target != component and pattern.search(text):

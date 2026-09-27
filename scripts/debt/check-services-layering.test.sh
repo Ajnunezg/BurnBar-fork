@@ -677,6 +677,95 @@ SWIFT
 func parse(_ value: Int) -> Int { value }
 SWIFT
 }
+mut_ap() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func handler() -> Int { 42 }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreCondShadow {
+    // `if let` binds inside its branch: the call in braces is the local
+    // binding, not FeatureA's top-level handler.
+    func use(opt: (() -> Void)?) {
+        if let handler = opt { handler() }
+    }
+}
+SWIFT
+}
+mut_aq() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func handler() -> Int { 42 }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreCondAfter {
+    // The `if let` binding ends with its branch: the call after `}` is a
+    // real outward reference to FeatureA's handler.
+    func use(opt: (() -> Void)?) {
+        if let handler = opt { _ = handler }
+        handler()
+    }
+}
+SWIFT
+}
+mut_ar() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func parse(_ value: Int) -> Int { value }
+SWIFT
+  cat >>"${1}/AgentLens/Services/FeatureB/B.swift" <<'SWIFT'
+
+// Swift overloads may differ only by return type.
+func parse(_ value: Int) -> String { String(value) }
+SWIFT
+}
+mut_as() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+// Tuple destructuring binds every name: featureFactory is a top-level
+// owned name other components can depend on.
+let (featureFactory, ignored) = ({ 42 }, 0)
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreCallsTupleBinding {
+    let v = featureFactory()
+}
+SWIFT
+}
+mut_at() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+struct Result {
+    let id: String
+}
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+// Result here is the generic parameter, not FeatureA's struct: no edge.
+func map<Result>(_ value: Result) -> Result { value }
+SWIFT
+}
+mut_au() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func parse(_ value: Int) -> Int { value }
+SWIFT
+  cat >>"${1}/AgentLens/Services/FeatureB/B.swift" <<'SWIFT'
+
+func parse(_ value: Int) -> String { String(value) }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+// Legal overloads keep their candidate owners: a call that cannot be
+// resolved by labels edges to every candidate, so debt cannot hide.
+struct DataStoreCallsOverload {
+    let v = parse(1)
+}
+SWIFT
+}
 run_case "private modifier binds to its own declaration only" 1 stderr "R5 ambiguous" clean mut_v
 run_case "private(set) declarations are still publicly owned" 1 stderr "R1 upward" clean mut_w
 run_case "a local binding does not shadow inside its own initializer" 1 stderr "R1 upward" clean mut_x
@@ -697,6 +786,12 @@ run_case "where clause on the next line still binds parameters" 0 stdout "servic
 run_case "pathExclusions keep noncompiled files out of the graph" 0 stdout "services-layering: OK" clean mut_am
 run_case "cross-component function overloads are legal" 0 stdout "services-layering: OK" clean mut_an
 run_case "identical callable signatures across components still trip R5" 1 stderr "R5 ambiguous" clean mut_ao
+run_case "if-let bindings shadow only inside their branch" 0 stdout "services-layering: OK" clean mut_ap
+run_case "uses after an if-let branch still count as edges" 1 stderr "R1 upward" clean mut_aq
+run_case "overloads may differ only by return type" 0 stdout "services-layering: OK" clean mut_ar
+run_case "tuple destructuring owns every bound name" 1 stderr "R1 upward" clean mut_as
+run_case "generic type parameters shadow outward owners" 0 stdout "services-layering: OK" clean mut_at
+run_case "unresolvable overload calls edge to every candidate" 1 stderr "R1 upward" clean mut_au
 
 # ── Regression: the gate is wired into the CI debt-budgets job ───────────────
 workflow="${here}/../../.github/workflows/fast-feedback.yml"
