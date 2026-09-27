@@ -71,6 +71,7 @@ struct MenuBarPopoverView: View {
     private static let maxTraySectionHeight: CGFloat = 720
 
     private var isScanning: Bool { aggregator?.isRefreshing ?? false }
+    private var isCatchingUp: Bool { aggregator?.isCatchingUp ?? false }
 
     private var insights: [Insight] {
         insightSnapshot.insights
@@ -953,6 +954,9 @@ struct MenuBarPopoverView: View {
             lines.append("Today: \(settingsManager.formatUsageMetric(cost: dataStore.totalCostToday, tokens: dataStore.totalTokensToday))")
             lines.append("\(dataStore.totalUsageSessionCount.formatted()) sessions imported")
         }
+        if isCatchingUp {
+            lines.append("Catching up older session logs in the background")
+        }
         if let last = lastRefreshDate {
             lines.append("Last scan \(last.formatted(date: .abbreviated, time: .shortened))")
         }
@@ -1127,10 +1131,15 @@ struct MenuBarPopoverView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(DesignSystem.Colors.textSecondary)
 
-                Text(isScanning ? "Scanning..." : lastRefreshLabel)
+                Text(isScanning ? "Scanning live burn…" : (isCatchingUp ? "Catching up older sessions…" : lastRefreshLabel))
                     .font(DesignSystem.Typography.tiny)
                     .foregroundStyle(DesignSystem.Colors.textMuted)
                     .lineLimit(1)
+                    .accessibilityLabel(
+                        isScanning
+                            ? "Scanning live burn"
+                            : (isCatchingUp ? "Catching up older sessions" : lastRefreshLabel)
+                    )
                     .popoverTooltip(freshnessTooltip)
 
                 if !scanIssues.isEmpty {
