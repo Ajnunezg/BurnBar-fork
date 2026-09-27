@@ -7,6 +7,8 @@ import OpenBurnBarKernel
 import OpenBurnBarSignalCore
 import os
 
+// `UntypedJSONObject` is declared once in CLIAgentMissionModels.swift.
+
 // MARK: - Mission group observation, merge, approval + cancel
 //
 // Split out of `CLIAgentMissionDispatcher.swift` (audit wave 4, item 14

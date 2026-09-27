@@ -477,6 +477,20 @@ struct RootTabView: View {
         youPath.append(YouRoute.settings)
     }
 
+    /// Lands a device-approval banner or `openburnbar://approve-device` tap on
+    /// the Devices screen under You. Review stays explicit; this never
+    /// auto-approves. iPhone counterpart to the iPad `openDevicesRoute`.
+    private func openDevicesRoute() {
+        selection = .you
+        youPath = NavigationPath()
+        youPath.append(YouRoute.devices)
+    }
+
+    private func handleShowDevices(_: Notification) {
+        guard case .devices = MobilePendingOsRouteStore.shared.consume() else { return }
+        openDevicesRoute()
+    }
+
     /// Lands a `burnbar://inbox[/{itemId}]` deep link — the tap target of an AI
     /// Inbox P1 push.
     ///
@@ -516,7 +530,7 @@ struct RootTabView: View {
         openAIInboxRoute(itemID: itemID)
     }
 
-    /// Cold-launch counterpart to the two `onReceive` handlers above.
+    /// Cold-launch counterpart to the three `onReceive` handlers above.
     ///
     /// A mission or Mercury-call push that launches the app posts during
     /// `didFinishLaunching`, before this root has subscribed, so the stash is the
@@ -529,9 +543,7 @@ struct RootTabView: View {
         case .mission(let missionId):
             presentMissionConsole(missionId: missionId)
         case .devices:
-            selection = .you
-            youPath = NavigationPath()
-            youPath.append(YouRoute.devices)
+            openDevicesRoute()
         case nil:
             break
         }

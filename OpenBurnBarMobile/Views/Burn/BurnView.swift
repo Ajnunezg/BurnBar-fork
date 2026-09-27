@@ -63,6 +63,7 @@ struct BurnView: View {
                 }
             }
             .padding(.horizontal, AuroraDesign.Layout.cardInset)
+            // Bottom clearance comes from RootTabView's safeAreaInset reservation.
             .padding(.top, MobileTheme.Spacing.sm)
         }
         .trackEasterEggScroll(tag: "burn")

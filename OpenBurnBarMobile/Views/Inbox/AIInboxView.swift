@@ -368,6 +368,8 @@ struct InboxHomeView: View {
     @State private var searchText = ""
 
     var body: some View {
+        // Bottom clearance comes from RootTabView's safeAreaInset reservation —
+        // screens must not add their own tray padding (see MobileTrayMetrics).
         AIInboxSplitLayout(store: store, showsPageHeader: InboxHomeChromePolicy.showsInPageHeadlineWhenHosted)
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle(InboxHomeChromePolicy.navigationTitle)
