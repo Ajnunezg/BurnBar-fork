@@ -1830,4 +1830,460 @@ private actor DeleteFaultingSecretStore: BurnBarProviderSecretStoring {
             throw DeleteDenied()
         }
     }
+
+    // MARK: - Meta / Together URL normalization (muse-spark-1.3 fold)
+
+    func testNormalizedBaseURLRewritesTogetherHostsForMeta() {
+        XCTAssertEqual(
+            BurnBarConfigStore.normalizedBaseURL(
+                providerID: "meta",
+                rawBaseURL: "https://api.together.xyz/v1"
+            ),
+            "https://api.meta.ai/v1"
+        )
+        XCTAssertEqual(
+            BurnBarConfigStore.normalizedBaseURL(
+                providerID: "meta",
+                rawBaseURL: "http://api.together.xyz/v1"
+            ),
+            "https://api.meta.ai/v1"
+        )
+        XCTAssertEqual(
+            BurnBarConfigStore.normalizedBaseURL(
+                providerID: "Meta",
+                rawBaseURL: " https://api.together.xyz/v1/ "
+            ),
+            "https://api.meta.ai/v1"
+        )
+        XCTAssertEqual(
+            BurnBarConfigStore.normalizedBaseURL(
+                providerID: "meta",
+                rawBaseURL: "https://inference.together.xyz/v1"
+            ),
+            "https://api.meta.ai/v1"
+        )
+        XCTAssertEqual(
+            BurnBarConfigStore.normalizedBaseURL(
+                providerID: "openai",
+                rawBaseURL: "https://api.together.xyz/v1"
+            ),
+            "https://api.together.xyz/v1"
+        )
+        XCTAssertEqual(
+            BurnBarConfigStore.normalizedBaseURL(
+                providerID: "meta",
+                rawBaseURL: "https://api.meta.ai/v1"
+            ),
+            "https://api.meta.ai/v1"
+        )
+    }
+
+    func testPersistedTogetherMetaURLRewritesToMetaModelAPIOnLoad() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("openburnbar-config-store-meta-together-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let fileURL = rootURL.appendingPathComponent("provider-config.json")
+        let persisted = BurnBarProviderConfigurationSnapshot(
+            providers: [
+                BurnBarProviderSettings(
+                    providerID: "meta",
+                    isEnabled: true,
+                    baseURL: "https://api.together.xyz/v1",
+                    preferredModelIDs: ["muse-spark-1.3", "muse-spark-1.3-contributor"]
+                )
+            ]
+        )
+        try JSONEncoder().encode(persisted).write(to: fileURL)
+
+        let configStore = BurnBarConfigStore(
+            fileURL: fileURL,
+            catalog: BurnBarCatalogLoader.bundledCatalog,
+            secretStore: BurnBarInMemorySecretStore(),
+            logger: BurnBarDaemonLogger(category: "config-store-tests")
+        )
+        let snapshot = try await configStore.snapshot()
+        XCTAssertEqual(snapshot.providerSettings(id: "meta")?.baseURL, "https://api.meta.ai/v1")
+    }
+
+    func testUpsertTogetherMetaURLRewritesToMetaModelAPI() async throws {
+        let harness = try makeHarness(name: "meta-together-upsert")
+        let updated = try await harness.configStore.upsertProvider(
+            BurnBarProviderSettings(
+                providerID: "meta",
+                isEnabled: true,
+                baseURL: "https://api.together.xyz/v1",
+                preferredModelIDs: ["muse-spark-1.3"]
+            )
+        )
+        XCTAssertEqual(updated.baseURL, "https://api.meta.ai/v1")
+        let snapshot = try await harness.configStore.snapshot()
+        XCTAssertEqual(snapshot.providerSettings(id: "meta")?.baseURL, "https://api.meta.ai/v1")
+    }
+
+    func testPersistedTogetherMetaURLStampsUnlabeledSlotsAsTogetherKey() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("openburnbar-config-store-meta-together-slot-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let fileURL = rootURL.appendingPathComponent("provider-config.json")
+        let persisted = BurnBarProviderConfigurationSnapshot(
+            providers: [
+                BurnBarProviderSettings(
+                    providerID: "meta",
+                    isEnabled: true,
+                    baseURL: "https://api.together.xyz/v1",
+                    preferredModelIDs: ["muse-spark-1.3"],
+                    credentialSlots: [
+                        BurnBarProviderCredentialSlot(
+                            slotID: "legacy",
+                            label: "Together",
+                            isEnabled: true,
+                            status: .ready
+                        )
+                    ]
+                )
+            ]
+        )
+        try JSONEncoder().encode(persisted).write(to: fileURL)
+
+        let configStore = BurnBarConfigStore(
+            fileURL: fileURL,
+            catalog: BurnBarCatalogLoader.bundledCatalog,
+            secretStore: BurnBarInMemorySecretStore(),
+            logger: BurnBarDaemonLogger(category: "config-store-tests")
+        )
+        let snapshot = try await configStore.snapshot()
+        let meta = try XCTUnwrap(snapshot.providerSettings(id: "meta"))
+        XCTAssertEqual(meta.baseURL, "https://api.meta.ai/v1")
+        XCTAssertEqual(meta.credentialSlots.first?.authMethodID, "meta-together-key")
+    }
+
+    func testTogetherMetaURLRewritesToCatalogBaseURLNotHardcodedFallback() async throws {
+        let catalog = BurnBarCatalog(
+            schemaVersion: 1,
+            providers: [
+                BurnBarCatalogProvider(
+                    id: "meta",
+                    displayName: "Meta",
+                    baseURL: "https://api.meta.ai/v2-fixture",
+                    visibility: .public,
+                    capabilities: [.routing],
+                    models: [
+                        BurnBarCatalogModel(
+                            id: "muse-spark-1.3",
+                            displayName: "Muse Spark 1.3",
+                            visibility: .public,
+                            pricing: BurnBarModelPricing(inputPerMToken: 1.25, outputPerMToken: 4.25, cacheReadPerMToken: 0.15)
+                        )
+                    ]
+                )
+            ]
+        )
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("openburnbar-config-store-meta-catalog-base-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let fileURL = rootURL.appendingPathComponent("provider-config.json")
+        let persisted = BurnBarProviderConfigurationSnapshot(
+            providers: [
+                BurnBarProviderSettings(
+                    providerID: "meta",
+                    isEnabled: true,
+                    baseURL: "https://api.together.xyz/v1",
+                    preferredModelIDs: ["muse-spark-1.3"]
+                )
+            ]
+        )
+        try JSONEncoder().encode(persisted).write(to: fileURL)
+
+        let configStore = BurnBarConfigStore(
+            fileURL: fileURL,
+            catalog: catalog,
+            secretStore: BurnBarInMemorySecretStore(),
+            logger: BurnBarDaemonLogger(category: "config-store-tests")
+        )
+        let snapshot = try await configStore.snapshot()
+        XCTAssertEqual(snapshot.providerSettings(id: "meta")?.baseURL, "https://api.meta.ai/v2-fixture")
+    }
+
+    func testMigratedMetaAuthMethodIDUsesTogetherKeyOnlyForTogetherHosts() {
+        XCTAssertEqual(
+            BurnBarConfigStore.migratedMetaAuthMethodID(existing: nil, rawBaseURL: "https://api.together.xyz/v1"),
+            "meta-together-key"
+        )
+        XCTAssertEqual(
+            BurnBarConfigStore.migratedMetaAuthMethodID(existing: nil, rawBaseURL: "https://api.meta.ai/v1"),
+            "meta-model-api-key"
+        )
+        XCTAssertEqual(
+            BurnBarConfigStore.migratedMetaAuthMethodID(
+                existing: "meta-model-api-key",
+                rawBaseURL: "https://api.together.xyz/v1"
+            ),
+            "meta-model-api-key"
+        )
+    }
+
+    private func makeHarness(name: String) throws -> BurnBarConfigStoreHarness {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("openburnbar-config-store-\(name)-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+
+        let secretStore = BurnBarInMemorySecretStore()
+        let configStore = BurnBarConfigStore(
+            fileURL: rootURL.appendingPathComponent("provider-config.json", isDirectory: false),
+            catalog: BurnBarCatalogLoader.bundledCatalog,
+            secretStore: secretStore,
+            logger: BurnBarDaemonLogger(category: "config-store-tests")
+        )
+        return BurnBarConfigStoreHarness(rootURL: rootURL, configStore: configStore)
+    }
+
+    private func setEnvironment(_ key: String, to value: String?) -> String? {
+        let previous = getenv(key).map { String(cString: $0) }
+        if let value {
+            setenv(key, value, 1)
+        } else {
+            unsetenv(key)
+        }
+        return previous
+    }
+
+    private func restoreEnvironment(_ key: String, _ previous: String?) {
+        if let previous {
+            setenv(key, previous, 1)
+        } else {
+            unsetenv(key)
+        }
+    }
+}
+
+#if os(macOS)
+private func addKeychainSecret(_ secret: String, service: String, account: String, comment: String? = nil) throws {
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: service,
+        kSecAttrAccount as String: account,
+        kSecValueData as String: Data(secret.utf8),
+        kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+    ]
+    var createQuery = query
+    if let comment {
+        createQuery[kSecAttrComment as String] = comment
+    }
+    let status = SecItemAdd(createQuery as CFDictionary, nil)
+    guard status == errSecSuccess else {
+        throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+    }
+}
+
+private func deleteKeychainSecret(service: String, account: String) {
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: service,
+        kSecAttrAccount as String: account
+    ]
+    SecItemDelete(query as CFDictionary)
+}
+
+private func keychainAttributes(service: String, account: String) -> [String: Any]? {
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: service,
+        kSecAttrAccount as String: account,
+        kSecReturnAttributes as String: true,
+        kSecMatchLimit as String: kSecMatchLimitOne
+    ]
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    guard status == errSecSuccess else {
+        return nil
+    }
+    return item as? [String: Any]
+}
+
+private func keychainSecret(service: String, account: String) throws -> String? {
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: service,
+        kSecAttrAccount as String: account,
+        kSecReturnData as String: true,
+        kSecMatchLimit as String: kSecMatchLimitOne
+    ]
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    if status == errSecItemNotFound {
+        return nil
+    }
+    guard status == errSecSuccess else {
+        throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+    }
+    guard let data = item as? Data else {
+        return nil
+    }
+    return String(data: data, encoding: .utf8)
+}
+
+private func temporaryFallbackVaultURL() -> URL {
+    FileManager.default.temporaryDirectory
+        .appendingPathComponent("openburnbar-secret-continuity-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("provider-secrets.continuity.json", isDirectory: false)
+}
+
+private func removeFallbackVault(_ fallbackURL: URL) {
+    try? FileManager.default.removeItem(at: fallbackURL.deletingLastPathComponent())
+}
+
+private func claudeOAuthPayload(from storedSecret: String?) throws -> [String: Any]? {
+    guard let storedSecret,
+          let data = storedSecret.data(using: .utf8),
+          let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        return nil
+    }
+    return root["claudeAiOauth"] as? [String: Any]
+}
+
+private final class ClaudeOAuthRefreshURLProtocol: URLProtocol {
+    private struct Response {
+        let status: Int
+        let body: Data
+    }
+
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var queuedResponses: [Response] = []
+    nonisolated(unsafe) private static var requestBodies: [String] = []
+
+    static func enqueue(status: Int, body: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        queuedResponses.append(Response(status: status, body: Data(body.utf8)))
+    }
+
+    static func recordedRequestBodies() -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return requestBodies
+    }
+
+    static func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        queuedResponses = []
+        requestBodies = []
+    }
+
+    override static func canInit(with request: URLRequest) -> Bool {
+        request.url?.host == "platform.claude.com"
+    }
+
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        Self.lock.lock()
+        let response = Self.queuedResponses.isEmpty
+            ? Response(status: 500, body: Data(#"{"error":"missing fixture"}"#.utf8))
+            : Self.queuedResponses.removeFirst()
+        Self.requestBodies.append(Self.bodyString(from: request))
+        Self.lock.unlock()
+
+        let httpResponse = HTTPURLResponse(
+            url: request.url!,
+            statusCode: response.status,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: httpResponse, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: response.body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+
+    private static func bodyString(from request: URLRequest) -> String {
+        if let body = request.httpBody {
+            return String(data: body, encoding: .utf8) ?? ""
+        }
+        guard let stream = request.httpBodyStream else { return "" }
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            if count <= 0 { break }
+            data.append(contentsOf: buffer.prefix(count))
+        }
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+}
+#endif
+
+private struct BurnBarConfigStoreHarness {
+    let rootURL: URL
+    let configStore: BurnBarConfigStore
+}
+
+private actor SlotOnlySecretStore: BurnBarProviderSecretStoring {
+    private let providerID: String
+    private let slotID: String
+    private let secret: String
+
+    init(providerID: String, slotID: String, secret: String) {
+        self.providerID = providerID
+        self.slotID = slotID
+        self.secret = secret
+    }
+
+    func secret(for providerID: String) async throws -> String? {
+        if providerID == "\(self.providerID).slot.\(slotID)" {
+            return secret
+        }
+        if providerID == self.providerID {
+            throw NSError(
+                domain: "SlotOnlySecretStore",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Legacy provider secret should not be read when credential slots exist."]
+            )
+        }
+        return nil
+    }
+
+    func setSecret(_ secret: String?, for providerID: String) async throws {}
+}
+
+private actor UnreadableSecretStore: BurnBarProviderSecretStoring {
+    func secret(for providerID: String) async throws -> String? {
+        nil
+    }
+
+    func setSecret(_ secret: String?, for providerID: String) async throws {}
+}
+
+/// A secret store whose reads/writes succeed but whose deletes
+/// (`setSecret(nil, ...)`) always fault, modelling errSecInvalidOwnerEdit /
+/// -25244 from a keychain item whose ACL was written by an older daemon
+/// identity. Used to prove credential-slot removal stays successful even when
+/// the best-effort secret cleanup cannot complete.
+private actor DeleteFaultingSecretStore: BurnBarProviderSecretStoring {
+    struct DeleteDenied: Error {}
+
+    private(set) var deleteAttempts = 0
+
+    func secret(for providerID: String) async throws -> String? {
+        "sk-test-token"
+    }
+
+    func setSecret(_ secret: String?, for providerID: String) async throws {
+        if secret == nil {
+            deleteAttempts += 1
+            throw DeleteDenied()
+        }
+    }
 }

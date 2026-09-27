@@ -588,4 +588,92 @@ final class MuseParserTests: XCTestCase {
         // Contributor 0.10/0.20 → 0.001 + 0.002 = 0.003
         XCTAssertEqual(usage.costUSD, 0.003, accuracy: 0.0001)
     }
+
+    func testRetainedFrameWithMetadataAndModelCompletedSiblingsYieldsTokens() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let metadata = metadataEnvelope(model: "muse-spark-1.3-contributor")
+        let completed = modelCompletedEnvelope(input: 111, output: 22, reasoning: 3, model: "muse-spark-1.3-contributor")
+        let wrapped = envelope([
+            "retained_frame": "session_permission_transaction",
+            "frame_schema_version": 1,
+            "children": [
+                ["child_index": 0, "record_json": metadata],
+                ["child_index": 1, "record_json": completed]
+            ]
+        ])
+        _ = try writeSession(dir: dir, content: wrapped)
+        let result = try await MuseParser(logDirectoryOverride: dir.path).parse()
+        let usage = try XCTUnwrap(result.usages.first)
+        XCTAssertEqual(usage.model, "muse-spark-1.3-contributor")
+        XCTAssertEqual(usage.inputTokens, 111)
+        XCTAssertEqual(usage.outputTokens, 22)
+        XCTAssertEqual(usage.reasoningTokens, 3)
+    }
+
+    func testRunModelConfiguredSetsModelWhenCompletedOmitsIt() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        var completed = modelCompletedEnvelope(input: 100, output: 50, model: "muse-spark-1.3")
+        // Drop the model field to force run.model.configured to win.
+        completed = completed.replacingOccurrences(of: ",\"model\":\"muse-spark-1.3\"", with: "")
+        let configured = envelope([
+            "schema_version": 1,
+            "id": UUID().uuidString,
+            "stream": ["kind": "session", "id": "sess-001"],
+            "sequence": 3,
+            "recorded_at": Int64(Date().timeIntervalSince1970 * 1_000_000),
+            "record_type": "event",
+            "durability": "durable",
+            "payload_type": "run.model.configured",
+            "payload_schema_version": 1,
+            "payload": [
+                "kind": "run_model",
+                "record": [
+                    "provider_id": "meta",
+                    "model_id": "muse-spark-1.3-contributor",
+                    "source": "startup"
+                ]
+            ]
+        ])
+        let content = [configured, completed].joined(separator: "\n")
+        _ = try writeSession(dir: dir, content: content)
+        let result = try await MuseParser(logDirectoryOverride: dir.path).parse()
+        let usage = try XCTUnwrap(result.usages.first)
+        XCTAssertEqual(usage.model, "muse-spark-1.3-contributor")
+        XCTAssertEqual(usage.inputTokens, 100)
+        XCTAssertEqual(usage.outputTokens, 50)
+    }
+
+    func testRealMuseCodeSessionFixtureCountsExactTokens() async throws {
+        let bundle = Bundle(for: Self.self)
+        let fixtureURL = try XCTUnwrap(
+            bundle.url(forResource: "muse-code-real-session-usage", withExtension: "jsonl"),
+            "Missing bundled Muse parser fixture: muse-code-real-session-usage.jsonl"
+        )
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let sessionDir = dir.appendingPathComponent("01a05a23-e1be-7e43-bbe5-df89e49d2a57", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(
+            at: fixtureURL,
+            to: sessionDir.appendingPathComponent("session.jsonl")
+        )
+
+        let result = try await MuseParser(logDirectoryOverride: dir.path).parse()
+        let usage = try XCTUnwrap(result.usages.first)
+        XCTAssertEqual(usage.provider, .muse)
+        XCTAssertEqual(usage.sessionId, "01a05a23-e1be-7e43-bbe5-df89e49d2a57")
+        XCTAssertEqual(usage.model, "muse-spark-1.2-contributor")
+        XCTAssertEqual(usage.projectName, "burnbar-muse-fixture")
+        XCTAssertEqual(usage.inputTokens, 27778)
+        XCTAssertEqual(usage.outputTokens, 526)
+        XCTAssertEqual(usage.reasoningTokens, 455)
+        XCTAssertEqual(usage.cacheReadTokens, 0)
+        // Contributor: 27778/1e6*0.10 + 526/1e6*0.20
+        XCTAssertEqual(usage.costUSD, 0.002883, accuracy: 0.000001)
+        XCTAssertEqual(usage.provenanceMethod, .providerLog)
+        XCTAssertEqual(usage.provenanceConfidence, .exact)
+    }
+
 }

@@ -59,6 +59,20 @@ extension BurnBarConfigStore {
             )
         }.filter { !$0.slotID.isEmpty }
 
+        if settings.providerID.caseInsensitiveCompare("meta") == .orderedSame {
+            if Self.isTogetherHost(settings.baseURL) {
+                togetherOriginMetaProviderIDs.insert(settings.providerID.lowercased())
+            }
+            normalizedSlots = normalizedSlots.map { slot in
+                var migrated = slot
+                migrated.authMethodID = Self.migratedMetaAuthMethodID(
+                    existing: slot.authMethodID,
+                    rawBaseURL: settings.baseURL
+                )
+                return migrated
+            }
+        }
+
         let normalizedBaseURL = normalizedBaseURL(
             providerID: settings.providerID,
             rawBaseURL: settings.baseURL

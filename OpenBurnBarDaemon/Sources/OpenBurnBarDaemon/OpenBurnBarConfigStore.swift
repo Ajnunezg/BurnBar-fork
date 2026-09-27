@@ -137,6 +137,7 @@ public actor BurnBarConfigStore {
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
 
+    private var togetherOriginMetaProviderIDs: Set<String> = []
     private var cachedSnapshot: BurnBarProviderConfigurationSnapshot?
     private var modelCatalogRevision: UInt64 = 0
     private var credentialMaterialRevision: UInt64?
@@ -856,11 +857,17 @@ public actor BurnBarConfigStore {
             if mutableSettings.credentialSlots.isEmpty,
                let legacySecret,
                legacySecret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                let stampURL = togetherOriginMetaProviderIDs.contains(settings.providerID.lowercased())
+                    ? "https://api.together.xyz/v1"
+                    : mutableSettings.baseURL
                 let migratedSlot = BurnBarProviderCredentialSlot(
                     slotID: "default",
                     label: "Default plan",
                     isEnabled: true,
-                    status: .ready
+                    status: .ready,
+                    authMethodID: settings.providerID.caseInsensitiveCompare("meta") == .orderedSame
+                        ? Self.migratedMetaAuthMethodID(existing: nil, rawBaseURL: stampURL)
+                        : nil
                 )
                 mutableSettings.credentialSlots = [migratedSlot]
                 mutableSettings.preferredCredentialSlotID = migratedSlot.slotID
@@ -1220,7 +1227,42 @@ public actor BurnBarConfigStore {
     }
 
     func normalizedBaseURL(providerID: String, rawBaseURL: String) -> String {
+        Self.normalizedBaseURL(
+            providerID: providerID,
+            rawBaseURL: rawBaseURL,
+            metaBaseURL: catalogSupport.provider(id: "meta")?.baseURL ?? "https://api.meta.ai/v1",
+            openCodeBaseURL: catalogSupport.provider(id: "opencode")?.baseURL
+        )
+    }
+
+    static func isTogetherHost(_ rawBaseURL: String) -> Bool {
         let trimmed = rawBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let host = URL(string: trimmed)?.host?.lowercased() else { return false }
+        return host == "api.together.xyz" || host.hasSuffix(".together.xyz")
+    }
+
+    /// Unlabeled Meta slots on a Together URL are Together keys; otherwise they are Model API keys.
+    static func migratedMetaAuthMethodID(existing: String?, rawBaseURL: String) -> String {
+        if let existing = existing?.trimmingCharacters(in: .whitespacesAndNewlines), !existing.isEmpty {
+            return existing
+        }
+        if isTogetherHost(rawBaseURL) {
+            return "meta-together-key"
+        }
+        return BurnBarProviderAuthRegistry.descriptor(forCatalogProviderID: "meta")?.primaryMethod.id
+            ?? "meta-model-api-key"
+    }
+
+    static func normalizedBaseURL(
+        providerID: String,
+        rawBaseURL: String,
+        metaBaseURL: String = "https://api.meta.ai/v1",
+        openCodeBaseURL: String? = nil
+    ) -> String {
+        let trimmed = rawBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if providerID.caseInsensitiveCompare("meta") == .orderedSame, isTogetherHost(trimmed) {
+            return metaBaseURL
+        }
         guard providerID.caseInsensitiveCompare("opencode") == .orderedSame,
               var components = URLComponents(string: trimmed),
               let host = components.host?.lowercased(),
@@ -1230,7 +1272,7 @@ public actor BurnBarConfigStore {
 
         let path = components.percentEncodedPath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         if path.isEmpty {
-            return catalogSupport.provider(id: "opencode")?.baseURL ?? trimmed
+            return openCodeBaseURL ?? trimmed
         }
         if path.caseInsensitiveCompare("zen/go") == .orderedSame {
             components.percentEncodedPath = "/zen/go/v1"

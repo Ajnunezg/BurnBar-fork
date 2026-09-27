@@ -296,6 +296,16 @@ public final class MuseParser: LogParser, Sendable {
                 return
             }
 
+            // Muse Code 1.0.2+ emits run.model.configured for the selected model.
+            if payloadType == "run.model.configured" {
+                if let record = payload["record"] as? LogParserJSONObject,
+                   let m = record["model_id"] as? String, !m.isEmpty {
+                    lastModel = m
+                    modelId = m
+                }
+                return
+            }
+
             // Tool calls
             if payloadType == "tool_batch.effect.started" {
                 if options.includeConversationBodies,
