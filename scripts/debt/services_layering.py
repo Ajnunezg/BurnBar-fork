@@ -21,14 +21,16 @@ graph from source and holds it to five rules:
                 resolver cannot own such a name, so every edge through it would
                 vanish from the graph and baselined debt would look retired.
 
-Resolution is name based and deliberately conservative: TOP-LEVEL declarations
-(class/struct/enum/actor/protocol/typealias/func/var/let outside any brace)
-own a name, `private`/`fileprivate` declarations are file-local and never owned
-(R5 keeps ownership unique); a nested declaration shadows its name only inside
-its enclosing scope, never file-wide; a file never references a name it declares itself at any depth (nested-type
-, and its own top-level name file-wide. Comments and string literals are
-stripped first, except the executable expressions inside `\\( )` string
-interpolation.
+Resolution is name based and deliberately conservative. TOP-LEVEL declarations
+(class/struct/enum/actor/protocol/typealias/func/var/let, and `func <op>`)
+own a name; `private`/`fileprivate` declarations are file-local and never
+owned (R5 keeps ownership unique). A nested declaration shadows its name
+inside its enclosing scope only: type members shadow the whole type body,
+while `let`/`var` bindings in function or statement scopes shadow from the
+end of their declaration — `let x = x()` still resolves the right-hand `x`
+outward. A file never references a name it declares itself. Comments, string
+literals and regex literals are stripped first, except the executable
+expressions inside `\\( )` interpolation.
 
 Debt is keyed `src -> dst : Symbol` with the number of referencing files, so a
 move inside a component never churns the baseline, a new debt edge fails, and a
@@ -66,10 +68,86 @@ EXCLUDED_PARTS = {".build", ".derived-data", ".swiftpm"}
 # linker must resolve, so blanking the whole literal would erase real edges.
 # Comments and literals are removed by a depth-aware scanner, not regex: Swift
 # block comments nest, and a literal's `\( )` expressions can contain literals
-# of their own (`"\(String(format: "%@", X))"`).
-_DECL = re.compile(r"\b(?:class|struct|enum|actor|protocol|typealias|func|var|let)\s+([A-Za-z_][A-Za-z0-9_]*)")
+# of their own (`"\(String(format: "%@", X))"`). Regex literals are blanked the
+# same way — `/FeatureAThing/` is pattern text, not a type reference.
+_DECL = re.compile(r"\b(class|struct|enum|actor|protocol|typealias|func|var|let)\s+([A-Za-z_][A-Za-z0-9_]*)")
+_OP_DECL = re.compile(r"\bfunc\s+([!<=>?^|~&%*+\-./]+)")
+_OP_CHARS = set("!<=>?^|~&%*+-./")
+# Standard library and syntax operators are never owned by a component, so
+# indexing them would attribute stdlib call sites to whichever file happened to
+# overload them.
+_STDLIB_OPS = {
+    "=",
+    "==",
+    "===",
+    "!=",
+    "<",
+    ">",
+    "<=",
+    ">=",
+    "&&",
+    "||",
+    "!",
+    "?",
+    "??",
+    "?.",
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "+=",
+    "-=",
+    "*=",
+    "/=",
+    "%=",
+    "&",
+    "|",
+    "^",
+    "<<",
+    ">>",
+    "<<=",
+    ">>=",
+    "&=",
+    "|=",
+    "^=",
+    "&+",
+    "&-",
+    "&*",
+    "&<<",
+    "&>>",
+    "->",
+    "~>",
+    "...",
+    "..<",
+}
 _IDENT = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
-_PRIV = re.compile(r"\b(?:private|fileprivate)\b")
+_PRIV = re.compile(r"\b(?:private|fileprivate)\b(?!\s*\()")
+_SCOPE_KW = re.compile(r"\b(class|struct|enum|actor|protocol|extension|func|init|deinit|var|let)\b")
+_TYPE_SCOPE_KW = {"class", "struct", "enum", "actor", "protocol", "extension"}
+_EXPR_KW = {
+    "return",
+    "in",
+    "where",
+    "case",
+    "if",
+    "guard",
+    "while",
+    "for",
+    "let",
+    "var",
+    "try",
+    "await",
+    "throw",
+    "do",
+    "else",
+    "switch",
+    "defer",
+    "repeat",
+    "catch",
+    "any",
+    "some",
+}
 
 
 def _scan_block_comment(text: str, start: int) -> int:
@@ -135,6 +213,79 @@ def _scan_literal(text: str, start: int) -> tuple[int, list[tuple[int, int]]]:
     return n, exprs
 
 
+def _is_regex_position(text: str, i: int) -> bool:
+    """True when a `/` at `i` can begin a regex literal rather than division:
+    expression position (start of input, or after punctuation/operators/keywords),
+    not operand position (identifier, literal, `)`, `]`)."""
+    j = i - 1
+    while j >= 0 and text[j] in " \t\n":
+        j -= 1
+    if j < 0:
+        return True
+    c = text[j]
+    if c in "=(:,[!&|?~<>{};+-*%^":
+        return True
+    if c.isalnum() or c in "_$)]'\"":
+        match = re.search(r"[A-Za-z_][A-Za-z0-9_]*$", text[: j + 1])
+        return bool(match and match.group(0) in _EXPR_KW)
+    return False
+
+
+def _scan_regex(text: str, start: int) -> tuple[int, list[tuple[int, int]]] | None:
+    """End offset + `\\( )` code spans for the regex literal at `start`.
+
+    `start` is on optional `#` markers then `/`. Bare `/.../` literals end at
+    an unescaped `/` on the same line (returning None if none exists — the `/`
+    was division, not a literal). Raw `#/.../#/` literals may span lines.
+    Character classes `[...]` and escapes are skipped; `\\( )` interpolation
+    is executable code and is returned for recursive stripping.
+    """
+    n = len(text)
+    hashes = 0
+    while start + hashes < n and text[start + hashes] == "#":
+        hashes += 1
+    escape = "\\" + "#" * hashes
+    marker = escape + "("
+    closer = "/" + "#" * hashes
+    exprs: list[tuple[int, int]] = []
+    in_class = False
+    i = start + hashes + 1
+    while i < n:
+        c = text[i]
+        if c == "\n" and not hashes:
+            return None
+        if text.startswith(escape, i):
+            if text.startswith(marker, i):
+                depth, j = 1, i + len(marker)
+                while j < n and depth:
+                    if text.startswith(escape, j):
+                        j += len(escape) + 1
+                    elif text.startswith("//", j):
+                        eol = text.find("\n", j)
+                        j = n if eol < 0 else eol
+                    elif text.startswith("/*", j):
+                        j = _scan_block_comment(text, j)
+                    elif text[j] == '"':
+                        j, _ = _scan_literal(text, j)
+                    else:
+                        depth += text[j] == "("
+                        depth -= text[j] == ")"
+                        j += 1
+                exprs.append((i + len(marker), j - 1))
+                i = j
+            else:
+                i += len(escape) + 1
+            continue
+        if c == "[":
+            in_class = True
+        elif c == "]":
+            in_class = False
+        elif c == "/" and not in_class and text.startswith(closer, i):
+            return i + len(closer), exprs
+        i += 1
+    return (n, exprs) if hashes else None
+
+
 def _blank(out: list[str], start: int, end: int) -> None:
     for k in range(start, end):
         if out[k] != "\n":
@@ -155,14 +306,31 @@ def strip_source(text: str) -> str:
             end = _scan_block_comment(text, i)
             _blank(out, i, end)
             i = end
+        elif text[i] == "/" and _is_regex_position(text, i):
+            scanned = _scan_regex(text, i)
+            if scanned is None:
+                i += 1
+                continue
+            end, exprs = scanned
+            _blank(out, i, end)
+            for a, b in exprs:
+                out[a:b] = strip_source(text[a:b])
+            i = end
         elif text[i] in '"#':
             j = i
             while j < n and text[j] == "#":
                 j += 1
-            if j >= n or text[j] != '"':
+            if j >= n or text[j] not in '"/':
                 i += 1
                 continue
-            end, exprs = _scan_literal(text, i)
+            if text[j] == "/":
+                scanned = _scan_regex(text, i)
+                if scanned is None:
+                    i += 1
+                    continue
+                end, exprs = scanned
+            else:
+                end, exprs = _scan_literal(text, i)
             _blank(out, i, end)
             for a, b in exprs:
                 out[a:b] = strip_source(text[a:b])  # literals/comments inside blank too
@@ -178,12 +346,21 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
     Ranges are character offsets. A file only owns names it declares outside
     every brace, and only names it can hand to another component, so
     `private`/`fileprivate` declarations are never owned — but they still
-    shadow their name file-wide. A nested declaration shadows its name only
-    inside the body of the scope enclosing it, which is what makes
-    `struct Outer { struct Foo {} }` different from a top-level `Foo`: outside
-    `Outer`, `Foo` still refers to the other component's type. Scope is
-    resolved at each declaration's offset, so `{ let x: Int }` on one line
-    never promotes `x` to a top-level owner.
+    shadow their name file-wide. The modifier check reads only the segment
+    belonging to this declaration: after `private struct A {}; struct B {}`,
+    `B` is public. `private(set)` restricts just the setter, so it never
+    marks a declaration private at all.
+
+    A nested declaration shadows its name only inside the body of the scope
+    enclosing it — what makes `struct Outer { struct Foo {} }` different from
+    a top-level `Foo`. Members of a type scope are visible throughout it, but
+    a `let`/`var` binding inside a function or statement scope is not in
+    scope before its declaration or inside its own initializer
+    (`let x = x()` resolves the right-hand `x` outward), so those shadows
+    start where the statement ends. Scope is resolved at each declaration's
+    offset, so `{ let x: Int }` on one line never promotes `x` to a
+    top-level owner. Top-level `func <~>` operator declarations own their
+    operator name too.
     """
     # Every brace pair in the file, as (open, close) character offsets.
     stack: list[int] = []
@@ -205,19 +382,58 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
             i -= 1
         return None
 
+    def is_type_scope(open_pos: int) -> bool:
+        """Whether the `{` at open_pos opens a type/extension body: members
+        are visible throughout it, unlike statement-scope bindings."""
+        seg_start = max(stripped.rfind(c, 0, open_pos) for c in ";{}") + 1
+        last = None
+        for kw in _SCOPE_KW.finditer(stripped[seg_start:open_pos]):
+            last = kw.group(1)
+        return last in _TYPE_SCOPE_KW
+
+    def statement_end(pos: int) -> int:
+        """Offset where the declaration at `pos` completes: the first `;` or
+        newline at balanced depth. The name enters scope only after this —
+        references inside its own initializer still resolve outward."""
+        depth, i, limit = 0, pos, len(stripped)
+        while i < limit:
+            c = stripped[i]
+            if c in "([{":
+                depth += 1
+            elif c in ")]}":
+                if depth == 0:
+                    break
+                depth -= 1
+            elif depth == 0 and c in ";\n":
+                break
+            i += 1
+        return i
+
     n = len(stripped)
     top: set[str] = set()
     shadows: dict[str, list[tuple[int, int]]] = collections.defaultdict(list)
     for match in _DECL.finditer(stripped):
-        name = match.group(1)
+        keyword, name = match.group(1), match.group(2)
         pair = enclosing(match.start())
         if pair is None:
             shadows[name].append((0, n))
-            line_start = stripped.rfind("\n", 0, match.start()) + 1
-            if not _PRIV.search(stripped[line_start : match.start()]):
+            seg_start = max(stripped.rfind(c, 0, match.start()) for c in ";{}") + 1
+            if not _PRIV.search(stripped[seg_start : match.start()]):
                 top.add(name)
+        elif keyword in ("let", "var") and not is_type_scope(pair[0]):
+            shadows[name].append((match.start(2), match.end(2)))  # the binding token itself
+            shadows[name].append((statement_end(match.end()), pair[1]))
         else:
             shadows[name].append(pair)
+    # Top-level operator functions own their operator name (`func <~>`).
+    for match in _OP_DECL.finditer(stripped):
+        name = match.group(1)
+        if name in _STDLIB_OPS:
+            continue
+        if enclosing(match.start()) is None:
+            seg_start = max(stripped.rfind(c, 0, match.start()) for c in ";{}") + 1
+            if not _PRIV.search(stripped[seg_start : match.start()]):
+                top.add(name)
     return top, shadows
 
 
@@ -306,6 +522,15 @@ class Graph:
         # name -> files declaring it, for every name owned by more than one component (R5).
         self.ambiguous = {name: sorted(declared_in[name]) for name, comps in sorted(owners.items()) if len(comps) > 1}
         owner = {name: next(iter(comps)) for name, comps in owners.items() if len(comps) == 1}
+        # Custom operators (`func <~>`) carry dependencies too; `_IDENT`
+        # cannot see them, so each owned operator is matched as a maximal
+        # operator-char token.
+        op_class = re.escape("".join(_OP_CHARS))
+        op_patterns = {
+            name: re.compile(rf"(?<![{op_class}]){re.escape(name)}(?![{op_class}])")
+            for name in owner
+            if not name[0].isalpha() and name[0] != "_"
+        }
 
         # refs[(src, dst)][symbol] = set(files)
         self.refs: dict[tuple[str, str], dict[str, set[str]]] = collections.defaultdict(
@@ -321,6 +546,10 @@ class Graph:
                     continue
                 target = owner.get(name)
                 if target is not None and target != component:
+                    self.refs[(component, target)][name].add(rel)
+            for name, pattern in op_patterns.items():
+                target = owner[name]
+                if target != component and pattern.search(text):
                     self.refs[(component, target)][name].add(rel)
 
         self.components = sorted(set(self.file_component.values()))
@@ -441,8 +670,20 @@ def write_baseline(graph: Graph, path: Path) -> None:
     path.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
 
 
-def base_regressions(repo: Path, ref: str, baseline_path: Path, baseline: dict) -> list[str]:
-    """Where the committed baseline allows more debt than the baseline at `ref` did."""
+def _show_at_ref(repo: Path, ref: str, rel: str) -> str | None:
+    shown = subprocess.run(["git", "-C", str(repo), "show", f"{ref}:{rel}"], capture_output=True, text=True)
+    return shown.stdout if shown.returncode == 0 else None
+
+
+def base_regressions(
+    repo: Path,
+    ref: str,
+    baseline_path: Path,
+    baseline: dict,
+    manifest_path: Path,
+    manifest: dict,
+) -> list[str]:
+    """Where the committed baseline or manifest allows more debt than at `ref`."""
     resolved = subprocess.run(
         ["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
         capture_output=True,
@@ -453,25 +694,47 @@ def base_regressions(repo: Path, ref: str, baseline_path: Path, baseline: dict) 
             return [f"base: {ref} does not resolve, so the baseline cannot be held to it"]
         print(f"services-layering: base {ref} does not resolve; base-relative check skipped")
         return []
-    rel = baseline_path.resolve().relative_to(repo).as_posix()
-    shown = subprocess.run(["git", "-C", str(repo), "show", f"{ref}:{rel}"], capture_output=True, text=True)
-    if shown.returncode != 0:
-        print(f"services-layering: {rel} is new relative to {ref}; allowed")
-        return []
-    old = json.loads(shown.stdout)
     raised: list[str] = []
-    for rule in ("upward", "cyclic"):
-        before = old.get(rule, {})
-        for key, count in baseline.get(rule, {}).items():
-            if key not in before:
-                raised.append(f"baseline adds {rule} key {key} (absent at base)")
-            elif count > before[key]:
-                raised.append(f"baseline raises {rule} {key} {before[key]} -> {count}")
-    for key, value in baseline.get("summary", {}).items():
-        if key in old.get("summary", {}) and value > old["summary"][key]:
-            raised.append(f"baseline raises summary {key} {old['summary'][key]} -> {value}")
-    for rel_file in sorted(set(baseline.get("servicesRootFiles", [])) - set(old.get("servicesRootFiles", []))):
-        raised.append(f"baseline adds Services root file {rel_file} (absent at base)")
+
+    rel = baseline_path.resolve().relative_to(repo).as_posix()
+    shown = _show_at_ref(repo, ref, rel)
+    if shown is None:
+        print(f"services-layering: {rel} is new relative to {ref}; allowed")
+    else:
+        old = json.loads(shown)
+        for rule in ("upward", "cyclic"):
+            before = old.get(rule, {})
+            for key, count in baseline.get(rule, {}).items():
+                if key not in before:
+                    raised.append(f"baseline adds {rule} key {key} (absent at base)")
+                elif count > before[key]:
+                    raised.append(f"baseline raises {rule} {key} {before[key]} -> {count}")
+        for key, value in baseline.get("summary", {}).items():
+            if key in old.get("summary", {}) and value > old["summary"][key]:
+                raised.append(f"baseline raises summary {key} {old['summary'][key]} -> {value}")
+        for rel_file in sorted(set(baseline.get("servicesRootFiles", [])) - set(old.get("servicesRootFiles", []))):
+            raised.append(f"baseline adds Services root file {rel_file} (absent at base)")
+
+    # Reclassifying a component to a higher layer would launder debt the
+    # baseline never had to record, so the layer map is pinned to base.
+    manifest_rel = manifest_path.resolve().relative_to(repo).as_posix()
+    shown = _show_at_ref(repo, ref, manifest_rel)
+    if shown is None:
+        print(f"services-layering: {manifest_rel} is new relative to {ref}; allowed")
+    else:
+        old_manifest = json.loads(shown)
+        if old_manifest.get("layers") != manifest.get("layers"):
+            raised.append("manifest layer order differs from base")
+        for key in ("rootPrefix", "servicesRootComponent", "contractsDirectory", "contractsLayer", "pathExclusions"):
+            if old_manifest.get(key) != manifest.get(key):
+                raised.append(f"manifest setting {key} differs from base")
+        old_layers = {c["name"]: c["layer"] for c in old_manifest.get("components", [])}
+        for component in manifest.get("components", []):
+            old_layer = old_layers.get(component["name"])
+            if old_layer is not None and old_layer != component["layer"]:
+                raised.append(
+                    f"manifest reclassifies {component['name']} {old_layer} -> {component['layer']} (absent at base)"
+                )
     return raised
 
 
@@ -577,7 +840,9 @@ def main() -> int:
     args = parser.parse_args()
 
     repo = Path(args.root).resolve()
-    manifest = Manifest(load_json(Path(args.manifest) if args.manifest else repo / "config/services-layers.json"))
+    manifest_path = Path(args.manifest) if args.manifest else repo / "config/services-layers.json"
+    manifest_data = load_json(manifest_path)
+    manifest = Manifest(manifest_data)
     baseline_path = Path(args.baseline) if args.baseline else repo / "budgets/services-layering-baseline.json"
     moves = load_json(Path(args.simulate)).get("files", {}) if args.simulate else {}
     graph = Graph(repo, manifest, moves)
@@ -606,7 +871,9 @@ def main() -> int:
         print(f"missing baseline {baseline_path}; run --update", file=sys.stderr)
         return 1
     baseline = load_json(baseline_path)
-    base_failures = base_regressions(repo, args.base, baseline_path, baseline) if args.base else []
+    base_failures = (
+        base_regressions(repo, args.base, baseline_path, baseline, manifest_path, manifest_data) if args.base else []
+    )
     return check(graph, baseline, base_failures)
 
 

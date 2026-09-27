@@ -118,14 +118,20 @@ count may only shrink, and moves inside a component never touch the baseline. Wh
 retires debt, the gate prints `Improved:` and asks for `--update`. The committed baseline is
 itself held to the base commit's (`--base`, fed by CI from the PR or merge-group base): a key
 absent at base, a higher count, or a new root file fails, so running `--update` cannot launder
-new debt into the same change.
+new debt into the same change. The manifest's layer map is pinned the same way: layer order,
+the scalar settings, and every component's layer assignment must match base, so a PR cannot
+reclassify a component upward to make debt legal.
 
 Resolution is conservative. Only top-level declarations own a name — types, plus top-level
-`func`/`var`/`let`, because a free function is as much a cross-file dependency as a type —
-while `private`/`fileprivate` names are file-local and never owned. Shadowing is lexical: a
-nested declaration suppresses its name only inside the scope that encloses it, never the whole
-file. Comments are stripped; string literals are stripped except the executable expressions
-inside `\( )` interpolation. The analyzer runs over all of AgentLens in about a second.
+`func`/`var`/`let` and `func <op>` operators (stdlib operator spellings are never owned),
+because a free function or operator is as much a cross-file dependency as a type —
+while `private`/`fileprivate` names are file-local and never owned (`private(set)` still
+exposes the getter, so it is owned). Shadowing is lexical: a nested declaration suppresses
+its name only inside the scope that encloses it — type members throughout the type body, a
+`let`/`var` in a function or statement scope only from where its declaration ends, never the
+whole file. Comments are stripped; string and regex literals are stripped except the
+executable expressions inside `\( )` interpolation. The analyzer runs over all of AgentLens
+in about a second.
 
 Useful modes:
 
@@ -275,7 +281,7 @@ No logic changed. Apart from import lines, the only non-verbatim lines are call 
 instead of adding an umbrella import.
 
 Validation: headless app build `BUILD SUCCEEDED`; `build-for-testing` `TEST BUILD SUCCEEDED`; gate
-self-test green (12 cases); pbxproj regenerated with pinned XcodeGen 2.45.4; umbrella-imports
+self-test green (38 cases after the review rounds sharpened the resolver); pbxproj regenerated with pinned XcodeGen 2.45.4; umbrella-imports
 baseline and `check-budget-fork-drift.sh` repointed at the moved paths. Every
 `scripts/debt/check-*.sh` passes except `check-string-any-boundary-budget.test.sh` and
 `check-domain-core-freeze.sh`, which fail identically on a pristine `origin/main` export. The PR

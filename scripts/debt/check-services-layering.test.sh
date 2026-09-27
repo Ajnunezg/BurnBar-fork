@@ -408,6 +408,134 @@ run_case "a literal inside an interpolation does not close the outer literal" 1 
 run_case "members declared after { on one line are not top-level owners" 0 stdout "services-layering: OK" clean mut_t
 run_case "nested block comments are stripped completely" 0 stdout "services-layering: OK" clean mut_u
 
+mut_v() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+// `private` binds to its own declaration only: SharedName is public, so the
+// duplicate in FeatureB must still trip R5.
+private struct Helper {}; struct SharedName {}
+SWIFT
+  cat >>"${1}/AgentLens/Services/FeatureB/B.swift" <<'SWIFT'
+
+struct SharedName {
+    let id: String
+}
+SWIFT
+}
+mut_w() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+// private(set) restricts the setter only: the getter is default access, so
+// other components can reference it and the dependency must count.
+private(set) var sharedCounter = 0
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreReadsCounter {
+    let c = sharedCounter
+}
+SWIFT
+}
+mut_x() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func featureAFactory() -> FeatureAThing? { nil }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreShadowsFactory {
+    // The binding is not in scope inside its own initializer: the right-hand
+    // call resolves to the FeatureA top-level function, so this is an edge.
+    func load() {
+        let featureAFactory = featureAFactory()
+        _ = featureAFactory
+    }
+}
+SWIFT
+}
+mut_y() { cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+// Regex literals are pattern text, not type references.
+struct DataStoreRegex {
+    let pattern = /FeatureAThing+/
+    let raw = #/FeatureAThing [a-z]+/#
+    let cls = /[A/]FeatureAThing/
+}
+SWIFT
+}
+mut_z() { cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+// Interpolation inside a regex literal is executable code: it still counts.
+struct DataStoreRegexInterpolation {
+    let pattern = /\(FeatureAThing.self)/
+}
+SWIFT
+}
+mut_aa() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+infix operator <~>
+func <~>(lhs: Int, rhs: Int) -> Int { lhs }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreUsesOperator {
+    let c = 1 <~> 2
+}
+SWIFT
+}
+mut_ab() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+// `<` is a standard library operator: declaring it top-level does not make
+// FeatureA the owner of every `<` in the codebase.
+func <(lhs: Int, rhs: Int) -> Bool { true }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreStdlibOperator {
+    let ok = 1 < 2
+}
+SWIFT
+}
+mut_ac() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func featureAFactory() -> FeatureAThing? { nil }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreLocalShadow {
+    // After its declaration the local binding does shadow the name, so the
+    // second use is NOT a reference to FeatureA's top-level function.
+    func m() {
+        let featureAFactory = makeFactory()
+        _ = featureAFactory
+    }
+}
+SWIFT
+}
+mut_ad() {
+  python3 - "${1}/config/services-layers.json" <<'PY'
+import json, sys
+p = sys.argv[1]
+m = json.load(open(p))
+for c in m["components"]:
+    if c["name"] == "Services/DataStore":
+        c["layer"] = "feature"
+json.dump(m, open(p, "w"), indent=2)
+PY
+}
+run_case "private modifier binds to its own declaration only" 1 stderr "R5 ambiguous" clean mut_v
+run_case "private(set) declarations are still publicly owned" 1 stderr "R1 upward" clean mut_w
+run_case "a local binding does not shadow inside its own initializer" 1 stderr "R1 upward" clean mut_x
+run_case "regex literals are not type references" 0 stdout "services-layering: OK" clean mut_y
+run_case "regex interpolation still counts as a reference" 1 stderr "R1 upward" clean mut_z
+run_case "custom operator declarations carry dependency edges" 1 stderr "R1 upward" clean mut_aa
+run_case "standard library operators are never component-owned" 0 stdout "services-layering: OK" clean mut_ab
+run_case "a local binding shadows its name only after declaration" 0 stdout "services-layering: OK" clean mut_ac
+run_base_case "base: manifest layer reclassification fails" 1 "manifest reclassifies Services/DataStore" debt yes mut_ad
+
 # ── Regression: the gate is wired into the CI debt-budgets job ───────────────
 workflow="${here}/../../.github/workflows/fast-feedback.yml"
 if [[ -f "${workflow}" ]] && grep -q "check-services-layering.sh" "${workflow}"; then
