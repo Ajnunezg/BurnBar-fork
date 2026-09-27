@@ -3060,6 +3060,12 @@
 		AA4441FF35B8A2B439275B17 /* ControlPlaneStore+UsageMemoryCandidates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21B9FA1E7827499EED14D99 /* ControlPlaneStore+UsageMemoryCandidates.swift */; };
 		CF72EA1C9236B1A88063AD37 /* UsageSessionLogMiner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 258E7F0F6EB2849578027AB4 /* UsageSessionLogMiner.swift */; };
 		E795EDF31E9B8B0148760674 /* UsageSessionLogMinerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB88DAC316E4FE8B369AD4A8 /* UsageSessionLogMinerTests.swift */; };
+		5D9535BDFAE477BDE137A953 /* OpenBurnBarDatabase+UsageMemoryMigrations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DF31DA05C1A0F11E51E0123 /* OpenBurnBarDatabase+UsageMemoryMigrations.swift */; };
+		2E01A318C5FA3E5AB2FCEC41 /* UsageMemoryBatchExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D3D628FEF54AF65AFE70308 /* UsageMemoryBatchExtractor.swift */; };
+		A493EDF7D01E83226ECC3221 /* UsageMemoryExtractionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D17ADC0AC9D844FC2B61F126 /* UsageMemoryExtractionPolicy.swift */; };
+		BD3261128494F2E6E2C8C0CB /* UsageMemoryExtractionPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA4D8B7A133A656F19D688E /* UsageMemoryExtractionPromptBuilder.swift */; };
+		A1DB5E4EE90AC06B15D32B11 /* UserIdleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 695C8FD21ECA2F9193D05F22 /* UserIdleService.swift */; };
+		0A4987975C22905E7D95DFEE /* UsageMemoryStage1Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58244E1B069B33F9FD0B85CA /* UsageMemoryStage1Tests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -6201,6 +6207,12 @@
 		A21B9FA1E7827499EED14D99 /* ControlPlaneStore+UsageMemoryCandidates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ControlPlaneStore+UsageMemoryCandidates.swift"; path = "AgentLens/Services/DataStore/ControlPlaneStore+UsageMemoryCandidates.swift"; sourceTree = SOURCE_ROOT; };
 		258E7F0F6EB2849578027AB4 /* UsageSessionLogMiner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageSessionLogMiner.swift"; path = "AgentLens/Services/Memory/UsageSessionLogMiner.swift"; sourceTree = SOURCE_ROOT; };
 		BB88DAC316E4FE8B369AD4A8 /* UsageSessionLogMinerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageSessionLogMinerTests.swift"; path = "AgentLensTests/Active/UsageSessionLogMinerTests.swift"; sourceTree = SOURCE_ROOT; };
+		6DF31DA05C1A0F11E51E0123 /* OpenBurnBarDatabase+UsageMemoryMigrations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "OpenBurnBarDatabase+UsageMemoryMigrations.swift"; path = "AgentLens/Services/DataStore/OpenBurnBarDatabase+UsageMemoryMigrations.swift"; sourceTree = SOURCE_ROOT; };
+		4D3D628FEF54AF65AFE70308 /* UsageMemoryBatchExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryBatchExtractor.swift"; path = "AgentLens/Services/Memory/UsageMemoryBatchExtractor.swift"; sourceTree = SOURCE_ROOT; };
+		D17ADC0AC9D844FC2B61F126 /* UsageMemoryExtractionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryExtractionPolicy.swift"; path = "AgentLens/Services/Memory/UsageMemoryExtractionPolicy.swift"; sourceTree = SOURCE_ROOT; };
+		0EA4D8B7A133A656F19D688E /* UsageMemoryExtractionPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryExtractionPromptBuilder.swift"; path = "AgentLens/Services/Memory/UsageMemoryExtractionPromptBuilder.swift"; sourceTree = SOURCE_ROOT; };
+		695C8FD21ECA2F9193D05F22 /* UserIdleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UserIdleService.swift"; path = "AgentLens/Services/Performance/UserIdleService.swift"; sourceTree = SOURCE_ROOT; };
+		58244E1B069B33F9FD0B85CA /* UsageMemoryStage1Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryStage1Tests.swift"; path = "AgentLensTests/Active/UsageMemoryStage1Tests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -14218,6 +14230,7 @@
 				F8D4C1B60D03AA9112548BE8 /* WorkflowInsightRollupServiceTests.swift in Sources */,
 				8216F88657712626917F15AC /* XAIQuotaAdapterTests.swift in Sources */,
 				C78213F160506461F0B67AF2 /* ZAIQuotaAdapterCredentialReadTests.swift in Sources */,
+				0A4987975C22905E7D95DFEE /* UsageMemoryStage1Tests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -15350,6 +15363,11 @@
 				A9EB1A6A1092939DEADA914F /* WarWireHost.swift in Sources */,
 				E9BD27265E936B766EA33D74 /* WindowManagerProtocol.swift in Sources */,
 				E615B11154069B8CC0274FFB /* ZaiMiniMaxUsageProbe.swift in Sources */,
+				5D9535BDFAE477BDE137A953 /* OpenBurnBarDatabase+UsageMemoryMigrations.swift in Sources */,
+				2E01A318C5FA3E5AB2FCEC41 /* UsageMemoryBatchExtractor.swift in Sources */,
+				A493EDF7D01E83226ECC3221 /* UsageMemoryExtractionPolicy.swift in Sources */,
+				BD3261128494F2E6E2C8C0CB /* UsageMemoryExtractionPromptBuilder.swift in Sources */,
+				A1DB5E4EE90AC06B15D32B11 /* UserIdleService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
