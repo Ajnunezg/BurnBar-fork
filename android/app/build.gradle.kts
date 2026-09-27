@@ -56,7 +56,7 @@ plugins {
 
 val openBurnBarAppVersionName =
     providers.gradleProperty("openBurnBarAppVersionName")
-        .orElse("1.0.40")
+        .orElse("1.0.41")
 val openBurnBarCompileSdk: Int by rootProject.extra
 val openBurnBarTargetSdk: Int by rootProject.extra
 fun Any?.asJsonMap(): Map<*, *> = this as? Map<*, *> ?: emptyMap<Any, Any>()
@@ -255,7 +255,7 @@ android {
         applicationId = "com.openburnbar"
         minSdk = 26
         targetSdk = openBurnBarTargetSdk
-        versionCode = 48
+        versionCode = 49
         versionName = openBurnBarAppVersionName.get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
