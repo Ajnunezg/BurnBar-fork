@@ -48,7 +48,14 @@ method ceiling, the daemon becomes the next monolith.
   - at most 36 methods per domain; a domain that outgrows it must split,
   - at most 210 methods in total (one strangler wave of headroom),
   - a frozen, shrink-only actor-bound surface (172 methods today) with
-    per-domain counts, so **new methods land in an isolated domain handler**.
+    per-domain counts, so **new methods land in an isolated domain handler**,
+  - no stale ceilings: when a method is retired or its domain moves off the
+    actor, the gate fails until `--update` ratchets the budget down, so the
+    freed slot cannot be refilled later,
+  - every method of an isolated domain named in a `case .<method>` arm of its
+    handler, so a method added to a domain set without an implementation
+    fails CI instead of reaching the handler's `unhandled` precondition at
+    runtime.
 
   `check-rpc-method-freeze.sh` is now wired alongside it, so every addition is
   still acknowledged against the protocol baseline that ADR 005 cites.

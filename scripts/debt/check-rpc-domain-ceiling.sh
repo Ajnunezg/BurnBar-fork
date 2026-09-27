@@ -12,9 +12,13 @@
 #     exactly (a method in no domain, in two domains, or not in the enum),
 #   * any domain exceeds maxMethodsPerDomain (split it),
 #   * the total surface exceeds maxTotalMethods,
+#   * an isolated handler does not name every method of its domain in a
+#     `case .<method>` arm (the router would reach its `unhandled` precondition),
 #   * the actor-bound surface exceeds maxActorBoundMethods, an actor-bound domain
 #     exceeds its frozen count, or a domain becomes actor-bound without a budget
 #     entry. New methods therefore land in an isolated domain handler.
+#   * a frozen ceiling sits above the live count (a retired or relocated method
+#     left a slot that could be refilled); run --update to ratchet it down.
 #
 # Modes:
 #   (none)        check against budgets/daemon-rpc-domain-baseline.json
@@ -90,12 +94,25 @@ if problems:
 
 case_by_wire = {wire: case for case, wire in wire_name.items()}
 isolated = set()
+handled_by = {}
 if handlers_dir.is_dir():
     for handler in sorted(handlers_dir.glob("*.swift")):
-        for case in re.findall(r"static let domain: BurnBarDaemonRPCDomain = \.(\w+)", handler.read_text(encoding="utf-8")):
+        source = handler.read_text(encoding="utf-8")
+        arms = set()
+        for arm in re.findall(r"^\s*case\s+(\.\w+(?:\s*,\s*\.\w+)*)\s*:", source, re.M):
+            arms.update(re.findall(r"\.(\w+)", arm))
+        for case in re.findall(r"static let domain: BurnBarDaemonRPCDomain = \.(\w+)", source):
             if case not in wire_name:
                 fail(f"{handler.relative_to(root)} declares unknown domain .{case}")
             isolated.add(wire_name[case])
+            handled_by[wire_name[case]] = (handler, arms)
+
+unimplemented = []
+for domain, (handler, arms) in sorted(handled_by.items()):
+    for method in sorted(set(domains[domain]) - arms):
+        unimplemented.append(f"{method} is in domain '{domain}' but {handler.relative_to(root)} has no `case .{method}`")
+if unimplemented:
+    fail("Isolated handlers do not implement every method of their domain:\n  " + "\n  ".join(unimplemented))
 
 counts = {domain: len(methods) for domain, methods in sorted(domains.items())}
 actor_bound = {domain: count for domain, count in counts.items() if domain not in isolated}
@@ -151,6 +168,19 @@ if live["actorBoundMethods"] > budget["maxActorBoundMethods"]:
         f"actor-bound RPC surface grew to {live['actorBoundMethods']} (ceiling {budget['maxActorBoundMethods']})"
     )
 
+stale = [
+    f"'{d}' frozen at {frozen[d]} but live is {actor_bound.get(d, 0)}"
+    for d in sorted(frozen)
+    if frozen[d] > actor_bound.get(d, 0)
+]
+if budget["maxActorBoundMethods"] > live["actorBoundMethods"]:
+    stale.append(f"maxActorBoundMethods {budget['maxActorBoundMethods']} but live is {live['actorBoundMethods']}")
+if stale:
+    errors.append(
+        "actor-bound ceilings are stale (" + "; ".join(stale) + "); "
+        "run scripts/debt/check-rpc-domain-ceiling.sh --update so the freed slots cannot be refilled"
+    )
+
 print(
     f"Daemon RPC domains: total={live['totalMethods']}/{budget['maxTotalMethods']} "
     f"actor-bound={live['actorBoundMethods']}/{budget['maxActorBoundMethods']} "
@@ -159,12 +189,5 @@ print(
 if errors:
     fail("Daemon RPC domain ceiling exceeded:\n  " + "\n  ".join(errors))
 
-stale = sorted(d for d in frozen if frozen[d] > actor_bound.get(d, 0))
-if stale:
-    print(
-        "::notice::actor-bound ceilings above live for "
-        + ", ".join(stale)
-        + "; run scripts/debt/check-rpc-domain-ceiling.sh --update to ratchet them down."
-    )
 print("Daemon RPC domain ceiling OK.")
 PY

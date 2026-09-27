@@ -87,7 +87,32 @@ expect fail "new method in an actor-bound domain" "${t}"
 
 t="$(new_tree)"
 add_method "${t}" testIsolatedGrowth chat
-expect pass "new method in an isolated domain" "${t}"
+expect fail "new isolated-domain method with no handler case" "${t}"
+python3 - "${t}/${domains_rel}/BurnBarChatRPCHandler.swift" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path).read().replace("        default:\n", "        case .testIsolatedGrowth:\n            unhandled(call)\n        default:\n", 1)
+open(path, "w").write(text)
+PY
+expect pass "new isolated-domain method with a handler case" "${t}"
+
+t="$(new_tree)"
+cat > "${t}/${domains_rel}/BurnBarSwitcherRPCHandler.swift" <<'SWIFT'
+struct BurnBarSwitcherRPCHandler {
+    static let domain: BurnBarDaemonRPCDomain = .switcher
+    func handle(_ call: BurnBarDaemonRPCCall) {
+        switch call.method {
+        case .switcherActiveProfileApply:
+            break
+        default:
+            break
+        }
+    }
+}
+SWIFT
+expect fail "domain moved off the actor without ratcheting the budget" "${t}"
+REPO_ROOT="${t}" bash "${gate}" --update >/dev/null
+expect pass "domain moved off the actor after --update" "${t}"
 
 t="$(new_tree)"
 add_method "${t}" testUnrouted
@@ -121,6 +146,7 @@ for path, pattern in ((coverage, r"\n\s*\.usageInsights,?"), (methods, r"\n\s*ca
     text = re.sub(pattern, "", open(path).read())
     open(path, "w").write(text)
 PY
+expect fail "retired actor-bound method leaves a stale ceiling" "${t}"
 REPO_ROOT="${t}" bash "${gate}" --update >/dev/null
 if python3 -c "import json,sys; b=json.load(open(sys.argv[1])); sys.exit(0 if b['actorBoundDomains']['usage']==5 and b['maxActorBoundMethods']==171 else 1)" "${t}/${budget_rel}"; then
   pass=$((pass + 1))
