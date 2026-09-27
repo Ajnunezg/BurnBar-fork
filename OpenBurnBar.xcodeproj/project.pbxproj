@@ -3077,6 +3077,7 @@
 		A556002A4CC0A7D7141F5802 /* UsageMemoryAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 192353D1D4D9BD23EDD4AFEE /* UsageMemoryAcceptanceTests.swift */; };
 		5A9DACE75C2127C320D22F26 /* MacMemoryWalletStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 149BE6EB45A5F6754AB34D28 /* MacMemoryWalletStore.swift */; };
 		0D39A2131004D2828E4EE32B /* MemoryWalletStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 915121817C11A80C7D79652E /* MemoryWalletStore.swift */; };
+		A8E08E466A5B61FC03BD4387 /* UsageAccountAttributionUpsertTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF95CA6DC044F8AC2B618AAD /* UsageAccountAttributionUpsertTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -6235,6 +6236,7 @@
 		192353D1D4D9BD23EDD4AFEE /* UsageMemoryAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryAcceptanceTests.swift"; path = "AgentLensTests/Active/UsageMemoryAcceptanceTests.swift"; sourceTree = SOURCE_ROOT; };
 		149BE6EB45A5F6754AB34D28 /* MacMemoryWalletStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MacMemoryWalletStore.swift"; path = "AgentLens/Services/MacMemoryWalletStore.swift"; sourceTree = SOURCE_ROOT; };
 		915121817C11A80C7D79652E /* MemoryWalletStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MemoryWalletStore.swift"; path = "OpenBurnBarMobile/Services/MemoryWalletStore.swift"; sourceTree = SOURCE_ROOT; };
+		FF95CA6DC044F8AC2B618AAD /* UsageAccountAttributionUpsertTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageAccountAttributionUpsertTests.swift"; path = "AgentLensTests/Active/UsageAccountAttributionUpsertTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -14258,6 +14260,7 @@
 				A8273CBF00D7DA68B06F6025 /* UsageMemoryConsolidationTests.swift in Sources */,
 				780876B7394330E5410D9F8E /* UsageMemoryPromoteSelfHealTests.swift in Sources */,
 				A556002A4CC0A7D7141F5802 /* UsageMemoryAcceptanceTests.swift in Sources */,
+				A8E08E466A5B61FC03BD4387 /* UsageAccountAttributionUpsertTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
