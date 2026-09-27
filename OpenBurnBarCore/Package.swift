@@ -872,6 +872,11 @@ let openBurnBarCoreOffAppleTestSources: [String]? = [
     "GeminiCLIQuotaAdapterTests.swift",
     "BurnBarProviderAuthRegistryTests.swift",
     "ProviderQuotaAdapterRegistryTests.swift"
+    "TogetherQuotaAdapterTests.swift",
+    "ProviderQuotaAdapterRegistryTests.swift",
+    "BurnBarProviderAuthRegistryTests.swift",
+    "OpenBurnBarCatalogTests.swift",
+    "ProviderIngestionContractTests.swift"
 ]
 let openBurnBarCorePlaceholderExcludes = ["LinuxEmptyTests.swift"]
 let computerUseCoreOffAppleTestSources: [String]? = [
@@ -908,6 +913,11 @@ let openBurnBarCoreOffAppleTestSources: [String]? = [
     "GeminiCLIQuotaAdapterTests.swift",
     "BurnBarProviderAuthRegistryTests.swift",
     "ProviderQuotaAdapterRegistryTests.swift"
+    "TogetherQuotaAdapterTests.swift",
+    "ProviderQuotaAdapterRegistryTests.swift",
+    "BurnBarProviderAuthRegistryTests.swift",
+    "OpenBurnBarCatalogTests.swift",
+    "ProviderIngestionContractTests.swift"
 ]
 let openBurnBarCorePlaceholderExcludes: [String] = []
 let computerUseCoreOffAppleTestSources: [String]? = ["LinuxComputerUseCoreBehaviorTests.swift"]
@@ -959,6 +969,12 @@ func legacyLinuxTestExcludes(targetPath: String) -> [String] {
             "GeminiCLIQuotaAdapterTests.swift",
             "BurnBarProviderAuthRegistryTests.swift",
             "ProviderQuotaAdapterRegistryTests.swift",
+            "PackageDiffCoverageQuotaAndCLITests.swift",
+            "TogetherQuotaAdapterTests.swift",
+            "ProviderQuotaAdapterRegistryTests.swift",
+            "BurnBarProviderAuthRegistryTests.swift",
+            "OpenBurnBarCatalogTests.swift",
+            "ProviderIngestionContractTests.swift",
             "LinuxSecretStorageTests.swift",
             "LinuxRemoteUnlockCapabilitySigningKeyStoreTests.swift"
         ].contains(relativePath)
