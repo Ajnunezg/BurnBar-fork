@@ -150,7 +150,6 @@ final class SummarySettings {
         self.summaryOllamaModel = persistence.string(forKey: "summaryOllamaModel", defaultValue: "llama3.2")
         self.summaryOllamaBaseURL = persistence.string(forKey: "summaryOllamaBaseURL", defaultValue: LocalService.ollama.defaultBaseURL.absoluteString)
         self.summaryLocalModel = persistence.string(forKey: "summaryLocalModel", defaultValue: "qwen3.5:9b")
-        self.summaryLocalBaseURL = persistence.string(forKey: "summaryLocalBaseURL", defaultValue: "http://127.0.0.1:11434")
         self.usageMemoryLocalVLModel = persistence.string(forKey: "usageMemoryLocalVLModel", defaultValue: "qwen3-vl:8b")
         self.summaryLocalBaseURL = persistence.string(forKey: "summaryLocalBaseURL", defaultValue: LocalService.ollama.defaultBaseURL.absoluteString)
         self.summaryMLXModel = persistence.string(forKey: "summaryMLXModel", defaultValue: "mlx-community/Qwen3-4B-4bit")

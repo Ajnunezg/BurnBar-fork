@@ -73,7 +73,7 @@
   "dependencies": {
     "@amplitude/analytics-browser": "2.47.0",
     "@astrojs/check": "^0.9.10",
-    "@astrojs/mdx": "^8.0.2",
+    "@astrojs/mdx": "^7.0.3",
     "@chenglou/pretext": "0.0.9",
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/geist": "^5.3.0",
@@ -86,13 +86,13 @@
     "@typescript-eslint/eslint-plugin": "8.70.1",
     "@typescript-eslint/parser": "8.70.1",
     "esbuild": "0.28.2",
-    "eslint": "10.11.0",
+    "eslint": "9.39.4",
     "eslint-config-prettier": "10.1.8",
-    "eslint-plugin-astro": "3.2.1",
+    "eslint-plugin-astro": "1.7.0",
     "lightningcss": "^1.33.0",
     "prettier": "3.9.9",
-    "prettier-plugin-astro": "^1.0.1",
-    "vitest": "5.0.1"
+    "prettier-plugin-astro": "^0.14.1",
+    "vitest": "4.1.8"
   },
   "overrides": {
     "yaml": "^2.8.3",
