@@ -251,5 +251,5 @@ public sealed class SwarmRenderPlanOwner : IDisposable
 
     private void OnNetworkStatusChanged(object sender) => Refresh();
 
-    private void OnEnergySaverStatusChanged(object sender, object args) => Refresh();
+    private void OnEnergySaverStatusChanged(object? sender, object args) => Refresh();
 }
