@@ -31,6 +31,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `linear_integration_unconfigured` error on its first unconfigured filing. Clients (Mac, iOS, Android) decode
   `linearIssue` as optional and show "Filed as <reportId>" when no issue
   exists.
+- **Local-service endpoints are no longer ~90 hardcoded literals** — a new
+  `LocalServiceRegistry` (OpenBurnBarPlatformSupport) owns the default port
+  and loopback rules for the BurnBar gateway, Hermes, Pi Agents, OpenClaw,
+  Ollama, MLX, and SmartHub; every settings default, URL fallback, placeholder,
+  and detection check now reads from it. Wired-client detection (`isWired`,
+  Droid/Factory config sync) now matches the *configured* gateway port plus
+  the shipped 8317 default, so rows no longer flip to "not wired" after the
+  user moves `gatewayPort`; VibeProxy's legacy 8317 stays pinned via
+  `LegacyLocalEndpoint.vibeProxyPort`. The MLX default is unified at 8080
+  (mlx_lm.server's port; the catalog's 8328 was drift). Bootstrap validates
+  endpoint overrides and surfaces collisions in Help & Support; the daemon
+  warns and falls back on an invalid `--gateway-port`; and a CI ratchet
+  (`check-local-service-literals.mjs`) blocks new literals.
 - **User-facing copy no longer names the Signal library** — the Signal
   at-rest/transport path is wired but not activated in production, so error
   strings a user can read (thrown errors, alert descriptions, callable error

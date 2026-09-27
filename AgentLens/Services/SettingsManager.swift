@@ -743,8 +743,8 @@ final class SettingsManager {
     var gatewayConfigurationDict: [String: Any] {
         [
             "enabled": gatewayEnabled,
-            "host": gatewayHost.isEmpty ? "127.0.0.1" : gatewayHost,
-            "port": gatewayPort > 0 ? gatewayPort : 8317
+            "host": LocalService.openBurnBarGateway.resolvedHost(gatewayHost),
+            "port": LocalService.openBurnBarGateway.resolvedPort(gatewayPort)
         ]
     }
 
