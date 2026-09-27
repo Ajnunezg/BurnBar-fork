@@ -252,39 +252,7 @@ public struct UnifiedQuotaSignalView: View {
     }
 
     private var remainingText: String {
-        if bucket.isUsedOnlyMeter {
-            return "\(formatValue(bucket.used)) used"
-        }
-        if bucketUnit == .unlimited { return "Unlimited" }
-        switch displayMode {
-        case "usedPercent":
-            if bucketUnit == .percent {
-                let clamped = min(max(bucket.used, 0), 100)
-                return "\(Int(clamped.rounded()))% used"
-            }
-            let usedPct = bucket.displayRemainingPercent.map { 100 - $0 } ?? 0
-            return "\(Int(usedPct.rounded()))% used"
-        case "fractional":
-            let frac = bucket.displayRemainingFraction ?? 0
-            return String(format: "%.2f left", frac)
-        case "absoluteValues":
-            let used = formatValue(bucket.used)
-            let limit = formatValue(bucket.limit)
-            return "\(used) / \(limit)"
-        default: // remainingPercent
-            if bucketUnit == .percent {
-                let clamped = min(max(bucket.remaining, 0), 100)
-                return "\(Int(clamped.rounded()))% left"
-            }
-            if let pct = bucket.displayRemainingPercent {
-                return "\(Int(pct.rounded()))% left"
-            }
-            return "\(formatValue(bucket.remaining)) left"
-        }
-    }
-
-    var fullRemainingText: String {
-        if bucket.isUsedOnlyMeter {
+        if bucket.isUsedOnlyMeter || bucket.isUsedOnlySpendSignal {
             return "\(formatValue(bucket.used)) used"
         }
         if bucketUnit == .unlimited { return "Unlimited" }
@@ -316,7 +284,7 @@ public struct UnifiedQuotaSignalView: View {
     }
 
     private var usageText: String {
-        if bucket.isUsedOnlyMeter { return "Remaining unavailable" }
+        if bucket.isUsedOnlyMeter || bucket.isUsedOnlySpendSignal {
         if bucketUnit == .unlimited { return "No fixed cap" }
         let used = formatValue(bucket.used)
         let limit = formatValue(bucket.limit)

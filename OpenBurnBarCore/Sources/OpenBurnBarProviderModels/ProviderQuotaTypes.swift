@@ -624,6 +624,12 @@ public extension ProviderQuotaBucket {
             }
         }
 
+        // Used-only currency spend (Together month-to-date) is a real meter
+        // without a remaining-credit window. Show the spend figure; do not
+        // require a remaining fraction that would invent prepaid headroom.
+        if isUsedOnlySpendSignal {
+            return true
+        }
         if isUsedOnlyMeter {
             return used.isFinite && used >= 0
         }
@@ -634,6 +640,16 @@ public extension ProviderQuotaBucket {
     /// Used-token / used-request meters with no vendor remaining-quota API.
     public var isUsedOnlyMeter: Bool {
         meta?["limitKind"]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "used-only"
+    }
+
+    /// Month-to-date (or similar) currency spend with no prepaid remaining
+    /// window. Display as used-only; never invent remaining % or a cap.
+    public var isUsedOnlySpendSignal: Bool {
+        unit == .currency
+            && usedValue != nil
+            && limitValue == nil
+            && remainingValue == nil
+            && usedPercent == nil
     }
 }
 
