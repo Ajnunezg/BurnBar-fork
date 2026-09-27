@@ -3072,6 +3072,8 @@
 		F29805310BC43E826F0D7505 /* ControlPlaneStore+MemoryConsolidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDBBCF0D2F7EE6FFF95E9D66 /* ControlPlaneStore+MemoryConsolidation.swift */; };
 		5DE13E25B2DA40A44B636F3C /* MemoryConsolidationWorker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 404B9F1C46284D74F2171A1A /* MemoryConsolidationWorker.swift */; };
 		A8273CBF00D7DA68B06F6025 /* UsageMemoryConsolidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A5B24C0DB2CC0696A9DDB3A /* UsageMemoryConsolidationTests.swift */; };
+		2EED0D85FBFBE1334D7B7615 /* ControlPlaneStore+UsageMemoryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 589A9A25DC224F4F95E63996 /* ControlPlaneStore+UsageMemoryPolicy.swift */; };
+		780876B7394330E5410D9F8E /* UsageMemoryPromoteSelfHealTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1280E101FDBB88467676F89B /* UsageMemoryPromoteSelfHealTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -6225,6 +6227,8 @@
 		CDBBCF0D2F7EE6FFF95E9D66 /* ControlPlaneStore+MemoryConsolidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ControlPlaneStore+MemoryConsolidation.swift"; path = "AgentLens/Services/DataStore/ControlPlaneStore+MemoryConsolidation.swift"; sourceTree = SOURCE_ROOT; };
 		404B9F1C46284D74F2171A1A /* MemoryConsolidationWorker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MemoryConsolidationWorker.swift"; path = "AgentLens/Services/Memory/MemoryConsolidationWorker.swift"; sourceTree = SOURCE_ROOT; };
 		3A5B24C0DB2CC0696A9DDB3A /* UsageMemoryConsolidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryConsolidationTests.swift"; path = "AgentLensTests/Active/UsageMemoryConsolidationTests.swift"; sourceTree = SOURCE_ROOT; };
+		589A9A25DC224F4F95E63996 /* ControlPlaneStore+UsageMemoryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ControlPlaneStore+UsageMemoryPolicy.swift"; path = "AgentLens/Services/DataStore/ControlPlaneStore+UsageMemoryPolicy.swift"; sourceTree = SOURCE_ROOT; };
+		1280E101FDBB88467676F89B /* UsageMemoryPromoteSelfHealTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageMemoryPromoteSelfHealTests.swift"; path = "AgentLensTests/Active/UsageMemoryPromoteSelfHealTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -14245,6 +14249,7 @@
 				0A4987975C22905E7D95DFEE /* UsageMemoryStage1Tests.swift in Sources */,
 				92CC331E97F46CB4894D282B /* UsageMemoryStage2Tests.swift in Sources */,
 				A8273CBF00D7DA68B06F6025 /* UsageMemoryConsolidationTests.swift in Sources */,
+				780876B7394330E5410D9F8E /* UsageMemoryPromoteSelfHealTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -15386,6 +15391,7 @@
 				1AF132D401B5A7AE26303AE2 /* UsageMemoryEmbeddingService.swift in Sources */,
 				F29805310BC43E826F0D7505 /* ControlPlaneStore+MemoryConsolidation.swift in Sources */,
 				5DE13E25B2DA40A44B636F3C /* MemoryConsolidationWorker.swift in Sources */,
+				2EED0D85FBFBE1334D7B7615 /* ControlPlaneStore+UsageMemoryPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
