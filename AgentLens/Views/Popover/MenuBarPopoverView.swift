@@ -62,13 +62,8 @@ struct MenuBarPopoverView: View {
 
     @AppStorage("popoverTrayWidth") private var storedPopoverTrayWidth = 340.0
     @AppStorage("popoverTrayHeight") private var storedPopoverTrayHeight = 540.0
-    @AppStorage("popoverTraySectionOrder") private var storedPopoverTraySectionOrder = ""
-    @AppStorage("popoverTraySectionHeights") private var storedPopoverTraySectionHeightsJSON = "{}"
     @AppStorage("hasResetScrambledPopoverLayoutV2") private var hasResetScrambledPopoverLayoutV2 = false
     @AppStorage(LiquidGlassTransparency.storageKey) private var rawGlassTransparency: Double = 0
-
-    private static let minTraySectionHeight: CGFloat = 80
-    private static let maxTraySectionHeight: CGFloat = 720
 
     private var isScanning: Bool { aggregator?.isRefreshing ?? false }
     private var isCatchingUp: Bool { aggregator?.isCatchingUp ?? false }
@@ -85,31 +80,23 @@ struct MenuBarPopoverView: View {
         clampPopoverHeight(CGFloat(storedPopoverTrayHeight))
     }
 
-    private var popoverScrollMaxHeight: CGFloat {
-        max(popoverViewportHeight - 285, 210)
-    }
-
-    private var availableTraySections: [PopoverTraySection] {
-        PopoverTraySection.allCases.filter { section in
-            switch section {
-            case .chat:
-                return chatController != nil
-            case .mercury:
-                return runtimeContext?.mercuryRouter != nil
-            default:
-                return true
-            }
+    private var availableTraySectionIDs: Set<PopoverTraySectionID> {
+        var ids = Set(PopoverTraySectionID.allCases)
+        if chatController == nil {
+            ids.remove(.chat)
         }
+        if runtimeContext?.mercuryRouter == nil {
+            ids.remove(.mercury)
+        }
+        return ids
     }
 
-    private var orderedTraySections: [PopoverTraySection] {
-        let available = availableTraySections
-        let decoded = storedPopoverTraySectionOrder
-            .split(separator: ",")
-            .compactMap { PopoverTraySection(rawValue: String($0)) }
-            .filter { available.contains($0) }
-        let appended = decoded + available.filter { !decoded.contains($0) }
-        return appended.isEmpty ? available : appended
+    private var trayLayout: PopoverTrayLayout {
+        settingsManager.popoverTrayLayout
+    }
+
+    private var visibleTraySections: [PopoverTraySectionSpec] {
+        trayLayout.visibleSections(available: availableTraySectionIDs)
     }
 
     private var menuBarSparklineSeries: [Double] {
@@ -259,21 +246,7 @@ struct MenuBarPopoverView: View {
                         .frame(width: popoverWidth)
                     popoverDivider
 
-                    QuotaPopoverBar(
-                        quotaService: quotaService ?? ProviderQuotaService.shared,
-                        settingsManager: settingsManager,
-                        dataStore: dataStore,
-                        onCustomizeQuotas: {
-                            SettingsDeepLinkRouting.routeToQuotaDisplay()
-                            dismiss()
-                            onOpenSettings()
-                        }
-                    )
-                    popoverDivider
-
-                    ScrollView(.vertical, showsIndicators: true) {
-                        trayContent
-                    }
+                    trayBody
                     .frame(width: popoverWidth)
                     .frame(maxHeight: .infinity)
                     .contentShape(Rectangle())
@@ -323,7 +296,7 @@ struct MenuBarPopoverView: View {
         .onAppear {
             if !hasResetScrambledPopoverLayoutV2 {
                 storedPopoverTrayHeight = 540.0
-                storedPopoverTraySectionOrder = ""
+                settingsManager.popoverTrayLayout = .default()
                 hasResetScrambledPopoverLayoutV2 = true
             }
             clampStoredPopoverSize()
@@ -461,36 +434,154 @@ struct MenuBarPopoverView: View {
 
     // MARK: - Tray Layout
 
-    private var trayContent: some View {
-        VStack(spacing: 0) {
-            let sections = orderedTraySections
-            ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
-                traySection(section)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: customTrayHeight(for: section), alignment: .top)
-                    .clipped()
-                    .background(traySectionIntrinsicMeasurement(for: section))
-                    .contentShape(Rectangle())
-                    .onHover { hovering in
-                        withAnimation(.easeInOut(duration: 0.12)) {
-                            hoveredSectionID = hovering ? section.id : nil
-                        }
-                    }
-                    .overlay(alignment: .topTrailing) {
-                        if hoveredSectionID == section.id {
-                            trayReorderControls(for: section, at: index, totalCount: sections.count)
-                                .transition(.opacity)
-                        }
-                    }
-                resizableTrayDivider(for: section, showsLine: index < sections.count - 1)
-            }
+    private var trayBody: some View {
+        GeometryReader { proxy in
+            trayBodyContent(size: proxy.size)
         }
-        .animation(DesignSystem.Animation.snappy, value: orderedTraySections)
     }
 
     @ViewBuilder
-    private func traySection(_ section: PopoverTraySection) -> some View {
+    private func trayBodyContent(size: CGSize) -> some View {
+        let sections = visibleTraySections
+        if sections.isEmpty {
+            allSectionsHiddenState
+                .frame(width: size.width, height: size.height)
+        } else {
+            trayAllocatedStack(sections: sections, size: size)
+        }
+    }
+
+    @ViewBuilder
+    private func trayAllocatedStack(sections: [PopoverTraySectionSpec], size: CGSize) -> some View {
+        let heights = PopoverTrayLayoutMath.allocate(
+            layout: trayLayout,
+            available: availableTraySectionIDs,
+            bodyHeight: Double(size.height)
+        )
+        let contentHeight = CGFloat(PopoverTrayLayoutMath.contentHeight(of: heights))
+        if contentHeight > size.height + 0.5 {
+            ScrollView(.vertical, showsIndicators: true) {
+                traySectionStack(sections: sections, heights: heights)
+            }
+        } else {
+            traySectionStack(sections: sections, heights: heights)
+                .frame(width: size.width, height: size.height, alignment: .top)
+        }
+    }
+
+    private func traySectionStack(
+        sections: [PopoverTraySectionSpec],
+        heights: [PopoverTraySectionID: Double]
+    ) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(sections.enumerated()), id: \.element.id) { index, spec in
+                traySlot(
+                    spec,
+                    allocatedHeight: CGFloat(heights[spec.id] ?? PopoverTrayLayoutMath.defaultMinHeight),
+                    at: index,
+                    totalCount: sections.count
+                )
+                if index < sections.count - 1 {
+                    if spec.isCollapsed {
+                        collapsedTrayDivider
+                    } else {
+                        resizableTrayDivider(for: spec.id, showsLine: true)
+                    }
+                }
+            }
+        }
+        .animation(DesignSystem.Animation.snappy, value: sections.map(\.id))
+        .animation(DesignSystem.Animation.snappy, value: sections.map(\.isCollapsed))
+        .animation(DesignSystem.Animation.snappy, value: sections.map(\.isHidden))
+    }
+
+    @ViewBuilder
+    private func traySlot(
+        _ spec: PopoverTraySectionSpec,
+        allocatedHeight: CGFloat,
+        at index: Int,
+        totalCount: Int
+    ) -> some View {
+        Group {
+            if spec.isCollapsed {
+                CollapsedPopoverTraySectionHeader(
+                    title: spec.id.accessibilityLabel.uppercased(),
+                    onExpand: {
+                        withAnimation(DesignSystem.Animation.snappy) {
+                            mutateTrayLayout { $0.setCollapsed(spec.id, collapsed: false) }
+                        }
+                    }
+                )
+            } else {
+                traySection(spec.id)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: allocatedHeight, alignment: .top)
+        .clipped()
+        .background(traySectionIntrinsicMeasurement(for: spec.id))
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                hoveredSectionID = hovering ? spec.id.rawValue : nil
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if hoveredSectionID == spec.id.rawValue {
+                trayReorderControls(for: spec, at: index, totalCount: totalCount)
+                    .transition(.opacity)
+            }
+        }
+        .accessibilityIdentifier("popover.section.\(spec.id.rawValue)")
+    }
+
+    private var collapsedTrayDivider: some View {
+        Rectangle()
+            .fill(colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.09))
+            .frame(height: 0.5)
+            .padding(.horizontal, 12)
+            .frame(height: CGFloat(PopoverTrayLayoutMath.dividerHeight))
+    }
+
+    private var allSectionsHiddenState: some View {
+        VStack(spacing: DesignSystem.Spacing.md) {
+            Image(systemName: "rectangle.split.1x2")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(DesignSystem.Colors.textMuted)
+            Text("Every section is hidden")
+                .font(DesignSystem.Typography.body)
+                .foregroundStyle(DesignSystem.Colors.textPrimary)
+            Text("Show sections again in Settings under Appearance, Menu Bar. Hidden blocks leave no blank gap.")
+                .font(DesignSystem.Typography.tiny)
+                .foregroundStyle(DesignSystem.Colors.textMuted)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DesignSystem.Spacing.lg)
+            Button("Restore default layout") {
+                withAnimation(DesignSystem.Animation.snappy) {
+                    mutateTrayLayout { $0.restoreDefaults() }
+                }
+            }
+            .buttonStyle(.link)
+            .font(DesignSystem.Typography.caption)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityIdentifier("popover.layout.empty")
+    }
+
+    @ViewBuilder
+    private func traySection(_ section: PopoverTraySectionID) -> some View {
         switch section {
+        case .quotas:
+            QuotaPopoverBar(
+                quotaService: quotaService ?? ProviderQuotaService.shared,
+                settingsManager: settingsManager,
+                dataStore: dataStore,
+                onCustomizeQuotas: {
+                    SettingsDeepLinkRouting.routeToQuotaDisplay()
+                    dismiss()
+                    onOpenSettings()
+                }
+            )
         case .insights:
             InsightCardView(
                 insights: insights,
@@ -558,36 +649,58 @@ struct MenuBarPopoverView: View {
         }
     }
 
-    private func trayReorderControls(for section: PopoverTraySection, at index: Int, totalCount: Int) -> some View {
+    private func trayReorderControls(for spec: PopoverTraySectionSpec, at index: Int, totalCount: Int) -> some View {
         HStack(spacing: 0) {
             Button {
-                moveTraySection(section, offset: -1)
+                mutateTrayLayout { $0.move(spec.id, offset: -1) }
             } label: {
                 Image(systemName: "chevron.up")
             }
             .disabled(index == 0)
-            .accessibilityLabel("Move \(section.accessibilityLabel) up")
-            .popoverTooltip("Move \(section.accessibilityLabel) up")
+            .accessibilityLabel("Move \(spec.id.accessibilityLabel) up")
+            .popoverTooltip("Move \(spec.id.accessibilityLabel) up")
 
             Button {
-                moveTraySection(section, offset: 1)
+                mutateTrayLayout { $0.move(spec.id, offset: 1) }
             } label: {
                 Image(systemName: "chevron.down")
             }
             .disabled(index >= totalCount - 1)
-            .accessibilityLabel("Move \(section.accessibilityLabel) down")
-            .popoverTooltip("Move \(section.accessibilityLabel) down")
+            .accessibilityLabel("Move \(spec.id.accessibilityLabel) down")
+            .popoverTooltip("Move \(spec.id.accessibilityLabel) down")
 
-            if customTrayHeight(for: section) != nil {
+            Button {
+                withAnimation(DesignSystem.Animation.snappy) {
+                    mutateTrayLayout { $0.setCollapsed(spec.id, collapsed: !spec.isCollapsed) }
+                }
+            } label: {
+                Image(systemName: spec.isCollapsed ? "rectangle.expand.vertical" : "rectangle.compress.vertical")
+            }
+            .accessibilityLabel(spec.isCollapsed
+                ? "Expand \(spec.id.accessibilityLabel)"
+                : "Collapse \(spec.id.accessibilityLabel)")
+            .popoverTooltip(spec.isCollapsed ? "Expand" : "Collapse")
+
+            Button {
+                withAnimation(DesignSystem.Animation.snappy) {
+                    mutateTrayLayout { $0.setHidden(spec.id, hidden: true) }
+                }
+            } label: {
+                Image(systemName: "eye.slash")
+            }
+            .accessibilityLabel("Hide \(spec.id.accessibilityLabel)")
+            .popoverTooltip("Hide")
+
+            if spec.pinnedHeight != nil {
                 Button {
                     withAnimation(DesignSystem.Animation.snappy) {
-                        setCustomTrayHeight(nil, for: section)
+                        mutateTrayLayout { $0.setPinnedHeight(spec.id, height: nil) }
                     }
                 } label: {
                     Image(systemName: "arrow.counterclockwise")
                 }
-                .accessibilityLabel("Reset \(section.accessibilityLabel) height")
-                .popoverTooltip("Reset \(section.accessibilityLabel) height")
+                .accessibilityLabel("Reset \(spec.id.accessibilityLabel) height")
+                .popoverTooltip("Reset height")
             }
         }
         .font(.system(size: 9, weight: .semibold))
@@ -673,30 +786,10 @@ struct MenuBarPopoverView: View {
         }
     }
 
-    private func setTraySectionOrder(_ sections: [PopoverTraySection]) {
-        let available = availableTraySections
-        let normalized = sections.filter { available.contains($0) }
-            + available.filter { !sections.contains($0) }
-        storedPopoverTraySectionOrder = normalized.map(\.rawValue).joined(separator: ",")
-    }
-
-    private func moveTraySection(_ section: PopoverTraySection, offset: Int) {
-        let sections = orderedTraySections
-        guard let currentIndex = sections.firstIndex(of: section) else { return }
-        moveTraySection(section, toSlot: currentIndex + offset)
-    }
-
-    private func moveTraySection(_ section: PopoverTraySection, toSlot slot: Int) {
-        var sections = orderedTraySections
-        guard let currentIndex = sections.firstIndex(of: section) else { return }
-
-        sections.remove(at: currentIndex)
-        let adjustedSlot = slot > currentIndex ? slot - 1 : slot
-        let clampedSlot = min(max(adjustedSlot, 0), sections.count)
-        sections.insert(section, at: clampedSlot)
-        withAnimation(DesignSystem.Animation.snappy) {
-            setTraySectionOrder(sections)
-        }
+    private func mutateTrayLayout(_ mutate: (inout PopoverTrayLayout) -> Void) {
+        var next = trayLayout
+        mutate(&next)
+        settingsManager.popoverTrayLayout = next
     }
 
     private func clampStoredPopoverSize() {
@@ -716,50 +809,33 @@ struct MenuBarPopoverView: View {
 
     // MARK: - Per-section resize
 
-    private var traySectionHeights: [String: CGFloat] {
-        guard let data = storedPopoverTraySectionHeightsJSON.data(using: .utf8),
-              let decoded = try? JSONDecoder().decode([String: Double].self, from: data) else {
-            return [:]
-        }
-        var result: [String: CGFloat] = [:]
-        for (key, value) in decoded {
-            result[key] = CGFloat(value)
-        }
-        return result
+    private func customTrayHeight(for section: PopoverTraySectionID) -> CGFloat? {
+        trayLayout.spec(for: section)?.pinnedHeight.map { CGFloat($0) }
     }
 
-    private func customTrayHeight(for section: PopoverTraySection) -> CGFloat? {
-        traySectionHeights[section.rawValue].map { clampTraySectionHeight($0) }
-    }
-
-    private func setCustomTrayHeight(_ height: CGFloat?, for section: PopoverTraySection) {
-        var dict: [String: Double] = [:]
-        for (key, value) in traySectionHeights {
-            dict[key] = Double(value)
-        }
-        if let height {
-            dict[section.rawValue] = Double(clampTraySectionHeight(height))
-        } else {
-            dict.removeValue(forKey: section.rawValue)
-        }
-        if let data = try? JSONEncoder().encode(dict),
-           let json = String(data: data, encoding: .utf8) {
-            storedPopoverTraySectionHeightsJSON = json
+    private func setCustomTrayHeight(_ height: CGFloat?, for section: PopoverTraySectionID) {
+        mutateTrayLayout { layout in
+            layout.setPinnedHeight(section, height: height.map { Double($0) })
         }
     }
 
-    private func clampTraySectionHeight(_ height: CGFloat) -> CGFloat {
-        min(max(height, Self.minTraySectionHeight), Self.maxTraySectionHeight)
+    private func clampTraySectionHeight(_ height: CGFloat, for section: PopoverTraySectionID) -> CGFloat {
+        let spec = trayLayout.spec(for: section) ?? PopoverTraySectionSpec(id: section)
+        CGFloat(PopoverTrayLayoutMath.clamp(
+            Double(height),
+            min: spec.effectiveMinHeight,
+            max: spec.effectiveMaxHeight
+        ))
     }
 
-    private func resizeStartHeight(for section: PopoverTraySection) -> CGFloat {
+    private func resizeStartHeight(for section: PopoverTraySectionID) -> CGFloat {
         customTrayHeight(for: section)
             ?? intrinsicTraySectionHeights[section.rawValue]
-            ?? 200
+            ?? CGFloat(PopoverTrayLayoutMath.defaultMinHeight)
     }
 
     @ViewBuilder
-    private func traySectionIntrinsicMeasurement(for section: PopoverTraySection) -> some View {
+    private func traySectionIntrinsicMeasurement(for section: PopoverTraySectionID) -> some View {
         GeometryReader { proxy in
             Color.clear
                 .onAppear {
@@ -775,7 +851,7 @@ struct MenuBarPopoverView: View {
     }
 
     @ViewBuilder
-    private func resizableTrayDivider(for section: PopoverTraySection, showsLine: Bool) -> some View {
+    private func resizableTrayDivider(for section: PopoverTraySectionID, showsLine: Bool) -> some View {
         ResizableTraySectionDivider(
             showsLine: showsLine,
             hasCustomHeight: customTrayHeight(for: section) != nil,
@@ -785,7 +861,10 @@ struct MenuBarPopoverView: View {
                     activeTrayResizeSection = section.rawValue
                     activeTrayResizeStartHeight = resizeStartHeight(for: section)
                 }
-                let newHeight = clampTraySectionHeight(activeTrayResizeStartHeight + translationY)
+                let newHeight = clampTraySectionHeight(
+                    activeTrayResizeStartHeight + translationY,
+                    for: section
+                )
                 setCustomTrayHeight(newHeight, for: section)
             },
             onResizeEnded: {
@@ -1194,4 +1273,642 @@ struct MenuBarPopoverView: View {
     // The floating profile menu hosts the standard visible Quit command:
     // GlassButton(title: "Quit OpenBurnBar", icon: "power", style: .cool) { NSApplication.shared.terminate(nil) }
 
+// MARK: - Header Copy
+
+/// Popover header strings as pure functions so the exact copy stays
+/// unit-testable.
+enum PopoverHeaderCopy {
+    /// "Burning 52.4M" while usage flows; falls back to the app name before
+    /// the first scan so the header never reads "Burning 0".
+    static func burnTitle(metric: String, hasUsage: Bool) -> String {
+        hasUsage ? "Burning \(metric)" : "OpenBurnBar"
+    }
+
+    /// Units line under the burn title — "tokens per week" in token mode,
+    /// "per week" in currency mode. Nil until there's usage to describe.
+    static func burnSubtitle(hasUsage: Bool, mode: UsageDisplayMode) -> String? {
+        guard hasUsage else { return nil }
+        switch mode {
+        case .tokens: return "tokens per week"
+        case .currency: return "per week"
+        }
+    }
+}
+
+// MARK: - Period Cost
+
+private struct PeriodCost: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(DesignSystem.Typography.tiny)
+                .foregroundStyle(DesignSystem.Colors.textMuted)
+
+            Text(value)
+                .font(DesignSystem.Typography.monoSmall)
+                .foregroundStyle(DesignSystem.Colors.textPrimary)
+        }
+    }
+}
+
+// MARK: - Provider List Row
+
+private struct ProviderListRow: View {
+    let summary: ProviderSummary
+
+    @Environment(SettingsManager.self) private var settingsManager
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovered = false
+
+    private var theme: ProviderTheme { ProviderTheme.theme(for: summary.provider) }
+
+    var body: some View {
+        HStack(spacing: DesignSystem.Spacing.md) {
+            ZStack {
+                Circle()
+                    .fill(theme.primaryColor.opacity(0.15))
+                    .frame(width: 28, height: 28)
+
+                ProviderLogoView(provider: summary.provider, size: 16, useFallbackColor: false)
+            }
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(summary.provider.displayName)
+                    .font(DesignSystem.Typography.body)
+                    .foregroundStyle(DesignSystem.Colors.textPrimary)
+
+                HStack(spacing: DesignSystem.Spacing.xs) {
+                    Text("\(summary.sessionCount) session\(summary.sessionCount == 1 ? "" : "s")")
+                        .font(DesignSystem.Typography.tiny)
+                        .foregroundStyle(DesignSystem.Colors.textMuted)
+
+                    if summary.cacheEfficiency.hasSignal {
+                        let tier = CacheHitRateTier(summary.cacheEfficiency)
+                        HStack(spacing: 3) {
+                            Circle()
+                                .fill(tier.color)
+                                .frame(width: 4, height: 4)
+                            Text("\(summary.cacheEfficiency.formattedHitRate) cache")
+                                .font(DesignSystem.Typography.tiny)
+                                .foregroundStyle(tier.color)
+                                .monospacedDigit()
+                        }
+                        .help("Cache hit rate for \(summary.provider.displayName)")
+                    }
+                }
+            }
+
+            Spacer()
+
+            Text(settingsManager.formatUsageMetric(cost: summary.totalCost, tokens: summary.totalTokens))
+                .font(DesignSystem.Typography.mono)
+                .foregroundStyle(quotaLegibleProviderColor(theme.primaryColor, in: colorScheme))
+        }
+        .padding(.horizontal, DesignSystem.Spacing.md)
+        .padding(.vertical, DesignSystem.Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous)
+                .fill(isHovered
+                    ? (colorScheme == .dark ? Color.white.opacity(0.045) : Color.black.opacity(0.035))
+                    : Color.clear)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous))
+        .onHover { hovering in
+            withAnimation(DesignSystem.Animation.hover) {
+                isHovered = hovering
+            }
+        }
+    }
+}
+
+// MARK: - Glass Card (Glassmorphic)
+
+/// View modifier that conditionally attaches a press-detecting drag gesture.
+/// Only active when `interactive` is true, so non-interactive GlassCards inside
+/// Button views don't swallow tap gestures.
+private struct InteractiveGlassCardGesture: ViewModifier {
+    let interactive: Bool
+    @Binding var isPressed: Bool
+
+    func body(content: Content) -> some View {
+        if interactive {
+            content.simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in isPressed = true }
+                    .onEnded { _ in isPressed = false }
+            )
+        } else {
+            content
+        }
+    }
+}
+
+/// Frosted glass card with real material blur, warm tint, and luminous border.
+struct GlassCard<Content: View>: View {
+    var interactive: Bool = false
+    var embedded: Bool = false
+    @ViewBuilder let content: () -> Content
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @AppStorage(LiquidGlassTransparency.storageKey) private var rawGlassTransparency: Double = 0
+
+    @State private var isHovered = false
+    @State private var isPressed = false
+
+    init(
+        interactive: Bool = false,
+        embedded: Bool = false,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.interactive = interactive
+        self.embedded = embedded
+        self.content = content
+    }
+
+    /// Light mode: ember + Spanish orange sheen instead of neutral white.
+    private var glassSheenGradient: LinearGradient {
+        if colorScheme == .light {
+            LinearGradient(
+                colors: [
+                    Color(hex: "F45B69").opacity(0.07),
+                    Color.clear,
+                    Color(hex: "E86100").opacity(0.045)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else {
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.08),
+                    Color.clear,
+                    DesignSystem.Colors.ember.opacity(0.02)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+
+    private var glassEdgeGradient: LinearGradient {
+        if colorScheme == .light {
+            LinearGradient(
+                colors: [
+                    Color(hex: "F45B69").opacity(0.22),
+                    DesignSystem.Colors.border.opacity(0.55),
+                    Color(hex: "E86100").opacity(0.18)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else {
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.18),
+                    DesignSystem.Colors.border.opacity(0.45),
+                    DesignSystem.Colors.border.opacity(0.25)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous)
+        content()
+            .padding(DesignSystem.Spacing.xs)
+            .background { backgroundLayer }
+            .clipShape(shape, style: FillStyle(antialiased: true))
+            .overlay(
+                shape
+                    .strokeBorder(
+                        glassEdgeGradient,
+                        lineWidth: 0.75
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.04), radius: 8, y: 3)
+            .scaleEffect(interactive ? (isPressed ? 0.98 : isHovered ? 1.015 : 1.0) : 1.0)
+            .animation(isPressed ? DesignSystem.Animation.snappy : DesignSystem.Animation.hover, value: isHovered)
+            .animation(DesignSystem.Animation.snappy, value: isPressed)
+            .onHover { if interactive { isHovered = $0 } }
+            .modifier(InteractiveGlassCardGesture(interactive: interactive, isPressed: $isPressed))
+    }
+
+    @ViewBuilder
+    private var backgroundLayer: some View {
+        let shape = RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous)
+        if embedded {
+            shape.fill(
+                colorScheme == .dark
+                    ? Color.white.opacity(isHovered ? 0.085 : 0.055)
+                    : Color.black.opacity(isHovered ? 0.065 : 0.035)
+            )
+        } else if reduceTransparency {
+            shape.fill(DesignSystem.Colors.surface)
+        } else if #available(macOS 26, *) {
+            // Native Liquid Glass samples the content BEHIND it — a material
+            // fill underneath would block the refraction and read as frosted
+            // plastic. The warm sheen survives as a faint wash riding on top
+            // of pure glass.
+            let t = LiquidGlassTransparency.effective(rawGlassTransparency, reduceTransparency: reduceTransparency)
+            shape
+                .fill(glassSheenGradient)
+                .opacity(LiquidGlassTransparency.fallbackPlateOpacity(t))
+                .liquidGlassEffect(
+                    interactive ? .regular.interactive() : .regular,
+                    in: shape
+                )
+        } else {
+            // Pre-26 plate honors the glass transparency preference the same
+            // way the shared adapters do: the material fades toward the raw
+            // backdrop for "clearer", a thick frost scrim rises for "frostier".
+            let t = LiquidGlassTransparency.effective(rawGlassTransparency, reduceTransparency: reduceTransparency)
+            ZStack {
+                shape.fill(.ultraThinMaterial)
+                    .opacity(LiquidGlassTransparency.fallbackPlateOpacity(t))
+                shape.fill(DesignSystem.Colors.surface.opacity(0.55 * LiquidGlassTransparency.fallbackPlateOpacity(t)))
+                shape.fill(.thickMaterial)
+                    .opacity(LiquidGlassTransparency.frostScrimOpacity(t))
+                shape.fill(glassSheenGradient)
+            }
+        }
+    }
+}
+
+// MARK: - Glass Button
+
+struct GlassButton: View {
+    enum Style {
+        /// Dashboard — warm ember, the app running hot.
+        case prominent
+        /// Settings — neutral glass.
+        case regular
+        /// Quit — the ember logo cooling to ice and draining away.
+        case cool
+    }
+
+    let title: String
+    let icon: String
+    let style: Style
+    let action: () -> Void
+
+    @AppStorage(LiquidGlassTransparency.storageKey) private var rawGlassTransparency: Double = 0
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @State private var isHovered = false
+    @State private var isPressed = false
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DesignSystem.Spacing.xs + 1) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(title)
+                    .font(DesignSystem.Typography.caption)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(foreground)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, DesignSystem.Spacing.sm + 1)
+            .padding(.horizontal, DesignSystem.Spacing.xs)
+            .background(background)
+            .clipShape(shape)
+            .overlay(border)
+            .shadow(color: glowColor.opacity(isHovered ? 0.35 : 0), radius: isHovered ? 9 : 0, y: 2)
+        }
+        .buttonStyle(.plain)
+        .contentShape(shape)
+        .scaleEffect(isPressed ? 0.97 : (isHovered ? 1.025 : 1.0))
+        .animation(isPressed ? DesignSystem.Animation.snappy : DesignSystem.Animation.hover, value: isHovered)
+        .animation(DesignSystem.Animation.snappy, value: isPressed)
+        .onHover { isHovered = $0 }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+    }
+
+    // MARK: - Per-style theming
+
+    private var foreground: AnyShapeStyle {
+        switch style {
+        case .prominent: return AnyShapeStyle(DesignSystem.Colors.primaryGradient)
+        case .regular:   return AnyShapeStyle(DesignSystem.Colors.textSecondary)
+        case .cool:      return AnyShapeStyle(DesignSystem.Colors.coolDownGradient)
+        }
+    }
+
+    @ViewBuilder
+    private var background: some View {
+        if #available(macOS 26, *) {
+            // Style wash rides on interactive glass; the material + neutral
+            // surface base fills stay pre-26 only (nothing sits under glass).
+            styleWash.liquidGlassEffect(.regular.interactive(), in: shape)
+        } else {
+            let t = LiquidGlassTransparency.effective(rawGlassTransparency, reduceTransparency: reduceTransparency)
+            ZStack {
+                shape.fill(.ultraThinMaterial)
+                    .opacity(LiquidGlassTransparency.fallbackPlateOpacity(t))
+                shape.fill(.thickMaterial)
+                    .opacity(LiquidGlassTransparency.frostScrimOpacity(t))
+                switch style {
+                case .prominent:
+                    shape.fill(DesignSystem.Colors.surfaceElevated.opacity(0.6))
+                case .regular, .cool:
+                    shape.fill(DesignSystem.Colors.surface.opacity(0.5))
+                }
+                styleWash
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var styleWash: some View {
+        switch style {
+        case .prominent:
+            shape.fill(DesignSystem.Colors.ember.opacity(isHovered ? 0.12 : 0.06))
+        case .regular:
+            shape.fill(Color.white.opacity(isHovered ? 0.05 : 0))
+        case .cool:
+            // The cool wash drains downward — frost at the top fading to navy below.
+            shape.fill(
+                LinearGradient(
+                    colors: [
+                        DesignSystem.Colors.frost.opacity(isHovered ? 0.18 : 0.09),
+                        DesignSystem.Colors.abyss.opacity(isHovered ? 0.22 : 0.11)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var border: some View {
+        switch style {
+        case .prominent:
+            shape.strokeBorder(
+                LinearGradient(
+                    colors: [DesignSystem.Colors.ember.opacity(0.4), DesignSystem.Colors.amber.opacity(0.3)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 0.75
+            )
+        case .regular:
+            shape.strokeBorder(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.12), DesignSystem.Colors.border.opacity(0.35)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 0.5
+            )
+        case .cool:
+            shape.strokeBorder(
+                LinearGradient(
+                    colors: [
+                        DesignSystem.Colors.frost.opacity(isHovered ? 0.7 : 0.5),
+                        DesignSystem.Colors.abyss.opacity(0.35)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                lineWidth: 0.75
+            )
+        }
+    }
+
+    private var glowColor: Color {
+        switch style {
+        case .prominent: return DesignSystem.Colors.ember
+        case .regular:   return Color.white
+        case .cool:      return DesignSystem.Colors.glacier
+        }
+    }
+}
+
+// MARK: - Glass Icon Button
+
+struct GlassIconButton<Label: View>: View {
+    var isLoading: Bool = false
+    let action: () -> Void
+    @ViewBuilder private var label: () -> Label
+
+    init(isLoading: Bool = false, action: @escaping () -> Void, @ViewBuilder label: @escaping () -> Label) {
+        self.isLoading = isLoading
+        self.action = action
+        self.label = label
+    }
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(DesignSystem.Colors.surface.opacity(0.45))
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.1), Color.clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                if isLoading {
+                    AnimatedMiningPickView()
+                        .frame(width: 20, height: 20)
+                        .clipShape(.circle)
+                } else {
+                    label()
+                }
+            }
+            .frame(width: 28, height: 28)
+            .liquidGlassInteractive(in: .circle, fallback: .ultraThinMaterial)
+            .clipShape(.circle)
+            .overlay(
+                Circle()
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.15), DesignSystem.Colors.border.opacity(0.4)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.03), radius: 4, y: 2)
+        }
+        .buttonStyle(.plain)
+        .disabled(isLoading)
+    }
+}
+
+private struct CollapsedPopoverTraySectionHeader: View {
+    let title: String
+    let onExpand: () -> Void
+
+    var body: some View {
+        Button(action: onExpand) {
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                Text(title)
+                    .font(DesignSystem.Typography.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(DesignSystem.Colors.textSecondary)
+                Text("Collapsed")
+                    .font(DesignSystem.Typography.tiny)
+                    .foregroundStyle(DesignSystem.Colors.textMuted)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(DesignSystem.Colors.textMuted)
+            }
+            .padding(.horizontal, DesignSystem.Spacing.lg)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Expands this section")
+    }
+}
+
+private struct ResizableTraySectionDivider: View {
+    var showsLine: Bool
+    var hasCustomHeight: Bool
+    var sectionLabel: String
+    var onResizeChanged: (CGFloat) -> Void
+    var onResizeEnded: () -> Void
+    var onReset: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovered = false
+    @State private var isDragging = false
+    @State private var cursorPushed = false
+
+    var body: some View {
+        ZStack {
+            // Visual elements
+            ZStack {
+                if showsLine {
+                    Rectangle()
+                        .fill(
+                            isHovered || isDragging
+                                ? DesignSystem.Colors.ember.opacity(0.35)
+                                : (colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.09))
+                        )
+                        .frame(height: 0.5)
+                        .padding(.horizontal, 12)
+                }
+                if isHovered || isDragging {
+                    Capsule()
+                        .fill(handleColor)
+                        .frame(width: 36, height: 3)
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(DesignSystem.Colors.ember.opacity(isDragging ? 0.55 : 0.28), lineWidth: 0.5)
+                        )
+                        .transition(.opacity)
+                }
+            }
+            .frame(height: 8)
+
+            // Taller, invisible interactive hit zone
+            Color.clear
+                .frame(height: 24) // 24 points is generous and very easy to target
+                .contentShape(Rectangle())
+                .onHover { hovering in
+                    withAnimation(DesignSystem.Animation.hover) {
+                        isHovered = hovering
+                    }
+                    updateCursor(showResize: hovering)
+                }
+                .gesture(
+                    DragGesture(minimumDistance: 1)
+                        .onChanged { value in
+                            if !isDragging {
+                                isDragging = true
+                                updateCursor(showResize: true)
+                            }
+                            onResizeChanged(value.translation.height)
+                        }
+                        .onEnded { _ in
+                            isDragging = false
+                            onResizeEnded()
+                            if !isHovered {
+                                updateCursor(showResize: false)
+                            }
+                        }
+                )
+                .simultaneousGesture(
+                    TapGesture(count: 2).onEnded {
+                        if hasCustomHeight {
+                            onReset()
+                        }
+                    }
+                )
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 8) // Layout height remains exactly 8
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Resize \(sectionLabel) section")
+        .accessibilityHint(hasCustomHeight
+            ? "Drag to resize. Double-tap to reset to natural height."
+            : "Drag to resize.")
+        .popoverTooltip(hasCustomHeight
+            ? "Drag to resize • Double-click to reset"
+            : "Drag to resize")
+        .onDisappear {
+            if cursorPushed {
+                NSCursor.pop()
+                cursorPushed = false
+            }
+        }
+    }
+
+    private var handleColor: Color {
+        isDragging
+            ? DesignSystem.Colors.ember.opacity(0.85)
+            : DesignSystem.Colors.ember.opacity(0.55)
+    }
+
+    private func updateCursor(showResize: Bool) {
+        if showResize {
+            if !cursorPushed {
+                NSCursor.resizeUpDown.push()
+                cursorPushed = true
+            }
+        } else {
+            if cursorPushed {
+                NSCursor.pop()
+                cursorPushed = false
+            }
+        }
+    }
+}
+
+#Preview {
+    let store = (try? DataStore()) ?? {
+        preconditionFailure("Preview requires a valid DataStore - ensure app support directory is writable")
+    }()
+    let settingsManager = SettingsManager()
+    MenuBarPopoverView(
+        dataStore: store,
+        aggregator: nil,
+        quotaService: ProviderQuotaService.shared,
+        settingsManager: settingsManager,
+        operatingLayer: OpenBurnBarOperatingLayer(dataStore: store),
+        onOpenDashboard: {},
+        onOpenSettings: {}
+    )
 }

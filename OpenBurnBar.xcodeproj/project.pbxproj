@@ -3078,6 +3078,8 @@
 		5A9DACE75C2127C320D22F26 /* MacMemoryWalletStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 149BE6EB45A5F6754AB34D28 /* MacMemoryWalletStore.swift */; };
 		0D39A2131004D2828E4EE32B /* MemoryWalletStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 915121817C11A80C7D79652E /* MemoryWalletStore.swift */; };
 		A8E08E466A5B61FC03BD4387 /* UsageAccountAttributionUpsertTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF95CA6DC044F8AC2B618AAD /* UsageAccountAttributionUpsertTests.swift */; };
+		B6C5F41C2C9DB4B737AFA40E /* PopoverTrayLayoutSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4DE4D8A8A59839FB50CF9E2 /* PopoverTrayLayoutSettingsPanel.swift */; };
+		04CA13A7DE607CFC475FA495 /* PopoverTrayLayoutSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD2463CBF112440B075F9188 /* PopoverTrayLayoutSettingsTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -6237,6 +6239,8 @@
 		149BE6EB45A5F6754AB34D28 /* MacMemoryWalletStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MacMemoryWalletStore.swift"; path = "AgentLens/Services/MacMemoryWalletStore.swift"; sourceTree = SOURCE_ROOT; };
 		915121817C11A80C7D79652E /* MemoryWalletStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MemoryWalletStore.swift"; path = "OpenBurnBarMobile/Services/MemoryWalletStore.swift"; sourceTree = SOURCE_ROOT; };
 		FF95CA6DC044F8AC2B618AAD /* UsageAccountAttributionUpsertTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageAccountAttributionUpsertTests.swift"; path = "AgentLensTests/Active/UsageAccountAttributionUpsertTests.swift"; sourceTree = SOURCE_ROOT; };
+		A4DE4D8A8A59839FB50CF9E2 /* PopoverTrayLayoutSettingsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PopoverTrayLayoutSettingsPanel.swift"; path = "AgentLens/Views/Settings/PopoverTrayLayoutSettingsPanel.swift"; sourceTree = SOURCE_ROOT; };
+		BD2463CBF112440B075F9188 /* PopoverTrayLayoutSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PopoverTrayLayoutSettingsTests.swift"; path = "AgentLensTests/Active/PopoverTrayLayoutSettingsTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -14261,6 +14265,7 @@
 				780876B7394330E5410D9F8E /* UsageMemoryPromoteSelfHealTests.swift in Sources */,
 				A556002A4CC0A7D7141F5802 /* UsageMemoryAcceptanceTests.swift in Sources */,
 				A8E08E466A5B61FC03BD4387 /* UsageAccountAttributionUpsertTests.swift in Sources */,
+				04CA13A7DE607CFC475FA495 /* PopoverTrayLayoutSettingsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -15404,6 +15409,7 @@
 				5DE13E25B2DA40A44B636F3C /* MemoryConsolidationWorker.swift in Sources */,
 				2EED0D85FBFBE1334D7B7615 /* ControlPlaneStore+UsageMemoryPolicy.swift in Sources */,
 				5A9DACE75C2127C320D22F26 /* MacMemoryWalletStore.swift in Sources */,
+				B6C5F41C2C9DB4B737AFA40E /* PopoverTrayLayoutSettingsPanel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

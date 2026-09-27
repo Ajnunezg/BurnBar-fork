@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Menu-bar popover layout** — quotas are a tray section like every other
+  block, not a pinned 340pt bar that crowds the rest of the drop-down. Users
+  can show, hide, collapse, reorder, and size each section (relative weight,
+  min/max, or a drag-fixed height). Choices persist across launches. Hidden
+  sections leave no blank gap; collapsed sections show a labeled strip.
+  Settings → Appearance → Menu Bar, or the existing Quota Popover pane for
+  the quotas block's space. Drag handles and hover controls on the popover
+  itself still move and resize sections.
+
 ### Fixed
 - **Cloud sync is now opt-in** — the master switch defaults to off and
   persists on-device; nothing leaves the Mac until it is turned on in
