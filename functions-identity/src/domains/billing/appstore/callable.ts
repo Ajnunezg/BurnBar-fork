@@ -38,6 +38,9 @@ import {
 import { getAppleJWSVerifier, JWSVerificationFailure } from "./verifier.js";
 import { fetchLiveSubscriptionStatus } from "./client.js";
 import { FUNCTIONS_REGION, HOT_PATH_OPTIONS } from "@openburnbar/functions-shared/runtimeOptions.js";
+import { parseRedeemAppleMemoryPackInput } from "../../../callables/memoryPackInputSchemas.js";
+import { memoryPackFromAppleProductID } from "../usageCuration/catalog.js";
+import { redeemAppleMemoryPack } from "../usageCuration/appleRail.js";
 
 const REGION = FUNCTIONS_REGION;
 
@@ -67,7 +70,7 @@ export const beginEntitlementBinding = onCall(
       enforceAuthAndAppCheck(request, uid);
       const productID = request.data.productID ?? hostedQuotaProductID();
       try {
-        if (!appStoreTopUpKind(productID)) {
+        if (!appStoreTopUpKind(productID) && !memoryPackFromAppleProductID(productID)) {
           appStoreEntitlementTarget(productID);
         }
       } catch (err) {
@@ -207,6 +210,76 @@ export const verifyCloudProTopUp = onCall(
           kind,
           source: "app_store",
           externalPaymentID: transactionID,
+        });
+      } catch (err) {
+        throw mapReconcileError(err);
+      }
+    },
+  ),
+);
+
+// ---------------------------------------------------------------------------
+// redeemAppleMemoryPack
+// ---------------------------------------------------------------------------
+
+export const redeemAppleMemoryPackCallable = onCall(
+  {
+    region: REGION,
+    enforceAppCheck: getConfig().enforceAppCheck,
+    maxInstances: 100,
+    secrets: APP_STORE_SECRETS,
+  },
+  wrapCallableHandler(
+    "redeemAppleMemoryPack",
+    async (
+      request: CallableRequest<{
+        signedTransactionJWS?: string;
+        productID?: string;
+      }>,
+    ): Promise<{ granted: boolean; pending: boolean; alreadyGranted: boolean; packId: string }> => {
+      const uid = request.auth?.uid;
+      if (!uid) throw httpsError("unauthenticated", "auth required");
+      logCallableStart("redeemAppleMemoryPack", traceIdFromCallableRequest(request), uid);
+      enforceAuthAndAppCheck(request, uid);
+      const input = parseRedeemAppleMemoryPackInput(request.data);
+      if (input.signedTransactionJWS.split(".").length !== 3) {
+        throw httpsError("invalid-argument", "signedTransactionJWS must be a JWS");
+      }
+      const cfg = loadAppStoreRuntimeConfig();
+      const verifier = getAppleJWSVerifier(cfg);
+      let decoded;
+      try {
+        decoded = await verifier.verifyTransaction(input.signedTransactionJWS);
+      } catch (err) {
+        throw mapReconcileError(err);
+      }
+      const transactionProductID = String(decoded.payload.productId ?? "");
+      const claimedProductID = input.productID ?? transactionProductID;
+      if (transactionProductID !== claimedProductID) {
+        throw httpsError("permission-denied", "transaction productID does not match request");
+      }
+      if (decoded.payload.bundleId !== cfg.bundleId) {
+        throw httpsError("permission-denied", "transaction bundleID does not match this app");
+      }
+      try {
+        assertConfiguredAppStoreEnvironment(cfg, decoded.environment, "memory-pack transaction");
+      } catch (err) {
+        throw mapReconcileError(err);
+      }
+      const transactionID = String(decoded.payload.transactionId ?? "");
+      if (!transactionID) throw httpsError("invalid-argument", "transactionID is required");
+      const originalTransactionID = String(decoded.payload.originalTransactionId ?? transactionID);
+      const appAccountToken =
+        typeof decoded.payload.appAccountToken === "string" ? decoded.payload.appAccountToken : undefined;
+      const db = getFirestore();
+      try {
+        return await redeemAppleMemoryPack({
+          db,
+          uid,
+          productID: transactionProductID,
+          transactionId: transactionID,
+          originalTransactionId: originalTransactionID,
+          appAccountToken,
         });
       } catch (err) {
         throw mapReconcileError(err);

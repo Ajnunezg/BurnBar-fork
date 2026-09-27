@@ -204,6 +204,7 @@ export async function writeBurnBarProEntitlement(args: {
   activeOverride?: boolean;
   sourceEventID?: string;
   sourceEventCreatedMillis?: number;
+  promoGrant?: { campaignID: string; redemptionID: string };
 }): Promise<Record<string, unknown>> {
   const now = nowISO();
   const active = args.activeOverride ?? (Number.isFinite(args.expiresAtMillis) && args.expiresAtMillis > Date.now());
@@ -229,6 +230,7 @@ export async function writeBurnBarProEntitlement(args: {
     environment: args.environment,
     sourceEventID: args.sourceEventID,
     sourceEventCreatedMillis: args.sourceEventCreatedMillis,
+    promoGrant: args.promoGrant,
     verificationVersion: 1,
     schemaVersion: 1,
     lastVerifiedAt: now,
@@ -258,6 +260,7 @@ export async function writeBurnBarProEntitlement(args: {
           sourceEntitlementID: FieldValue.delete(),
           sourceProductID: FieldValue.delete(),
         }),
+    promoGrant: args.promoGrant ?? FieldValue.delete(),
     externalSubscriptionID: args.externalSubscriptionID ?? FieldValue.delete(),
     externalCustomerID: args.externalCustomerID ?? FieldValue.delete(),
     purchaseTokenHash: args.purchaseTokenHash ?? FieldValue.delete(),

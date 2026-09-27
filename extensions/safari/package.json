@@ -39,7 +39,7 @@
     "knip": "6.38.0",
     "prettier": "3.9.9",
     "size-limit": "14.0.0",
-    "typescript": "^7.0.2",
+    "typescript": "^5.9.3",
     "vitest": "5.0.1"
   },
   "overrides": {

@@ -122,7 +122,7 @@ type CallableRateLimitAction =
   | "team_invite_burst"
   | "team_invite_daily"
   | "team_invite_accept_burst"
-  | "team_invite_accept_daily";
+  | "team_invite_accept_daily"
   | "promo_redeem_burst"
   | "promo_redeem_daily";
 
@@ -591,6 +591,9 @@ export async function checkTeamInviteRateLimit(uid: string): Promise<void> {
  */
 export async function checkTeamInviteAcceptRateLimit(uid: string): Promise<void> {
   await incrementCallableRateLimitsAtomically(uid, ["team_invite_accept_burst", "team_invite_accept_daily"]);
+}
+
+/**
  * Per-user rate limit for `redeemPromoCode`. Bounds total redemption traffic
  * from one account; wrong-code attempts are additionally locked out via
  * `promo_redeem_fail`. Throws `resource-exhausted` when either bound is hit.

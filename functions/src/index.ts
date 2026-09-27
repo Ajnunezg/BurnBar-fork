@@ -28,5 +28,4 @@ export {
 } from "./domains/scheduled/scheduledExports.js";
 export { backfillPrivacyPlaintext, backfillPrivacyPlaintextScheduled } from "./domains/compliance/privacyBackfill.js";
 export { scanLegacyPlaintextArtifacts } from "./domains/ops/sharedArtifactLegacyScan.js";
-export {
 export { redeemPromoCode } from "./callables/promoRedemption.js";

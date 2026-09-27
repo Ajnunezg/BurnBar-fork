@@ -35,18 +35,18 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { onRequest } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
-import { logInfo, logError, wrapRequestHandler } from "./logging.js";
-import { FUNCTIONS_REGION } from "./runtimeOptions.js";
+import { logInfo, logError, wrapRequestHandler } from "@openburnbar/functions-shared/logging.js";
+import { FUNCTIONS_REGION } from "@openburnbar/functions-shared/runtimeOptions.js";
 import { sourceMetadata } from "./sourceMetadata.js";
-import { domainCoreDeploymentIdentity } from "./domainCoreBuildProfile.js";
-import { loadedDomainCorePricingIdentity } from "./domainCorePricing.js";
-import { sentryStatus } from "./sentry.js";
-import { setPublicJsonSecurityHeaders } from "./publicHttpSecurityHeaders.js";
+import { domainCoreDeploymentIdentity } from "@openburnbar/functions-shared/domainCoreBuildProfile.js";
+import { loadedDomainCorePricingIdentity } from "@openburnbar/functions-shared/domainCorePricing.js";
+import { sentryStatus } from "@openburnbar/functions-shared/sentry.js";
+import { setPublicJsonSecurityHeaders } from "@openburnbar/functions-shared/publicHttpSecurityHeaders.js";
 import {
   checkPublicHttpEndpointRateLimit,
   clientIpFromHttpRequest,
   isPublicRateLimitExceeded,
-} from "./callables/publicRateLimit.js";
+} from "@openburnbar/functions-shared/callables/publicRateLimit.js";
 
 const FUNCTION_VERSION = process.env.FUNCTION_VERSION ?? "unknown";
 const MANIFEST_FILE_NAME = "domain-core-runtime-artifact-manifest.json";

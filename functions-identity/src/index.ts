@@ -95,6 +95,7 @@ export {
   verifyHostedQuotaEntitlement,
   verifyCloudProTopUp,
   restoreHostedQuotaEntitlement,
+  redeemAppleMemoryPack,
   appStoreServerNotificationsV2,
   reconcileHostedEntitlementsDaily,
 } from "./domains/billing/appstore/index.js";

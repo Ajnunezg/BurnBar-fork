@@ -1095,6 +1095,27 @@ export const endpointAuthorizationCatalog: EndpointAuthorizationEntry[] = [
     highRiskComputerUse: false,
   },
   {
+    exportedName: "createMemoryPackCheckoutSession",
+    trigger: "callable",
+    authMethod: "Firebase Auth with callable-level ownership checks",
+    appCheck: "required",
+    tenantSource: "request.auth.uid",
+    objectIdsFromClient: [],
+    ownershipCheck: "handler derives uid from request.auth.uid only",
+    handlerModule: "functions-identity/src/callables/memoryPacks.ts",
+    bolaCoverage: [
+      {
+        file: "functions/src/__tests__/bola/authOnly.bola.test.ts",
+        test: "rejects unauthenticated callable access",
+        kind: "auth-only",
+        covers: ["createMemoryPackCheckoutSession"],
+        expectedOutcome: "throws",
+        expectedCode: "unauthenticated",
+      },
+    ],
+    highRiskComputerUse: false,
+  },
+  {
     exportedName: "createPiAgentPairing",
     trigger: "callable",
     authMethod: "Firebase Auth with callable-level ownership checks",
@@ -1694,13 +1715,14 @@ export const endpointAuthorizationCatalog: EndpointAuthorizationEntry[] = [
   },
   {
     exportedName: "googlePlayDeveloperNotifications",
-    trigger: "provider-webhook",
-    authMethod: "Google Play RTDN delivered over an owned Pub/Sub topic (not client-callable)",
+    trigger: "pubsub-trigger",
+    authMethod: "Google Cloud Pub/Sub topic IAM and Firebase Functions platform delivery",
     appCheck: "not-applicable",
-    tenantSource: "purchase-token claim resolved server-side to a uid",
+    tenantSource:
+      "server-owned Google Play token claim resolved from the RTDN purchase-token hash; the provider payload never supplies a uid",
     objectIdsFromClient: [],
     ownershipCheck:
-      "handler maps the Play-signed purchase token to an existing server-owned claim before touching any uid-scoped document",
+      "trigger accepts only Pub/Sub delivery, validates the BurnBar package, hashes the purchase token, resolves the server-owned claim, and reconciles against the Google Play Developer API before updating that claim's uid",
     handlerModule: "functions-identity/src/domains/billing/googlePlayRtdn.ts",
     bolaCoverage: [
       {
@@ -1711,8 +1733,6 @@ export const endpointAuthorizationCatalog: EndpointAuthorizationEntry[] = [
       },
     ],
     highRiskComputerUse: false,
-    publicJustification:
-      "Provider notification endpoint authenticated by Google Play's signed RTDN payload on a project-owned Pub/Sub topic; it accepts no client-supplied object ids.",
   },
   {
     exportedName: "grantMediaGrandfather",
@@ -2140,6 +2160,27 @@ export const endpointAuthorizationCatalog: EndpointAuthorizationEntry[] = [
         covers: ["listLinuxAppCheckDevices"],
         expectedOutcome: "throws",
         expectedCode: "permission-denied",
+      },
+    ],
+    highRiskComputerUse: false,
+  },
+  {
+    exportedName: "listMemoryPacks",
+    trigger: "callable",
+    authMethod: "Firebase Auth with callable-level ownership checks",
+    appCheck: "required",
+    tenantSource: "request.auth.uid",
+    objectIdsFromClient: [],
+    ownershipCheck: "handler derives uid from request.auth.uid only",
+    handlerModule: "functions-identity/src/callables/memoryPacks.ts",
+    bolaCoverage: [
+      {
+        file: "functions/src/__tests__/bola/authOnly.bola.test.ts",
+        test: "rejects unauthenticated callable access",
+        kind: "auth-only",
+        covers: ["listMemoryPacks"],
+        expectedOutcome: "throws",
+        expectedCode: "unauthenticated",
       },
     ],
     highRiskComputerUse: false,
@@ -3345,6 +3386,27 @@ export const endpointAuthorizationCatalog: EndpointAuthorizationEntry[] = [
     highRiskComputerUse: false,
   },
   {
+    exportedName: "redeemAppleMemoryPack",
+    trigger: "callable",
+    authMethod: "Firebase Auth with callable-level ownership checks",
+    appCheck: "required",
+    tenantSource: "request.auth.uid",
+    objectIdsFromClient: [],
+    ownershipCheck: "handler derives uid from request.auth.uid only",
+    handlerModule: "functions-identity/src/domains/billing/appstore/callable.ts",
+    bolaCoverage: [
+      {
+        file: "functions/src/__tests__/bola/authOnly.bola.test.ts",
+        test: "rejects unauthenticated callable access",
+        kind: "auth-only",
+        covers: ["redeemAppleMemoryPack"],
+        expectedOutcome: "throws",
+        expectedCode: "unauthenticated",
+      },
+    ],
+    highRiskComputerUse: false,
+  },
+  {
     exportedName: "redeemMissionApprovalAnswer",
     trigger: "callable",
     authMethod: "Firebase Auth with callable-level ownership checks",
@@ -3366,6 +3428,27 @@ export const endpointAuthorizationCatalog: EndpointAuthorizationEntry[] = [
     highRiskComputerUse: true,
   },
   {
+    exportedName: "redeemPlayMemoryPack",
+    trigger: "callable",
+    authMethod: "Firebase Auth with callable-level ownership checks",
+    appCheck: "required",
+    tenantSource: "request.auth.uid",
+    objectIdsFromClient: [],
+    ownershipCheck: "handler derives uid from request.auth.uid only",
+    handlerModule: "functions-identity/src/callables/memoryPacks.ts",
+    bolaCoverage: [
+      {
+        file: "functions/src/__tests__/bola/authOnly.bola.test.ts",
+        test: "rejects unauthenticated callable access",
+        kind: "auth-only",
+        covers: ["redeemPlayMemoryPack"],
+        expectedOutcome: "throws",
+        expectedCode: "unauthenticated",
+      },
+    ],
+    highRiskComputerUse: false,
+  },
+  {
     exportedName: "redeemPromoCode",
     trigger: "callable",
     authMethod: "Firebase Auth with callable-level ownership checks",
@@ -3373,7 +3456,7 @@ export const endpointAuthorizationCatalog: EndpointAuthorizationEntry[] = [
     tenantSource: "request.auth.uid",
     objectIdsFromClient: [],
     ownershipCheck: "handler derives uid from request.auth.uid only",
-    handlerModule: "callables/promoRedemption.ts",
+    handlerModule: "functions/src/callables/promoRedemption.ts",
     bolaCoverage: [
       {
         file: "functions/src/__tests__/bola/authOnly.bola.test.ts",
@@ -4355,6 +4438,27 @@ export const endpointAuthorizationCatalog: EndpointAuthorizationEntry[] = [
         covers: ["setHermesGatewayOversightMode"],
         expectedOutcome: "throws",
         expectedCode: "failed-precondition",
+      },
+    ],
+    highRiskComputerUse: false,
+  },
+  {
+    exportedName: "settlePendingMemoryPacks",
+    trigger: "callable",
+    authMethod: "Firebase Auth with callable-level ownership checks",
+    appCheck: "required",
+    tenantSource: "request.auth.uid",
+    objectIdsFromClient: [],
+    ownershipCheck: "handler derives uid from request.auth.uid only",
+    handlerModule: "functions-identity/src/callables/memoryPacks.ts",
+    bolaCoverage: [
+      {
+        file: "functions/src/__tests__/bola/authOnly.bola.test.ts",
+        test: "rejects unauthenticated callable access",
+        kind: "auth-only",
+        covers: ["settlePendingMemoryPacks"],
+        expectedOutcome: "throws",
+        expectedCode: "unauthenticated",
       },
     ],
     highRiskComputerUse: false,

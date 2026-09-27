@@ -73,7 +73,7 @@ const CATALOG_OVERRIDES = {
     // tenant's data and no cross-user object to probe.
     objectIdsFromClient: [],
     ownershipCheck: "handler derives uid from request.auth.uid only",
-    handlerModule: "callables/promoRedemption.ts",
+    handlerModule: "functions/src/callables/promoRedemption.ts",
     bolaCoverage: [
       {
         file: "functions/src/__tests__/bola/authOnly.bola.test.ts",
@@ -908,27 +908,6 @@ const CATALOG_OVERRIDES = {
       },
     ],
   },
-  googlePlayDeveloperNotifications: {
-    trigger: "provider-webhook",
-    authMethod: "Google Play RTDN delivered over an owned Pub/Sub topic (not client-callable)",
-    appCheck: "not-applicable",
-    tenantSource: "purchase-token claim resolved server-side to a uid",
-    objectIdsFromClient: [],
-    ownershipCheck:
-      "handler maps the Play-signed purchase token to an existing server-owned claim before touching any uid-scoped document",
-    handlerModule: "functions-identity/src/domains/billing/googlePlayRtdn.ts",
-    bolaCoverage: [
-      {
-        file: "functions/src/__tests__/bola/authOnly.bola.test.ts",
-        test: "platform triggers are not client-callable",
-        kind: "platform-trigger",
-        covers: ["googlePlayDeveloperNotifications"],
-      },
-    ],
-    publicJustification:
-      "Provider notification endpoint authenticated by Google Play's signed RTDN payload on a project-owned Pub/Sub topic; it accepts no client-supplied object ids.",
-    highRiskComputerUse: false,
-  },
   onAIInboxItemNotification: {
     trigger: "firestore-trigger",
     authMethod: "Firebase Functions event trigger (not client-callable)",
@@ -1449,11 +1428,11 @@ CATALOG_OVERRIDES.arenaMatchup = {
   highRiskComputerUse: false,
 };
 const MEMORY_PACK_AUTH_ONLY_CALLABLES = [
-  ["listMemoryPacks", "callables/memoryPacks.ts"],
-  ["createMemoryPackCheckoutSession", "callables/memoryPacks.ts"],
-  ["redeemPlayMemoryPack", "callables/memoryPacks.ts"],
-  ["settlePendingMemoryPacks", "callables/memoryPacks.ts"],
-  ["redeemAppleMemoryPack", "appstore/callable.ts"],
+  ["listMemoryPacks", "functions-identity/src/callables/memoryPacks.ts"],
+  ["createMemoryPackCheckoutSession", "functions-identity/src/callables/memoryPacks.ts"],
+  ["redeemPlayMemoryPack", "functions-identity/src/callables/memoryPacks.ts"],
+  ["settlePendingMemoryPacks", "functions-identity/src/callables/memoryPacks.ts"],
+  ["redeemAppleMemoryPack", "functions-identity/src/domains/billing/appstore/callable.ts"],
 ];
 
 for (const [exportedName, handlerModule] of MEMORY_PACK_AUTH_ONLY_CALLABLES) {
@@ -1846,7 +1825,10 @@ const objectExpectedCodes = Object.fromEntries(
 // slug-key fingerprint recorder (D16, this PR), plus the mission group
 // creator `createCliAgentMissionGroup` (its groupId is a caller-namespaced
 // CREATE: a cross-user probe resolves writing only under the caller, so its
-// runtime-cross-user ref proves no victim-side effect).
+// runtime-cross-user ref proves no victim-side effect), plus the promo-code
+// redemption callable (`redeemPromoCode` — the submitted campaign code is a
+// global shared secret, not a per-tenant object id; every write derives from
+// request.auth.uid).
 if (Object.keys(objectExpectedCodes).length !== 104) {
   throw new Error(
     `Expected exactly 104 object-id endpoint codes, found ${Object.keys(objectExpectedCodes).length}`,

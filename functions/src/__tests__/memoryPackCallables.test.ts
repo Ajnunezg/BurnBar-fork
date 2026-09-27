@@ -63,7 +63,7 @@ vi.mock("../../../functions-identity/src/domains/billing/usageCuration/eligibili
 
 vi.mock("../../../functions-identity/src/domains/billing/usageCuration/remoteConfig.js", async () => {
   const actual = await vi.importActual<typeof import("../../../functions-identity/src/domains/billing/usageCuration/remoteConfig.js")>(
-    "../usageCuration/remoteConfig.js",
+    "../../../functions-identity/src/domains/billing/usageCuration/remoteConfig.js",
   );
   return {
     ...actual,

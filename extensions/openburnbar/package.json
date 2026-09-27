@@ -227,7 +227,7 @@
           "type": "boolean",
           "scope": "application",
           "default": false,
-          "markdownDescription": "Opt in to privacy-preserving, anonymous usage analytics (Amplitude) to help improve OpenBurnBar. Off by default and configurable only in user settings. No personal data, prompts, code, file paths, or message content is ever sent — only feature usage, outcomes, and bucketed counts. Also requires VS Code telemetry (`#telemetry.telemetryLevel#`) to be enabled; analytics stay off if either is disabled.",
+          "markdownDescription": "Opt in to privacy-preserving, anonymous usage analytics (Amplitude) to help improve OpenBurnBar. Off by default and configurable only in user settings. No personal data, prompts, code, file paths, or message content is ever sent \u2014 only feature usage, outcomes, and bucketed counts. Also requires VS Code telemetry (`#telemetry.telemetryLevel#`) to be enabled; analytics stay off if either is disabled.",
           "tags": [
             "telemetry",
             "usesOnlineServices"
@@ -274,7 +274,7 @@
     "mocha": "^12.0.2",
     "prettier": "3.9.9",
     "size-limit": "14.0.0",
-    "typescript": "^7.0.2",
+    "typescript": "^5.9.3",
     "vitest": "5.0.1"
   },
   "dependencies": {

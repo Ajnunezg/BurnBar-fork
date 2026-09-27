@@ -10,7 +10,7 @@ export {
   verifyHostedQuotaEntitlement,
   verifyCloudProTopUp,
   restoreHostedQuotaEntitlement,
-  redeemAppleMemoryPack,
+  redeemAppleMemoryPackCallable as redeemAppleMemoryPack,
 } from "./callable.js";
 
 export { appStoreServerNotificationsV2 } from "./notifications.js";

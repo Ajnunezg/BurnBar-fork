@@ -190,6 +190,10 @@ export const CALLABLE_RATE_POLICIES = {
   ),
   createHermesPairing: enforced("checkHermesRateLimit", "functions-media/src/domains/hermes/hermes.ts"),
   createPiAgentPairing: enforced("checkPiAgentRateLimit", "functions-identity/src/domains/identity/piAgent.ts"),
+  createMemoryPackCheckoutSession: limited(
+    "external-side-effect",
+    "Each call creates a Stripe checkout session for a memory pack — a third-party artifact per invocation.",
+  ),
   createStripeBurnBarProCheckoutSession: limited(
     "external-side-effect",
     "Each call creates a Stripe checkout session — a third-party artifact per invocation.",
@@ -300,6 +304,7 @@ export const CALLABLE_RATE_POLICIES = {
   listHermesGatewayClients: readOnly("Lists the caller's gateway client rows; no writes."),
   listKnowledgeRepos: readOnly("Lists the caller's knowledge repos and manifests; no writes."),
   listLinuxAppCheckDevices: readOnly("Lists enrollment review material below the caller's namespace; no writes."),
+  listMemoryPacks: readOnly("Lists the memory-pack catalog and the caller's entitlements; no writes."),
   listPendingCloudVaultRotationRequirements: readOnly(
     "Trusted-device read of pending rotation requirements; no writes.",
   ),
@@ -378,10 +383,19 @@ export const CALLABLE_RATE_POLICIES = {
   recordTeamSlugKeyId: enforced("checkTeamRosterMutationRateLimit", "functions-identity/src/domains/identity/teamRosterCallables.ts"),
   refreshProviderAccountQuota: enforced("checkRefreshRateLimit", "functions-identity/src/callables/providerQuotaRefresh.ts"),
   refreshProviderQuota: enforced("checkRefreshRateLimit", "functions-identity/src/callables/providerQuotaRefresh.ts"),
+  redeemAppleMemoryPack: limited(
+    "security",
+    "Redeems an App Store memory-pack purchase into an entitlement grant; App Store JWS verification bounds forgery but not call volume.",
+  ),
   redeemMissionApprovalAnswer: limited(
     "security",
     "Redeems a mission approval answer — grant redemption; failure lockouts bound retries only.",
   ),
+  redeemPlayMemoryPack: limited(
+    "security",
+    "Redeems a Play memory-pack purchase token into an entitlement grant; token claim is atomic but call volume is unbounded.",
+  ),
+  redeemPromoCode: enforced("checkPromoRedeemRateLimit", "functions/src/callables/promoRedemption.ts"),
   registerBrowserEscrowDevice: limited(
     "security",
     "Registers a browser escrow device and fans out approval pushes to companion devices.",
@@ -496,6 +510,10 @@ export const CALLABLE_RATE_POLICIES = {
   confirmRecovery: limited(
     "security",
     "Confirms a recovery method against the stored verification hash.",
+  ),
+  settlePendingMemoryPacks: limited(
+    "mutation",
+    "Settles the caller's pending memory-pack purchases after provider confirmation; owner-scoped write.",
   ),
   signalActivationReadiness: readOnly(
     "Reads escrow devices and identity keys to report activation readiness; no writes.",

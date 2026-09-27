@@ -27,7 +27,7 @@ import {
   stripeSubscriptionProductID,
 } from "./stripeSubscriptionTiers.js";
 import { applyStripeTopUpCheckoutSession, reconcileStripeTopUpCharge } from "./stripeTopUps.js";
-import { applyStripeMemoryPackCheckoutSession, reconcileStripeMemoryPackCharge } from "../../usageCuration/stripeRail.js";
+import { applyStripeMemoryPackCheckoutSession, reconcileStripeMemoryPackCharge } from "../domains/billing/usageCuration/stripeRail.js";
 import {
   recordStripeSubscriptionPaymentReversal,
   stripeInvoiceSubscriptionID,
