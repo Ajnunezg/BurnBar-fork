@@ -326,7 +326,7 @@ private actor ChatStreamConsumer {
         // since — re-arming would only move the same commit later.
         guard trailingFlush == nil else { return }
         trailingFlush = Task { [weak self] in
-            try? await Task.sleep(for: delay)
+            try? await Task.sleep(for: delay) // try?-ok(isCancelled guard below owns cancellation)
             guard !Task.isCancelled, let self else { return }
             await self.completeTrailingFlush(downstream: downstream)
         }
