@@ -870,6 +870,7 @@ let openBurnBarCoreOffAppleTestSources: [String]? = [
     "GrokCLIAuthFileTests.swift",
     "XAIQuotaAdapterHonestyTests.swift",
     "GeminiCLIQuotaAdapterTests.swift",
+    "GoogleCloudQuotaRemainingTests.swift",
     "BurnBarProviderAuthRegistryTests.swift",
     "ProviderQuotaAdapterRegistryTests.swift"
     "TogetherQuotaAdapterTests.swift",
@@ -911,6 +912,7 @@ let openBurnBarCoreOffAppleTestSources: [String]? = [
     "GrokCLIAuthFileTests.swift",
     "XAIQuotaAdapterHonestyTests.swift",
     "GeminiCLIQuotaAdapterTests.swift",
+    "GoogleCloudQuotaRemainingTests.swift",
     "BurnBarProviderAuthRegistryTests.swift",
     "ProviderQuotaAdapterRegistryTests.swift"
     "TogetherQuotaAdapterTests.swift",
@@ -967,6 +969,7 @@ func legacyLinuxTestExcludes(targetPath: String) -> [String] {
             "XAIQuotaAdapterHonestyTests.swift",
             "PackageDiffCoverageQuotaAndCLITests.swift",
             "GeminiCLIQuotaAdapterTests.swift",
+            "GoogleCloudQuotaRemainingTests.swift",
             "BurnBarProviderAuthRegistryTests.swift",
             "ProviderQuotaAdapterRegistryTests.swift",
             "PackageDiffCoverageQuotaAndCLITests.swift",
