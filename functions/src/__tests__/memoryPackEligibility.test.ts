@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const entitlementDocs = vi.hoisted(() => new Map<string, Record<string, unknown>>());
 
-vi.mock("../adminRuntime.js", () => ({
+vi.mock("../../../packages/functions-shared/src/adminRuntime.js", () => ({
   db: {
     doc: (path: string) => ({
       get: async () => ({
@@ -12,7 +12,7 @@ vi.mock("../adminRuntime.js", () => ({
   },
 }));
 
-vi.mock("../callables/shared/entitlements.js", () => ({
+vi.mock("../../../packages/functions-shared/src/shared/entitlements.js", () => ({
   BURNBAR_PRO_ENTITLEMENT_ID: "burnbar_pro",
   BURNBAR_PRO_MAX_ENTITLEMENT_ID: "burnbar_pro_max",
   BURNBAR_ULTRA_ENTITLEMENT_ID: "burnbar_ultra",
@@ -24,7 +24,7 @@ vi.mock("../callables/shared/entitlements.js", () => ({
 import {
   assertMemoryPackPurchaseEntitlement,
   hasActiveMemoryPackVisionEntitlement,
-} from "../usageCuration/eligibility.js";
+} from "../../../functions-identity/src/domains/billing/usageCuration/eligibility.js";
 
 const UID = "user_eligibility";
 

@@ -4,13 +4,13 @@
 
 import { HttpsError } from "firebase-functions/v2/https";
 
-import { db } from "../adminRuntime.js";
-import { getConfig } from "../config.js";
-import { jsonObject } from "../guards.js";
-import { externalApiWithResilience, googlePlayConsumeWithResilience } from "../resilienceHelpers.js";
-import { sha256Hex } from "../callables/shared/validators.js";
-import { claimGooglePlayPurchaseToken } from "../callables/googlePlayTokenClaims.js";
-import { googlePlayBillingRecordPath } from "../callables/googlePlayBillingPaths.js";
+import { db } from "@openburnbar/functions-shared/adminRuntime.js";
+import { getConfig } from "@openburnbar/functions-shared/config.js";
+import { jsonObject } from "@openburnbar/functions-shared/guards.js";
+import { externalApiWithResilience, googlePlayConsumeWithResilience } from "@openburnbar/functions-shared/resilienceHelpers.js";
+import { sha256Hex } from "@openburnbar/functions-shared/shared/validators.js";
+import { claimGooglePlayPurchaseToken } from "../../callables/googlePlayTokenClaims.js";
+import { googlePlayBillingRecordPath } from "../../callables/googlePlayBillingPaths.js";
 import { memoryPackFromPlayProductID } from "./catalog.js";
 import { grantExists, grantMemoryPack, reverseMemoryPackGrant } from "./wallet.js";
 import { hasActiveMemoryPackVisionEntitlement } from "./eligibility.js";

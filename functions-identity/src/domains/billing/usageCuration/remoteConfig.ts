@@ -7,9 +7,9 @@
 
 import { getRemoteConfig } from "firebase-admin/remote-config";
 
-import { errorMessage, isRecord } from "../guards.js";
-import { logWarn } from "../logging.js";
-import { remoteConfigStringValue } from "../remoteConfigGuards.js";
+import { errorMessage, isRecord } from "@openburnbar/functions-shared/guards.js";
+import { logWarn } from "@openburnbar/functions-shared/logging.js";
+import { remoteConfigStringValue } from "@openburnbar/functions-shared/remoteConfigGuards.js";
 import {
   DEFAULT_MEMORY_PACKS,
   MEMORY_PACK_IDS,

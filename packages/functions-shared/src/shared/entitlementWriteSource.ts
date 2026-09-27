@@ -36,3 +36,6 @@ export function sameEntitlementWriteSource(
   }
   return !incoming.externalSubscriptionID && !incoming.purchaseTokenHash;
 }
+
+/** Entitlement `source` value written by promo-campaign grants (`redeemPromoCode`). */
+export const PROMO_ENTITLEMENT_SOURCE = "promo_campaign_grant";

@@ -5,7 +5,7 @@ const remoteConfigState = vi.hoisted((): { template: unknown; fail: boolean } =>
   fail: false,
 }));
 
-vi.mock("../config.js", () => ({
+vi.mock("../../../packages/functions-shared/src/config.js", () => ({
   getConfig: () => ({
     memoryBoostText1mProductID: "com.openburnbar.memory.boost.text.1m",
     memoryBoostText5mProductID: "com.openburnbar.memory.boost.text.5m",
@@ -28,7 +28,7 @@ vi.mock("firebase-admin/remote-config", () => ({
   }),
 }));
 
-vi.mock("../logging.js", () => ({
+vi.mock("../../../packages/functions-shared/src/logging.js", () => ({
   logWarn: vi.fn(),
 }));
 
@@ -42,13 +42,13 @@ import {
   memoryPackFromPlayProductID,
   memoryPackFromStripePriceID,
   memoryPackRuntimeIds,
-} from "../usageCuration/catalog.js";
+} from "../../../functions-identity/src/domains/billing/usageCuration/catalog.js";
 import {
   isMemoryPackOffered,
   listedMemoryPacks,
   loadMemoryPackCatalog,
   normalizeMemoryPackCatalog,
-} from "../usageCuration/remoteConfig.js";
+} from "../../../functions-identity/src/domains/billing/usageCuration/remoteConfig.js";
 
 describe("Memory Boost catalog", () => {
   it("recognizes pack ids, lanes, and store product ids", () => {

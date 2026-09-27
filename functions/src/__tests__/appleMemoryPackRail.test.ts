@@ -14,7 +14,7 @@ const state = vi.hoisted(() => {
   };
 });
 
-vi.mock("../config.js", () => ({
+vi.mock("../../../packages/functions-shared/src/config.js", () => ({
   getConfig: () => ({
     memoryBoostText1mProductID: "com.openburnbar.memory.boost.text.1m",
     memoryBoostText5mProductID: "com.openburnbar.memory.boost.text.5m",
@@ -22,25 +22,25 @@ vi.mock("../config.js", () => ({
   }),
 }));
 
-vi.mock("../usageCuration/wallet.js", () => ({
+vi.mock("../../../functions-identity/src/domains/billing/usageCuration/wallet.js", () => ({
   grantExists: (...args: unknown[]) => state.grantExists(...args),
   grantMemoryPack: (...args: unknown[]) => state.grantMemoryPack(...args),
   reverseMemoryPackGrant: (...args: unknown[]) => state.reverseMemoryPackGrant(...args),
 }));
 
-vi.mock("../usageCuration/eligibility.js", () => ({
+vi.mock("../../../functions-identity/src/domains/billing/usageCuration/eligibility.js", () => ({
   hasActiveMemoryPackVisionEntitlement: (...args: unknown[]) => state.visionEligible(...args),
 }));
 
-vi.mock("../appstore/reconciler.js", () => ({
+vi.mock("../../../functions-identity/src/domains/billing/appstore/reconciler.js", () => ({
   consumeBindingByToken: (...args: unknown[]) => state.consumeBindingByToken(...args),
 }));
 
-vi.mock("../logging.js", () => ({
+vi.mock("../../../packages/functions-shared/src/logging.js", () => ({
   logWarn: (...args: unknown[]) => state.logWarn(...args),
 }));
 
-import { applyAppleMemoryPackNotification, redeemAppleMemoryPack } from "../usageCuration/appleRail.js";
+import { applyAppleMemoryPackNotification, redeemAppleMemoryPack } from "../../../functions-identity/src/domains/billing/usageCuration/appleRail.js";
 
 const UID = "apple-user";
 function appleDb(): Firestore {

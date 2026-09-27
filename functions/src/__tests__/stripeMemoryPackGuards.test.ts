@@ -21,7 +21,7 @@ vi.mock("firebase-admin/firestore", () => ({
   },
 }));
 
-vi.mock("../adminRuntime.js", () => ({
+vi.mock("../../../packages/functions-shared/src/adminRuntime.js", () => ({
   db: {
     doc: (path: string) => ({
       set: async (data: Record<string, unknown>, options?: { merge?: boolean }) => {
@@ -35,24 +35,24 @@ vi.mock("../adminRuntime.js", () => ({
   },
 }));
 
-vi.mock("../resilienceHelpers.js", () => ({
+vi.mock("../../../packages/functions-shared/src/resilienceHelpers.js", () => ({
   stripeWithResilience: (name: string, fn: () => Promise<unknown>) => state.stripeWithResilience(name, fn),
 }));
 
-vi.mock("../usageCuration/wallet.js", () => ({
+vi.mock("../../../functions-identity/src/domains/billing/usageCuration/wallet.js", () => ({
   grantMemoryPack: (...args: unknown[]) => state.grantMemoryPack(...args),
   reverseMemoryPackGrant: (...args: unknown[]) => state.reverseMemoryPackGrant(...args),
 }));
 
-vi.mock("../usageCuration/eligibility.js", () => ({
+vi.mock("../../../functions-identity/src/domains/billing/usageCuration/eligibility.js", () => ({
   hasActiveMemoryPackVisionEntitlement: (...args: unknown[]) => state.visionEligible(...args),
 }));
 
-vi.mock("../usageCuration/remoteConfig.js", () => ({
+vi.mock("../../../functions-identity/src/domains/billing/usageCuration/remoteConfig.js", () => ({
   loadMemoryPackCatalog: (...args: unknown[]) => state.loadCatalog(...args),
 }));
 
-vi.mock("../config.js", () => ({
+vi.mock("../../../packages/functions-shared/src/config.js", () => ({
   getConfig: () => ({
     stripeMemoryBoostText1mPriceID: state.prices.text_1m,
     stripeMemoryBoostText5mPriceID: state.prices.text_5m,
@@ -68,7 +68,7 @@ import {
   stripeMemoryPackDiscountMinor,
   stripeMemoryPackIdempotencyKey,
   stripeMemoryPackLineItem,
-} from "../usageCuration/stripeRail.js";
+} from "../../../functions-identity/src/domains/billing/usageCuration/stripeRail.js";
 
 function stripeStub<T>(stub: object = {}): T {
   // @ts-expect-error reason: the stub implements the Stripe surface these Memory Boost tests exercise

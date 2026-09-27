@@ -106,11 +106,11 @@ vi.mock("firebase-admin/firestore", () => {
   return { Timestamp: FakeTimestamp };
 });
 
-vi.mock("../adminRuntime.js", () => ({
+vi.mock("../../../packages/functions-shared/src/adminRuntime.js", () => ({
   db: dbMock,
 }));
 
-vi.mock("../config.js", () => ({
+vi.mock("../../../packages/functions-shared/src/config.js", () => ({
   getConfig: () => ({
     memoryBoostText1mProductID: "com.openburnbar.memory.boost.text.1m",
     memoryBoostText5mProductID: "com.openburnbar.memory.boost.text.5m",
@@ -131,13 +131,13 @@ import {
   grantMemoryPack,
   reverseMemoryPackGrant,
   settlePendingMemoryPacks,
-} from "../usageCuration/wallet.js";
-import { db } from "../adminRuntime.js";
+} from "../../../functions-identity/src/domains/billing/usageCuration/wallet.js";
+import { db } from "../../../packages/functions-shared/src/adminRuntime.js";
 import {
   listedMemoryPacks,
   normalizeMemoryPackCatalog,
   isMemoryPackOffered,
-} from "../usageCuration/remoteConfig.js";
+} from "../../../functions-identity/src/domains/billing/usageCuration/remoteConfig.js";
 import { Timestamp } from "firebase-admin/firestore";
 
 const UID = "user_memory_wallet";

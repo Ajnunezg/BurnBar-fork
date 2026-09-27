@@ -28,7 +28,7 @@ vi.mock("googleapis", () => ({
   },
 }));
 
-vi.mock("../config.js", () => ({
+vi.mock("../../../packages/functions-shared/src/config.js", () => ({
   getConfig: () => ({
     googlePlayPackageName: "com.openburnbar",
     googlePlayMemoryBoostText1mProductID: "com.openburnbar.memory.boost.text.1m",
@@ -37,26 +37,26 @@ vi.mock("../config.js", () => ({
   }),
 }));
 
-vi.mock("../resilienceHelpers.js", () => ({
+vi.mock("../../../packages/functions-shared/src/resilienceHelpers.js", () => ({
   externalApiWithResilience: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
   googlePlayConsumeWithResilience: vi.fn(async (fn: () => Promise<unknown>) => fn()),
 }));
 
-vi.mock("../usageCuration/wallet.js", () => ({
+vi.mock("../../../functions-identity/src/domains/billing/usageCuration/wallet.js", () => ({
   grantExists: (...args: unknown[]) => state.grantExists(...args),
   grantMemoryPack: (...args: unknown[]) => state.grantMemoryPack(...args),
   reverseMemoryPackGrant: (...args: unknown[]) => state.reverseMemoryPackGrant(...args),
 }));
 
-vi.mock("../usageCuration/eligibility.js", () => ({
+vi.mock("../../../functions-identity/src/domains/billing/usageCuration/eligibility.js", () => ({
   hasActiveMemoryPackVisionEntitlement: (...args: unknown[]) => state.visionEligible(...args),
 }));
 
-vi.mock("../callables/googlePlayTokenClaims.js", () => ({
+vi.mock("../../../functions-identity/src/callables/googlePlayTokenClaims.js", () => ({
   claimGooglePlayPurchaseToken: (...args: unknown[]) => state.claimToken(...args),
 }));
 
-vi.mock("../adminRuntime.js", () => ({
+vi.mock("../../../packages/functions-shared/src/adminRuntime.js", () => ({
   db: {
     doc: (path: string) => ({
       set: async (data: Record<string, unknown>) => {
@@ -66,7 +66,7 @@ vi.mock("../adminRuntime.js", () => ({
   },
 }));
 
-import { redeemPlayMemoryPack, reverseVoidedMemoryPack } from "../usageCuration/playRail.js";
+import { redeemPlayMemoryPack, reverseVoidedMemoryPack } from "../../../functions-identity/src/domains/billing/usageCuration/playRail.js";
 
 const UID = "play-user";
 const PRODUCT_ID = "com.openburnbar.memory.boost.text.1m";

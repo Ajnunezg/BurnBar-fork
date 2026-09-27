@@ -4,26 +4,27 @@
 
 import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/https";
 
-import { getConfig } from "../config.js";
-import { enforceAuthAndAppCheck } from "../auth.js";
-import { wrapCallableHandler, logCallableStart, traceIdFromCallableRequest } from "../logging.js";
-import { STRIPE_API_SECRETS, requireConfiguredStripe, getOrCreateStripeCustomer, boundedHttpsURL } from "./shared.js";
+import { getConfig } from "@openburnbar/functions-shared/config.js";
+import { enforceAuthAndAppCheck } from "@openburnbar/functions-shared/auth.js";
+import { wrapCallableHandler, logCallableStart, traceIdFromCallableRequest } from "@openburnbar/functions-shared/logging.js";
+import { STRIPE_API_SECRETS, requireConfiguredStripe, getOrCreateStripeCustomer } from "../shared/stripe.js";
+import { boundedHttpsURL } from "@openburnbar/functions-shared/shared/validators.js";
 import { STRIPE_CHECKOUT_CUSTOMER_AND_TAX_SETTINGS } from "./stripeCheckoutPolicy.js";
-import { stripeWithResilience } from "../resilienceHelpers.js";
-import { FUNCTIONS_REGION, HOT_PATH_OPTIONS } from "../runtimeOptions.js";
-import { listedMemoryPacks, loadMemoryPackCatalog, isMemoryPackOffered } from "../usageCuration/remoteConfig.js";
-import { memoryPackRuntimeIds } from "../usageCuration/catalog.js";
+import { stripeWithResilience } from "@openburnbar/functions-shared/resilienceHelpers.js";
+import { FUNCTIONS_REGION, HOT_PATH_OPTIONS } from "@openburnbar/functions-shared/runtimeOptions.js";
+import { listedMemoryPacks, loadMemoryPackCatalog, isMemoryPackOffered } from "../domains/billing/usageCuration/remoteConfig.js";
+import { memoryPackRuntimeIds } from "../domains/billing/usageCuration/catalog.js";
 import {
   assertMemoryPackPurchaseEntitlement,
   hasActiveMemoryPackVisionEntitlement,
-} from "../usageCuration/eligibility.js";
-import * as memoryWallet from "../usageCuration/wallet.js";
+} from "../domains/billing/usageCuration/eligibility.js";
+import * as memoryWallet from "../domains/billing/usageCuration/wallet.js";
 import {
   requireConfiguredStripeMemoryPackPrice,
   stripeMemoryPackCheckoutMetadata,
   stripeMemoryPackIdempotencyKey,
-} from "../usageCuration/stripeRail.js";
-import * as playRail from "../usageCuration/playRail.js";
+} from "../domains/billing/usageCuration/stripeRail.js";
+import * as playRail from "../domains/billing/usageCuration/playRail.js";
 import { parseCreateMemoryPackCheckoutInput, parseRedeemPlayMemoryPackInput } from "./memoryPackInputSchemas.js";
 
 export const listMemoryPacks = onCall(

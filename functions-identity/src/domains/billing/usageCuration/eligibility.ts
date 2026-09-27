@@ -11,7 +11,7 @@
 
 import { HttpsError } from "firebase-functions/v2/https";
 
-import { db } from "../adminRuntime.js";
+import { db } from "@openburnbar/functions-shared/adminRuntime.js";
 import {
   BURNBAR_PRO_ENTITLEMENT_ID,
   BURNBAR_PRO_MAX_ENTITLEMENT_ID,
@@ -19,7 +19,7 @@ import {
   isActiveBurnBarCloudProEntitlement,
   isActiveBurnBarUltraEntitlement,
   isActivePremiumEntitlement,
-} from "../callables/shared/entitlements.js";
+} from "@openburnbar/functions-shared/shared/entitlements.js";
 import { DEFAULT_MEMORY_PACKS, type MemoryPackId } from "./catalog.js";
 
 async function hasActiveMemoryPackTextEntitlement(uid: string): Promise<boolean> {

@@ -9,7 +9,7 @@ import { memoryPackFromAppleProductID } from "./catalog.js";
 import { grantExists, grantMemoryPack, reverseMemoryPackGrant } from "./wallet.js";
 import { hasActiveMemoryPackVisionEntitlement } from "./eligibility.js";
 import { consumeBindingByToken } from "../appstore/reconciler.js";
-import { logWarn } from "../logging.js";
+import { logWarn } from "@openburnbar/functions-shared/logging.js";
 
 export async function redeemAppleMemoryPack(args: {
   db: Firestore;

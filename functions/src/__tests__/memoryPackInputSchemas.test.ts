@@ -4,7 +4,7 @@ import {
   parseCreateMemoryPackCheckoutInput,
   parseRedeemAppleMemoryPackInput,
   parseRedeemPlayMemoryPackInput,
-} from "../callables/memoryPackInputSchemas.js";
+} from "../../../functions-identity/src/callables/memoryPackInputSchemas.js";
 
 describe("Memory Boost callable input schemas", () => {
   it("parses checkout, Play redeem, and Apple redeem payloads", () => {

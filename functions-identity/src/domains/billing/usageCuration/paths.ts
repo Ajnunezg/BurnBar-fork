@@ -6,7 +6,7 @@
  * `memoryWalletLedger` is append-only audit and is never on the debit hot path.
  */
 
-import { requiredIdentifier } from "../callables/shared/validators.js";
+import { requiredIdentifier } from "@openburnbar/functions-shared/shared/validators.js";
 import type { MemoryPackSource } from "./catalog.js";
 
 export function memoryWalletDocPath(uid: string): string {

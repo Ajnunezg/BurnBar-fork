@@ -6,7 +6,7 @@
  * this file are documentation + anti-typo floors, never charged by clients.
  */
 
-import { getConfig } from "../config.js";
+import { getConfig } from "@openburnbar/functions-shared/config.js";
 
 export const MEMORY_PACK_IDS = ["text_1m", "text_5m", "vision_1m"] as const;
 type MemoryPackId = (typeof MEMORY_PACK_IDS)[number];

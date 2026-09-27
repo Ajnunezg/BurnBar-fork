@@ -19,10 +19,10 @@
 
 import { Timestamp, type DocumentReference, type Transaction } from "firebase-admin/firestore";
 
-import { db } from "../adminRuntime.js";
-import { isRecord, isTimestampWithToMillis, stripUndefinedObject } from "../guards.js";
-import { requiredIdentifier } from "../callables/shared/validators.js";
-import { proportionalTopUpReversalUnits } from "../callables/shared/stripeTopUpReversal.js";
+import { db } from "@openburnbar/functions-shared/adminRuntime.js";
+import { isRecord, isTimestampWithToMillis, stripUndefinedObject } from "@openburnbar/functions-shared/guards.js";
+import { requiredIdentifier } from "@openburnbar/functions-shared/shared/validators.js";
+import { proportionalTopUpReversalUnits } from "@openburnbar/functions-shared/shared/stripeTopUpReversal.js";
 import {
   DEFAULT_MEMORY_PACKS,
   MEMORY_PACK_SCHEMA_VERSION,

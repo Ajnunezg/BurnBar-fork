@@ -32,7 +32,7 @@ import {
   stripeTopUpReversalState,
   type StripeTopUpDisputeStatus,
 } from "./stripeTopUpReversal.js";
-import { sameEntitlementWriteSource } from "./entitlementWriteSource.js";
+import { PROMO_ENTITLEMENT_SOURCE, sameEntitlementWriteSource } from "./entitlementWriteSource.js";
 import { nowISO, requiredIdentifier } from "./validators.js";
 
 export const BURNBAR_PRO_ENTITLEMENT_ID = "burnbar_pro";
@@ -343,6 +343,24 @@ export function paidEntitlementWriteWouldDowngrade(
   const existingExpiresAtMillis = entitlementExpiresAtMillis(existing);
   const nowMillis = incoming.nowMillis ?? Date.now();
   if (!existingExpiresAtMillis || existingExpiresAtMillis <= nowMillis) return false;
+
+  // Promotional grants and paid receipts rank by trust, not by expiry. A promo
+  // grant carries a deliberately far-future expiry, so the generic "shorter
+  // expiry = downgrade" rule below would read every real purchase as a
+  // downgrade and every promo write as an upgrade — exactly backwards.
+  const existingIsPromoGrant = existing.source === PROMO_ENTITLEMENT_SOURCE;
+  const incomingIsPromoGrant = incoming.source === PROMO_ENTITLEMENT_SOURCE;
+  if (existingIsPromoGrant !== incomingIsPromoGrant) {
+    // A verified purchase (or operator bridge) always supersedes a promo grant:
+    // the subscriber's real billing lifecycle has to own the document, or their
+    // cancellation could never take effect.
+    if (existingIsPromoGrant) return false;
+    // The mirror image: a campaign grant must never overwrite a live paid
+    // entitlement, which would erase externalSubscriptionID / purchaseTokenHash
+    // and strand the subscription's own webhooks.
+    return true;
+  }
+
   if (sameEntitlementWriteSource(existing, incoming)) return false;
   return !incoming.active || incoming.expiresAtMillis < existingExpiresAtMillis;
 }

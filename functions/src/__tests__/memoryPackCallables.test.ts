@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { callableRunner } from "./bola/callableBolaHarness.js";
-import { DEFAULT_MEMORY_PACKS } from "../usageCuration/catalog.js";
+import { DEFAULT_MEMORY_PACKS } from "../../../functions-identity/src/domains/billing/usageCuration/catalog.js";
 
 const state = vi.hoisted(() => ({
   visionEligible: vi.fn(),
@@ -14,7 +14,7 @@ const state = vi.hoisted(() => ({
   enforceAuth: vi.fn(),
 }));
 
-vi.mock("../config.js", () => ({
+vi.mock("../../../packages/functions-shared/src/config.js", () => ({
   getConfig: () => ({
     enforceAppCheck: false,
     stripeRedirectURLAllowlist: ["burnbar.ai"],
@@ -30,12 +30,12 @@ vi.mock("../config.js", () => ({
   }),
 }));
 
-vi.mock("../auth.js", () => ({
+vi.mock("../../../packages/functions-shared/src/auth.js", () => ({
   enforceAuthAndAppCheck: (...args: unknown[]) => state.enforceAuth(...args),
 }));
 
-vi.mock("../logging.js", async () => {
-  const actual = await vi.importActual<typeof import("../logging.js")>("../logging.js");
+vi.mock("../../../packages/functions-shared/src/logging.js", async () => {
+  const actual = await vi.importActual<typeof import("../../../packages/functions-shared/src/logging.js")>("../../../packages/functions-shared/src/logging.js");
   return {
     ...actual,
     wrapCallableHandler: (_name: string, handler: (request: unknown) => Promise<unknown>) => handler,
@@ -44,26 +44,25 @@ vi.mock("../logging.js", async () => {
   };
 });
 
-vi.mock("../callables/shared.js", () => ({
+vi.mock("../../../functions-identity/src/shared/stripe.js", () => ({
   STRIPE_API_SECRETS: [],
   requireConfiguredStripe: () => ({
     checkout: { sessions: { create: state.createSession } },
   }),
   getOrCreateStripeCustomer: (...args: unknown[]) => state.getCustomer(...args),
-  boundedHttpsURL: (value: string) => value,
 }));
 
-vi.mock("../resilienceHelpers.js", () => ({
+vi.mock("../../../packages/functions-shared/src/resilienceHelpers.js", () => ({
   stripeWithResilience: vi.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
 }));
 
-vi.mock("../usageCuration/eligibility.js", () => ({
+vi.mock("../../../functions-identity/src/domains/billing/usageCuration/eligibility.js", () => ({
   hasActiveMemoryPackVisionEntitlement: (...args: unknown[]) => state.visionEligible(...args),
   assertMemoryPackPurchaseEntitlement: (...args: unknown[]) => state.assertPurchase(...args),
 }));
 
-vi.mock("../usageCuration/remoteConfig.js", async () => {
-  const actual = await vi.importActual<typeof import("../usageCuration/remoteConfig.js")>(
+vi.mock("../../../functions-identity/src/domains/billing/usageCuration/remoteConfig.js", async () => {
+  const actual = await vi.importActual<typeof import("../../../functions-identity/src/domains/billing/usageCuration/remoteConfig.js")>(
     "../usageCuration/remoteConfig.js",
   );
   return {
@@ -72,11 +71,11 @@ vi.mock("../usageCuration/remoteConfig.js", async () => {
   };
 });
 
-vi.mock("../usageCuration/wallet.js", () => ({
+vi.mock("../../../functions-identity/src/domains/billing/usageCuration/wallet.js", () => ({
   settlePendingMemoryPacks: (...args: unknown[]) => state.settlePending(...args),
 }));
 
-vi.mock("../usageCuration/playRail.js", () => ({
+vi.mock("../../../functions-identity/src/domains/billing/usageCuration/playRail.js", () => ({
   redeemPlayMemoryPack: (...args: unknown[]) => state.redeemPlay(...args),
 }));
 
@@ -85,7 +84,7 @@ import {
   listMemoryPacks,
   redeemPlayMemoryPack,
   settlePendingMemoryPacks,
-} from "../callables/memoryPacks.js";
+} from "../../../functions-identity/src/callables/memoryPacks.js";
 
 const UID = "callable-user";
 const runList = callableRunner(listMemoryPacks);

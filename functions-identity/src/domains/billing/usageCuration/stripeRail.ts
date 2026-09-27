@@ -6,10 +6,10 @@ import { Timestamp } from "firebase-admin/firestore";
 import { HttpsError } from "firebase-functions/v2/https";
 import Stripe from "stripe";
 
-import { db } from "../adminRuntime.js";
-import { isRecord } from "../guards.js";
-import { stripeWithResilience } from "../resilienceHelpers.js";
-import { requiredIdentifier } from "../callables/shared/validators.js";
+import { db } from "@openburnbar/functions-shared/adminRuntime.js";
+import { isRecord } from "@openburnbar/functions-shared/guards.js";
+import { stripeWithResilience } from "@openburnbar/functions-shared/resilienceHelpers.js";
+import { requiredIdentifier } from "@openburnbar/functions-shared/shared/validators.js";
 import {
   isMemoryPackId,
   memoryPackFromStripePriceID,

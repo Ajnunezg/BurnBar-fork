@@ -1,7 +1,7 @@
 import { HttpsError } from "firebase-functions/v2/https";
 
-import { enumField, optionalString, parseCallableInput, requiredString } from "../validation/callableSchema.js";
-import { MEMORY_PACK_IDS, isMemoryPackId } from "../usageCuration/catalog.js";
+import { enumField, optionalString, parseCallableInput, requiredString } from "@openburnbar/functions-shared/validation/callableSchema.js";
+import { MEMORY_PACK_IDS, isMemoryPackId } from "../domains/billing/usageCuration/catalog.js";
 
 function requiredParsedString(value: unknown, fieldName: string): string {
   if (typeof value === "string") return value;
