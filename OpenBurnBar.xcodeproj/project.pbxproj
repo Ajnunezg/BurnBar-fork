@@ -3054,6 +3054,9 @@
 		FFAB5E091DCFBFA9AB908725 /* RemoteUnlockCapabilitySigningKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C8DD874C9F507F7F4987336 /* RemoteUnlockCapabilitySigningKeyStore.swift */; };
 		FFE260D43F2D8AC9D461E370 /* MemoryFootprintWatchdogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7847534F851A985E6E38B763 /* MemoryFootprintWatchdogTests.swift */; };
 		FFFE7E894DE8697DE8BC4D1B /* AccessibilityIdentifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEC58B9EBAE68F089ED0FCD8 /* AccessibilityIdentifiers.swift */; };
+		AA4441FF35B8A2B439275B17 /* ControlPlaneStore+UsageMemoryCandidates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21B9FA1E7827499EED14D99 /* ControlPlaneStore+UsageMemoryCandidates.swift */; };
+		CF72EA1C9236B1A88063AD37 /* UsageSessionLogMiner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 258E7F0F6EB2849578027AB4 /* UsageSessionLogMiner.swift */; };
+		E795EDF31E9B8B0148760674 /* UsageSessionLogMinerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB88DAC316E4FE8B369AD4A8 /* UsageSessionLogMinerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -6189,6 +6192,9 @@
 		FFB4C714340AB5C7EF8AB2BE /* MobileInsightAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileInsightAggregator.swift; sourceTree = "<group>"; };
 		FFE83B59A93E243EE54FC6F8 /* BurnBarProjectCodeMemoryStore+MemoryPersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BurnBarProjectCodeMemoryStore+MemoryPersistence.swift"; sourceTree = "<group>"; };
 		FFFDD98A3EE525028068947D /* HermesLiveGlyph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesLiveGlyph.swift; sourceTree = "<group>"; };
+		A21B9FA1E7827499EED14D99 /* ControlPlaneStore+UsageMemoryCandidates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "ControlPlaneStore+UsageMemoryCandidates.swift"; path = "AgentLens/Services/DataStore/ControlPlaneStore+UsageMemoryCandidates.swift"; sourceTree = SOURCE_ROOT; };
+		258E7F0F6EB2849578027AB4 /* UsageSessionLogMiner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageSessionLogMiner.swift"; path = "AgentLens/Services/Memory/UsageSessionLogMiner.swift"; sourceTree = SOURCE_ROOT; };
+		BB88DAC316E4FE8B369AD4A8 /* UsageSessionLogMinerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageSessionLogMinerTests.swift"; path = "AgentLensTests/Active/UsageSessionLogMinerTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
