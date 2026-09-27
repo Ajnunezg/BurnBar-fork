@@ -106,10 +106,17 @@ public enum SwarmBackgroundPowerPolicy {
         requestedVisibility: MobileBackgroundVisibility,
         scenePhaseActive: Bool,
         isLowPowerModeEnabled: Bool,
-        reduceMotion: Bool
+        reduceMotion: Bool,
+        surfaceEligible: Bool = true
     ) -> SwarmBackgroundRenderPlan {
         guard location != .disabled else {
             return .disabledFallback
+        }
+        // "Agents Tab Only" only permits the live swarm on the agents surface;
+        // everywhere else falls back to the static frame. Callers feed this
+        // from the active destination (Android: HERMES/Assistants tab).
+        if location == .agentsTab, !surfaceEligible {
+            return .staticBackdrop
         }
         guard conditionMet else {
             return .staticBackdrop

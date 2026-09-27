@@ -65,6 +65,10 @@ public sealed partial class DashboardPage : Page
                 _backdrop = new DashboardBackdrop();
                 _backdrop.SetTheme(ActualTheme == ElementTheme.Light ? "light" : "dark");
                 BackdropHost.Children.Add(_backdrop.Control);
+                if (App.Current.MainWindow is { } window)
+                {
+                    _backdrop.AttachSceneGate(window);
+                }
             }
             catch (Exception ex)
             {

@@ -23,8 +23,12 @@ architecture, the FFI vend contract, and the measured perf numbers.
   session, and calls the active `ISwarmSubstrate`.
 - `SwarmRenderPlanOwner.cs` — the prefs/sensors owner: loads the persisted
   swarm prefs, reads the live WinRT sensors (battery, network, battery-saver,
-  animations), and resolves `SwarmBackgroundPowerPolicy` into the host's
+  animations — including the `AnimationsEnabledChanged` accessibility
+  transition), and resolves `SwarmBackgroundPowerPolicy` into the host's
   `RenderPlan` via the unit-tested portable `SwarmPlanResolver`.
+  `AttachTo(window)` drives `SceneActive` from the host window's activation
+  transitions so a minimized/unfocused window resolves to the static plan;
+  `ReduceMotion` exposes the live accessibility flag for frame providers.
 
 ## Why it does not build on macOS
 

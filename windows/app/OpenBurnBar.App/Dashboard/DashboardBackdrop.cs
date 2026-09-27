@@ -4,6 +4,7 @@
 
 using System;
 using System.Linq;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using OpenBurnBar.App.Dashboard.Layout;
 using OpenBurnBar.App.Particles;
@@ -53,6 +54,11 @@ public sealed class DashboardBackdrop : IDisposable
 
     /// <summary>The XAML image to place at the back of the dashboard visual tree.</summary>
     public Image Control => _host.Control;
+
+    /// <summary>Feed the plan owner's scene gate from the hosting window's activation
+    /// transitions (see <see cref="SwarmRenderPlanOwner.AttachTo"/>) so a minimized or
+    /// unfocused dashboard resolves to the static plan.</summary>
+    public void AttachSceneGate(Window window) => _planOwner.AttachTo(window);
 
     /// <summary>Pauses compositor-driven invalidation while the WebGL layer is active.</summary>
     public bool Paused

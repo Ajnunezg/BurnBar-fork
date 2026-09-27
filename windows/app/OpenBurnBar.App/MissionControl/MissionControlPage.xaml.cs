@@ -64,13 +64,20 @@ public sealed partial class MissionControlPage : Page
 
         try
         {
-            _canvas = new SwarmCanvasHost
+            var canvas = new SwarmCanvasHost();
+            var planOwner = new SwarmRenderPlanOwner(canvas);
+            canvas.FrameProvider = (size, elapsed) =>
+                _backdrop.Build(
+                    size.Width, size.Height, elapsed.TotalSeconds,
+                    reduced: planOwner.ReduceMotion,
+                    batteryThrottled: canvas.RenderPlan.IsBatteryThrottled);
+            _canvas = canvas;
+            _planOwner = planOwner;
+            BackdropHost.Child = canvas.Control;
+            if (App.Current.MainWindow is { } window)
             {
-                FrameProvider = (size, elapsed) =>
-                    _backdrop.Build(size.Width, size.Height, elapsed.TotalSeconds),
-            };
-            _planOwner = new SwarmRenderPlanOwner(_canvas);
-            BackdropHost.Child = _canvas.Control;
+                planOwner.AttachTo(window);
+            }
         }
         catch (Exception ex)
         {

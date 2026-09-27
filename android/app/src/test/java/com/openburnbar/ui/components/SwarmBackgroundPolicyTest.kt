@@ -21,6 +21,7 @@ class SwarmBackgroundPolicyTest {
         scenePhaseActive: Boolean = true,
         isLowPowerModeEnabled: Boolean = false,
         reduceMotion: Boolean = false,
+        surfaceEligible: Boolean = true,
     ) = SwarmBackgroundPowerPolicy.resolve(
         location = location,
         conditionMet = conditionMet,
@@ -28,6 +29,7 @@ class SwarmBackgroundPolicyTest {
         scenePhaseActive = scenePhaseActive,
         isLowPowerModeEnabled = isLowPowerModeEnabled,
         reduceMotion = reduceMotion,
+        surfaceEligible = surfaceEligible,
     )
 
     @Test
@@ -144,7 +146,44 @@ class SwarmBackgroundPolicyTest {
     fun `agents tab location gates like everywhere once conditions hold`() {
         assertEquals(
             SwarmBackgroundRenderPlan.PROMINENT_LIVE,
-            resolve(location = SwarmBackgroundLocation.AGENTS_TAB),
+            resolve(location = SwarmBackgroundLocation.AGENTS_TAB, surfaceEligible = true),
+        )
+    }
+
+    @Test
+    fun `agents tab location resolves to static on ineligible surfaces`() {
+        assertEquals(
+            SwarmBackgroundRenderPlan.STATIC_BACKDROP,
+            resolve(location = SwarmBackgroundLocation.AGENTS_TAB, surfaceEligible = false),
+        )
+    }
+
+    @Test
+    fun `agents tab ineligibility beats every live signal but stays below disabled`() {
+        // Ineligible outranks condition/scene/motion/low-power live checks —
+        // but a DISABLED location still wins outright.
+        val plan =
+            resolve(
+                location = SwarmBackgroundLocation.AGENTS_TAB,
+                conditionMet = true,
+                requestedVisibility = MobileBackgroundVisibility.PROMINENT,
+                scenePhaseActive = true,
+                isLowPowerModeEnabled = false,
+                reduceMotion = false,
+                surfaceEligible = false,
+            )
+        assertEquals(SwarmBackgroundRenderPlan.STATIC_BACKDROP, plan)
+        assertEquals(
+            SwarmBackgroundRenderPlan.DISABLED_FALLBACK,
+            resolve(location = SwarmBackgroundLocation.DISABLED, surfaceEligible = false),
+        )
+    }
+
+    @Test
+    fun `surface eligibility is ignored by the everywhere location`() {
+        assertEquals(
+            SwarmBackgroundRenderPlan.PROMINENT_LIVE,
+            resolve(location = SwarmBackgroundLocation.EVERYWHERE, surfaceEligible = false),
         )
     }
 

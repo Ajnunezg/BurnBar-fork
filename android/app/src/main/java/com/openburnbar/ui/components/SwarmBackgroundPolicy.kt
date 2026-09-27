@@ -139,7 +139,8 @@ data class SwarmBackgroundRenderPlan(
 object SwarmBackgroundPowerPolicy {
     /**
      * Swift `SwarmBackgroundPowerPolicy.resolve`: the guard chain is order
-     * sensitive — location → condition → scene/visibility → motion/obscured →
+     * sensitive — location (+ surface eligibility) → condition →
+     * scene/visibility → motion/obscured →
      * low-power — and each early return is a distinct plan. Keep in lockstep.
      */
     fun resolve(
@@ -149,9 +150,16 @@ object SwarmBackgroundPowerPolicy {
         scenePhaseActive: Boolean,
         isLowPowerModeEnabled: Boolean,
         reduceMotion: Boolean,
+        surfaceEligible: Boolean = true,
     ): SwarmBackgroundRenderPlan {
         if (location == SwarmBackgroundLocation.DISABLED) {
             return SwarmBackgroundRenderPlan.DISABLED_FALLBACK
+        }
+        // "Agents Tab Only" only permits the live swarm on the agents surface;
+        // everywhere else falls back to the static frame. Callers feed this
+        // from the active destination (Android: HERMES/Assistants tab).
+        if (location == SwarmBackgroundLocation.AGENTS_TAB && !surfaceEligible) {
+            return SwarmBackgroundRenderPlan.STATIC_BACKDROP
         }
         if (!conditionMet) {
             return SwarmBackgroundRenderPlan.STATIC_BACKDROP

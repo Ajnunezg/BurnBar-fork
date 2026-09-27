@@ -155,6 +155,36 @@ class SwarmBackgroundTest {
     }
 
     @Test
+    fun `motion speed multiplier slows flow time like the iOS engine`() {
+        val full = simulation()
+        val subtle = simulation()
+        subtle.motionSpeedMultiplier = SwarmBackgroundRenderPlan.SUBTLE_LIVE.motionSpeedMultiplierScale
+        // Hold free swarm: cycling into a logo shape would decode provider
+        // bitmaps, which the context-less JVM can't supply.
+        full.isAutoCyclingEnabled = false
+        subtle.isAutoCyclingEnabled = false
+        full.ensureBounds(Size(1200f, 800f))
+        subtle.ensureBounds(Size(1200f, 800f))
+
+        full.advance(nowNanos = 1_000_000_000L, pointer = null, frameScale = 1.0)
+        subtle.advance(nowNanos = 1_000_000_000L, pointer = null, frameScale = 1.0)
+
+        // flowTime accumulates timeStep * 1000 * motionSpeedMultiplier * frameScale
+        // (iOS SwarmCanvasView.swift:682): the subtle plan's 0.55 must shrink it
+        // proportionally — slower motion, not just fewer frames.
+        assertEquals(full.flowTime * 0.55, subtle.flowTime, 0.0001)
+    }
+
+    @Test
+    fun `motion speed multiplier clamps to the iOS engine range`() {
+        val simulation = simulation()
+        simulation.motionSpeedMultiplier = 0.0
+        assertEquals(0.35, simulation.motionSpeedMultiplier, 0.0)
+        simulation.motionSpeedMultiplier = 9.0
+        assertEquals(2.5, simulation.motionSpeedMultiplier, 0.0)
+    }
+
+    @Test
     fun `power predicate treats any nonzero plug source as connected`() {
         // BatteryManager.EXTRA_PLUGGED: 0 = on battery, 1/2/4 = AC/USB/wireless.
         assertFalse(isSwarmPowerConnectedFromPluggedExtra(0))

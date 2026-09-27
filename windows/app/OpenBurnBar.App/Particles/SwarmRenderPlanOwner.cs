@@ -1,6 +1,7 @@
 // WINDOWS-ONLY / CI-DEFERRED (WinRT sensors + WinUI). See Win2DSubstrateDrawingSession.cs header.
 
 using System;
+using Microsoft.UI.Xaml;
 using OpenBurnBar.App.Configuration;
 using OpenBurnBar.Particles.Policy;
 using Windows.Devices.Power;
@@ -38,6 +39,7 @@ public sealed class SwarmRenderPlanOwner : IDisposable
     private MobileBackgroundVisibility _requestedVisibility = MobileBackgroundVisibility.Prominent;
     private MobileBackgroundVisibility _inheritedVisibility = MobileBackgroundVisibility.Prominent;
     private bool _sceneActive = true;
+    private Window? _sceneWindow;
 
     /// <summary>
     /// Attach to <paramref name="host"/>, loading prefs from
@@ -103,6 +105,48 @@ public sealed class SwarmRenderPlanOwner : IDisposable
         }
     }
 
+    /// <summary>
+    /// Drive <see cref="SceneActive"/> from a window's activation transitions:
+    /// a minimized or unfocused window resolves to the static plan instead of
+    /// keeping the compositor loop alive. Seeds from
+    /// <see cref="Window.Visible"/> — <see cref="Window.Activated"/> only fires
+    /// on transitions — then the event owns every transition until
+    /// <see cref="Dispose"/>. Hosts call this once they can reach their window.
+    /// </summary>
+    public void AttachTo(Window window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        if (_disposed)
+        {
+            return;
+        }
+
+        DetachSceneWindow();
+        _sceneWindow = window;
+        _sceneActive = window.Visible;
+        window.Activated += OnSceneWindowActivated;
+        Refresh();
+    }
+
+    private void DetachSceneWindow()
+    {
+        if (_sceneWindow is null)
+        {
+            return;
+        }
+
+        _sceneWindow.Activated -= OnSceneWindowActivated;
+        _sceneWindow = null;
+    }
+
+    private void OnSceneWindowActivated(object sender, WindowActivatedEventArgs args) =>
+        SceneActive = args.WindowActivationState != WindowActivationState.Deactivated;
+
+    /// <summary>The most recent sensor snapshot's reduce-motion read — frame
+    /// providers that need the live flag (not just the resolved plan) read
+    /// this.</summary>
+    public bool ReduceMotion { get; private set; }
+
     /// <summary>Re-snapshot the sensors and re-resolve the host's plan.</summary>
     public void Refresh()
     {
@@ -117,6 +161,7 @@ public sealed class SwarmRenderPlanOwner : IDisposable
             ScenePhaseActive: _sceneActive,
             IsLowPowerModeEnabled: ReadBatterySaverOn(),
             ReduceMotion: ReadReduceMotion());
+        ReduceMotion = snapshot.ReduceMotion;
         _host.RenderPlan = SwarmPlanResolver.Resolve(
             _store.Preferences, snapshot, _requestedVisibility, _inheritedVisibility);
     }
@@ -136,6 +181,8 @@ public sealed class SwarmRenderPlanOwner : IDisposable
 
         NetworkInformation.NetworkStatusChanged -= OnNetworkStatusChanged;
         PowerManager.EnergySaverStatusChanged -= OnEnergySaverStatusChanged;
+        _uiSettings.AnimationsEnabledChanged -= OnAnimationsEnabledChanged;
+        DetachSceneWindow();
     }
 
     private void Subscribe()
@@ -149,6 +196,11 @@ public sealed class SwarmRenderPlanOwner : IDisposable
         });
         TrySubscribe(() => NetworkInformation.NetworkStatusChanged += OnNetworkStatusChanged);
         TrySubscribe(() => PowerManager.EnergySaverStatusChanged += OnEnergySaverStatusChanged);
+        // Reduce Motion is a live accessibility signal (Settings → Accessibility
+        // → Visual effects → Animation effects): re-resolve when it flips so a
+        // running live plan drops to static without waiting for the next
+        // sensor transition.
+        TrySubscribe(() => _uiSettings.AnimationsEnabledChanged += OnAnimationsEnabledChanged);
     }
 
     private static void TrySubscribe(Action subscribe)
@@ -252,4 +304,6 @@ public sealed class SwarmRenderPlanOwner : IDisposable
     private void OnNetworkStatusChanged(object sender) => Refresh();
 
     private void OnEnergySaverStatusChanged(object? sender, object args) => Refresh();
+
+    private void OnAnimationsEnabledChanged(UISettings sender, UISettingsAnimationsEnabledChangedEventArgs args) => Refresh();
 }
