@@ -44,6 +44,7 @@ Scheduled reds file a per-lane issue via `.github/actions/ops-failure-issue`.
 | `scripts/debt/check-settings-protocol-split.sh` | SettingsManagerProtocol slices |
 | `scripts/debt/check-video-encoder-isolation.sh` | VideoEncoder not `@MainActor` |
 | `scripts/debt/check-rpc-method-freeze.sh` | `budgets/rpc-methods-baseline.json` |
+| `scripts/debt/check-rpc-domain-ceiling.sh` | `budgets/daemon-rpc-domain-baseline.json` |
 
 ## Vendor / Package.swift
 

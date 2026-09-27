@@ -2,7 +2,9 @@ import OpenBurnBarEngine
 import Foundation
 
 /// Canonical mapping of socket RPC methods to daemon handler domains.
-/// Used by `BurnBarDaemonServer.responseData` routing and contract tests.
+/// `BurnBarDaemonServer.responseData` routes through `domain(for:)`, and the IPC
+/// canon generator and the domain-ceiling gate parse these `Set` literals, so keep
+/// each domain a single `static let <name>: Set<BurnBarRPCMethod> = [...]`.
 enum BurnBarDaemonSocketRPCCoverage {
     static let auth: Set<BurnBarRPCMethod> = [
         .linuxAuthStatus,
@@ -38,12 +40,6 @@ enum BurnBarDaemonSocketRPCCoverage {
         .textExpansionEngineStart,
         .textExpansionEngineStop,
         .textExpansionEngineExpand,
-        .linuxPrivacyInventory,
-        .linuxPrivacyDeletionPreview,
-        .linuxPrivacyDeletionExecute,
-        .linuxPrivacyExport,
-        .linuxPrivacyRetentionStatus,
-        .linuxPrivacyRetentionApply,
         .linuxOnboardingAction,
         .linuxOnboardingReset,
         .providerCredentialSlotUpsert,
@@ -56,6 +52,17 @@ enum BurnBarDaemonSocketRPCCoverage {
         .providerCustomModelRemove,
         .providerModelDisplayNameSet,
         .providerModelDisplayNameClear
+    ]
+
+    /// Linux data-rights lane. Its own domain because it has its own handler
+    /// (`handleLinuxPrivacyRPC`) and answers `methodNotFound` on macOS.
+    static let privacy: Set<BurnBarRPCMethod> = [
+        .linuxPrivacyInventory,
+        .linuxPrivacyDeletionPreview,
+        .linuxPrivacyDeletionExecute,
+        .linuxPrivacyExport,
+        .linuxPrivacyRetentionStatus,
+        .linuxPrivacyRetentionApply
     ]
 
     static let usage: Set<BurnBarRPCMethod> = [
@@ -267,51 +274,81 @@ enum BurnBarDaemonSocketRPCCoverage {
     ]
 
     static var allHandled: Set<BurnBarRPCMethod> {
-        auth
-            .union(lifecycle)
-            .union(config)
-            .union(usage)
-            .union(chat)
-            .union(observability)
-            .union(membership)
-            .union(tooling)
-            .union(computerUse)
-            .union(media)
-            .union(missionControl)
-            .union(client)
-            .union(runWorkspaceApproval)
-            .union(search)
-            .union(switcher)
-            .union(memory)
-            .union(code)
-            .union(databaseRecovery)
-            .union(inbox)
-            .union(fleet)
-            .union(warRoom)
+        BurnBarDaemonRPCDomain.allCases.reduce(into: Set<BurnBarRPCMethod>()) { $0.formUnion($1.methods) }
     }
 
-    static func domain(for method: BurnBarRPCMethod) -> String? {
-        if auth.contains(method) { return "auth" }
-        if lifecycle.contains(method) { return "lifecycle" }
-        if config.contains(method) { return "config" }
-        if usage.contains(method) { return "usage" }
-        if chat.contains(method) { return "chat" }
-        if observability.contains(method) { return "observability" }
-        if membership.contains(method) { return "membership" }
-        if tooling.contains(method) { return "tooling" }
-        if computerUse.contains(method) { return "computer_use" }
-        if media.contains(method) { return "media" }
-        if missionControl.contains(method) { return "mission_control" }
-        if client.contains(method) { return "client" }
-        if runWorkspaceApproval.contains(method) { return "run_workspace_approval" }
-        if search.contains(method) { return "search" }
-        if switcher.contains(method) { return "switcher" }
-        if memory.contains(method) { return "memory" }
-        if code.contains(method) { return "code" }
-        if databaseRecovery.contains(method) { return "database_recovery" }
-        if inbox.contains(method) { return "inbox" }
-        if fleet.contains(method) { return "fleet" }
-        if warRoom.contains(method) { return "war_room" }
-        return nil
+    /// Built once: every RPC resolves its domain on the hot path.
+    private static let domainByMethod: [BurnBarRPCMethod: BurnBarDaemonRPCDomain] = {
+        var map: [BurnBarRPCMethod: BurnBarDaemonRPCDomain] = [:]
+        for domain in BurnBarDaemonRPCDomain.allCases {
+            for method in domain.methods {
+                map[method] = domain
+            }
+        }
+        return map
+    }()
+
+    static func domain(for method: BurnBarRPCMethod) -> BurnBarDaemonRPCDomain? {
+        domainByMethod[method]
+    }
+}
+
+/// The daemon's RPC surface, partitioned by the handler that owns each method.
+///
+/// The socket router dispatches on this type, not on individual methods, so a
+/// method only becomes reachable once it is assigned to exactly one domain. The
+/// raw value is the wire-level domain name emitted into the BurnBarRPC IPC canon
+/// (`tools/ipc/generate-burnbarrpc-canon.mjs`). Per-domain method ceilings live
+/// in `budgets/daemon-rpc-domain-ceiling.json` and are enforced by
+/// `scripts/debt/check-rpc-domain-ceiling.sh`.
+enum BurnBarDaemonRPCDomain: String, CaseIterable, Sendable {
+    case auth
+    case lifecycle
+    case config
+    case privacy
+    case usage
+    case chat
+    case observability
+    case membership
+    case tooling
+    case computerUse = "computer_use"
+    case media
+    case missionControl = "mission_control"
+    case client
+    case runWorkspaceApproval = "run_workspace_approval"
+    case search
+    case switcher
+    case memory
+    case code
+    case databaseRecovery = "database_recovery"
+    case inbox
+    case fleet
+    case warRoom = "war_room"
+
+    var methods: Set<BurnBarRPCMethod> {
+        switch self {
+        case .auth: BurnBarDaemonSocketRPCCoverage.auth
+        case .lifecycle: BurnBarDaemonSocketRPCCoverage.lifecycle
+        case .config: BurnBarDaemonSocketRPCCoverage.config
+        case .privacy: BurnBarDaemonSocketRPCCoverage.privacy
+        case .usage: BurnBarDaemonSocketRPCCoverage.usage
+        case .chat: BurnBarDaemonSocketRPCCoverage.chat
+        case .observability: BurnBarDaemonSocketRPCCoverage.observability
+        case .membership: BurnBarDaemonSocketRPCCoverage.membership
+        case .tooling: BurnBarDaemonSocketRPCCoverage.tooling
+        case .computerUse: BurnBarDaemonSocketRPCCoverage.computerUse
+        case .media: BurnBarDaemonSocketRPCCoverage.media
+        case .missionControl: BurnBarDaemonSocketRPCCoverage.missionControl
+        case .client: BurnBarDaemonSocketRPCCoverage.client
+        case .runWorkspaceApproval: BurnBarDaemonSocketRPCCoverage.runWorkspaceApproval
+        case .search: BurnBarDaemonSocketRPCCoverage.search
+        case .switcher: BurnBarDaemonSocketRPCCoverage.switcher
+        case .memory: BurnBarDaemonSocketRPCCoverage.memory
+        case .code: BurnBarDaemonSocketRPCCoverage.code
+        case .databaseRecovery: BurnBarDaemonSocketRPCCoverage.databaseRecovery
+        case .inbox: BurnBarDaemonSocketRPCCoverage.inbox
+        case .fleet: BurnBarDaemonSocketRPCCoverage.fleet
+        case .warRoom: BurnBarDaemonSocketRPCCoverage.warRoom
+        }
     }
 }

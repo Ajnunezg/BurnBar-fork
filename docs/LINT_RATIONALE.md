@@ -115,6 +115,10 @@ budgets/force-unwrap-baseline.json
 # services-layering: upward/cyclic reference keys between Services components;
 # shrink-only ratchet (scripts/debt/services_layering.py, wave 0 fitness gate).
 budgets/services-layering-baseline.json
+# Daemon RPC domain ceiling: structural per-domain cap, total-surface ceiling, and
+# a shrink-only freeze of methods served on the BurnBarDaemonServer actor;
+# scripts/debt/check-rpc-domain-ceiling.sh fails on any growth.
+budgets/daemon-rpc-domain-baseline.json
 
 # --- Filename false positive: not a lint baseline ---
 # GitHub Actions workflow for the protected one-time P-25 Linux release-baseline

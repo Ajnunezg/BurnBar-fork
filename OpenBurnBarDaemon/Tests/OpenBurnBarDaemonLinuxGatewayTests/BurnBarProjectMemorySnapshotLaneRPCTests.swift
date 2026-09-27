@@ -123,7 +123,7 @@ final class BurnBarProjectMemorySnapshotLaneRPCTests: XCTestCase {
             .memorySnapshotDeleteAll
         ] {
             XCTAssertEqual(BurnBarRPCCapability.capability(for: method), .memoryWrite)
-            XCTAssertEqual(BurnBarDaemonSocketRPCCoverage.domain(for: method), "memory")
+            XCTAssertEqual(BurnBarDaemonSocketRPCCoverage.domain(for: method), .memory)
         }
     }
 

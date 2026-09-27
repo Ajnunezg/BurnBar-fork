@@ -1344,7 +1344,7 @@ export const burnBarRpcIpcCanon = [
   {
     "id": "daemon.privacy.deletion.execute",
     "caseName": "linuxPrivacyDeletionExecute",
-    "domain": "config",
+    "domain": "privacy",
     "capability": "config",
     "owner": "OpenBurnBarDaemon",
     "params": "BurnBarLinuxPrivacyDeletionExecuteRequest",
@@ -1354,7 +1354,7 @@ export const burnBarRpcIpcCanon = [
   {
     "id": "daemon.privacy.deletion.preview",
     "caseName": "linuxPrivacyDeletionPreview",
-    "domain": "config",
+    "domain": "privacy",
     "capability": "config",
     "owner": "OpenBurnBarDaemon",
     "params": "BurnBarLinuxPrivacyDeletionPreviewRequest",
@@ -1364,7 +1364,7 @@ export const burnBarRpcIpcCanon = [
   {
     "id": "daemon.privacy.export",
     "caseName": "linuxPrivacyExport",
-    "domain": "config",
+    "domain": "privacy",
     "capability": "config",
     "owner": "OpenBurnBarDaemon",
     "params": "BurnBarLinuxPrivacyExportRequest",
@@ -1374,7 +1374,7 @@ export const burnBarRpcIpcCanon = [
   {
     "id": "daemon.privacy.inventory",
     "caseName": "linuxPrivacyInventory",
-    "domain": "config",
+    "domain": "privacy",
     "capability": "config",
     "owner": "OpenBurnBarDaemon",
     "params": "BurnBarRPCRequestEnvelope",
@@ -1384,7 +1384,7 @@ export const burnBarRpcIpcCanon = [
   {
     "id": "daemon.privacy.retention.apply",
     "caseName": "linuxPrivacyRetentionApply",
-    "domain": "config",
+    "domain": "privacy",
     "capability": "config",
     "owner": "OpenBurnBarDaemon",
     "params": "BurnBarLinuxPrivacyRetentionApplyRequest",
@@ -1394,7 +1394,7 @@ export const burnBarRpcIpcCanon = [
   {
     "id": "daemon.privacy.retention.status",
     "caseName": "linuxPrivacyRetentionStatus",
-    "domain": "config",
+    "domain": "privacy",
     "capability": "config",
     "owner": "OpenBurnBarDaemon",
     "params": "BurnBarLinuxPrivacyRetentionStatusRequest",
