@@ -14,7 +14,7 @@
 | **DeepSeek** | `DeepSeekQuotaAdapter` | `.exact` | `GET api.deepseek.com/v1` | Developer console credit balance and API usage |
 | **Together / Meta Llama** | `TogetherQuotaAdapter.swift` | `.exact` / `.unavailable` | `GET api.together.ai/v1/billing/usage` | Month-to-date Together spend in USD. Remaining prepaid credits are an explicit unsupported meter (no Bearer balance API). A 404 is an unsupported remaining-credit state, not a fake meter. |
 | **Copilot** | `CopilotQuotaAdapter.swift` | `.estimated` | `POST api.github.com/copilot_internal/user` | Premium interactions and chat limits |
-| **Cursor** | `CursorQuotaAdapter.swift` | `.estimated` | `GET cursor.com/api/usage-summary` | Included usage, limits, and USD spent |
+| **Cursor** | `CursorQuotaAdapter.swift` | `.exact` when connected | `GET cursor.sh/api/usage-summary` | Included usage, limits, and USD spent from JSON (not a hard-coded $200/$400). Connect steps: [`docs/CURSOR_METER_CONNECT.md`](CURSOR_METER_CONNECT.md) |
 | **Cursor Agent CLI**| `CursorAgentParser.swift` | `.exact` | `~/.cursor-agent/sessions/` (`transcript.jsonl`, `summary.json`, `*.jsonl`) | Local session tokens; exact token limits |
 | **Factory** | `FactoryQuotaAdapter.swift` | `.exact` / `.estimated` | `POST app.factory.ai/api/...` | Plan tier, rolling usage, and lane metrics |
 | **Junie (JetBrains)** | `JunieParser.swift` | `.exact` / `.estimated` | `~/.junie/sessions/index.jsonl` + `<sessionId>/events.jsonl` (+ live latches in `~/.junie/processes/*.json`) | Local session tokens (explicit usage buckets when present, character-estimate fallback otherwise); no vendor quota API |
@@ -132,7 +132,7 @@ without durable source evidence stay `unknown`.
 | **DeepSeek** | API key | `sk-...` | `Authorization: Bearer {key}` | Created at platform.deepseek.com |
 | **Together / Meta Llama** | Together API key | Together console key | `Authorization: Bearer {key}` | Created at api.together.ai/settings/api-keys. Together console sign-in is Google or GitHub — Facebook is not a meter path. Remaining prepaid credits are an explicit unsupported meter (no Bearer balance API). |
 | **Copilot** | GitHub OAuth / PAT | `ghp_...` or OAuth token | `Authorization: token {token}` | `read:user` scope required |
-| **Cursor** | Browser cookie | `WorkosCursorSessionToken={id}::{token}` | `Cookie: {cookieString}` | Extracted locally from database or Safari/Chrome |
+| **Cursor** | Browser cookie | `WorkosCursorSessionToken={id}::{token}` | `Cookie: {cookieString}` | Connect on the Mac (editor session, web login, or paste). Stored in `device_keychain` as `cursor_cookie` / per-seat accounts. Refresh never opens login. |
 | **Cursor Agent** | None | N/A (local file) | N/A | Reads session logs from `~/.cursor-agent/sessions/` |
 | **Factory** | Browser cookie + Bearer | Session cookie + `access-token` | `Cookie: {cookie}` + `Authorization: Bearer {token}` | WorkOS-based auth |
 | **Warp** | API key | `wk-...` | `Authorization: Bearer {key}` | Created at warp.dev |
