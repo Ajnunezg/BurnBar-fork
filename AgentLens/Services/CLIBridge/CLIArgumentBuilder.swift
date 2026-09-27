@@ -139,6 +139,10 @@ enum CLIArgumentBuilder {
             "--auto",
             "--dangerously-skip-permissions",
             "--approval-mode=yolo",
+            "--approval-mode=never",
+            "--disable-approval",
+            "--disable-sandbox",
+            "--trust-workspace",
             "allow_always"
         ]
         var hits: [String] = []
@@ -150,8 +154,11 @@ enum CLIArgumentBuilder {
                     hits.append("\(arg) \(mode)")
                 }
             }
-            if arg == "--approval-mode", index + 1 < arguments.count, arguments[index + 1] == "yolo" {
-                hits.append("--approval-mode yolo")
+            if arg == "--approval-mode", index + 1 < arguments.count {
+                let mode = arguments[index + 1]
+                if ["yolo", "never"].contains(mode) {
+                    hits.append("--approval-mode \(mode)")
+                }
             }
             if arg == "--prompt-file" {
                 hits.append(arg)
@@ -330,12 +337,16 @@ enum CLIArgumentBuilder {
     ) -> [String] {
         // Headless one-shot form is `muse exec` (verified against
         // Muse Code 1.0.2): `--model` + `--workspace` are exec-level flags.
+        // `--json` selects the machine-readable JSONL event log parsed by
+        // `MuseExecJSONLParser` — without it stdout is human-formatted text
+        // with no completion signal. The flag is load-bearing, not cosmetic.
         // T-TOOL-02(a): never pass vendor full-autonomy bypass arguments —
         // `--yolo`, `--disable-approval`, `--disable-sandbox`, and
         // `--trust-workspace` are banned outright. Capability gating uses the
         // enforceable `--disable-write` / `--disable-shell` flags instead, so
         // Muse runs fail-closed without a full desktop grant.
         var arguments = ["exec"]
+        var arguments = ["exec", "--json"]
         let resolvedModel = resolvedMuseModelID(model)
         if !resolvedModel.isEmpty {
             arguments.append(contentsOf: ["--model", resolvedModel])

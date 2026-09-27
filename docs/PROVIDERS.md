@@ -43,6 +43,7 @@
 | **OMP** | `OMPQuotaAdapter` | `.exact` | `omp usage --json --redact` | Oh My Pi local CLI quota reports by provider/account/window |
 | **Prime Agent (Prime Intellect)** | `PrimeAgentParser` (local) | `.exact` | `~/.prime/agent/sessions/*.jsonl` (local jsonl: `message.usage` + `cost`) | Recursive Language Model + Continual Harness sessions; per-turn input/output/cacheRead/cacheWrite + exact USD cost; provider auto-detects underlying model (e.g. `muse-spark-1.2`, `gpt-5.6-luna`) |
 | **Muse (Meta)** | `MuseParser` (local) + Meta Model API proxy | `.exact` | `~/.local/share/muse/sessions/**/*.jsonl` (envelope JSONL, newest date shard first, `model_completed` usage, `tool_batch` tools, `started` prompts, `retained_frame` wrappers, `run.model.configured`; microsecond `recorded_at`) and `https://api.meta.ai/v1` | Local Muse Code tokens + cached/read/write + reasoning + exact USD via catalog (`muse-spark-1.3` / `1.2` standard $1.25/$4.25/$0.15 or contributor $0.10/$0.20/$0.002; `muse-spark-1.1` standard only, no contributor SKU); auto-detects workspace + subagent sessions; proxy routes Spark through Meta Model API, not Together |
+>>>>>>> origin/feat/muse-code-first-class
 | **Vercel fx** | `FxParser.swift` | `.exact` | `~/.fx/sessions/<sessionId>/` (`session.json`, `usage-v2.json`, `events.jsonl`, `display.json`) | Local session exact token counts and exact USD cost via `usage-v2.json`; transcript and tool lifecycle via `events.jsonl`; chat bridge via `fx ask --json` / `--resume` |
 | **OpenRouter** | Routed via API key | `.exact` | `GET openrouter.ai/v1/activity` | Per-call exact cost in USD (no quota limits) |
 | **Anthropic** | Admin API key | `.estimated` | `GET api.anthropic.com/v1/organizations` | Org-wide messages usage report (~24h lag) |
@@ -313,10 +314,14 @@ The daemon distinguishes three outcomes:
 
 ### Muse Code notes (verified against 1.0.2 — re-verify on CLI upgrades)
 
-- **Headless form is `muse exec`.** `--model` / `--workspace` are exec-level
-  flags; `--disable-write` / `--disable-shell` gate capabilities per spawn.
-  Never pass `--yolo`, `--disable-approval`, `--disable-sandbox`, or
-  `--trust-workspace`. Stdout carries pure model text; diagnostics stay on stderr.
+- **Headless form is `muse exec --json`.** `--model` / `--workspace` are
+  exec-level flags; `--disable-write` / `--disable-shell` gate capabilities
+  per spawn. Never pass `--yolo`, `--disable-approval`, `--disable-sandbox`,
+  or `--trust-workspace`. `--json` selects the machine-readable JSONL event
+  log (`MuseExecJSONLParser`): incremental `run.output.delta` segments plus a
+  final `run.terminal.completed` carrying the full text; `muse:` diagnostics
+  stay on stderr. Without `--json`, stdout is human-formatted text with no
+  completion signal — the flag is load-bearing.
 - **The bare `muse-spark` alias is rejected by `exec`** ("model does not exist")
   even though the interactive TUI accepts it. Always resolve to a full model ID
   (`muse-spark-1.3` today) before spawning.

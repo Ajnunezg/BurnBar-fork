@@ -433,7 +433,6 @@ public final class MuseParser: LogParser, Sendable {
 
         // No usage row but we have conversation content and caller wants it → still need to produce conversation
         let resolvedModel = lastModel ?? modelId ?? Self.defaultFallbackModel
-        let resolvedWorkspace = workspaceRoot ?? file.deletingLastPathComponent().path
         let projectName: String = {
             if let ws = workspaceRoot, !ws.isEmpty {
                 let last = URL(fileURLWithPath: ws).lastPathComponent

@@ -644,4 +644,37 @@ final class MuseParserTests: XCTestCase {
         XCTAssertEqual(usage.provenanceConfidence, .exact)
     }
 
+
+    func testSpark13ContributorExtractsTokensAndContributorPricing() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let content = [
+            metadataEnvelope(model: "muse-spark-1.3-contributor"),
+            modelCompletedEnvelope(input: 10_000, output: 2_000, cached: 1_000, model: "muse-spark-1.3-contributor")
+        ].joined(separator: "\n")
+        _ = try writeSession(dir: dir, content: content)
+        let result = try await MuseParser(logDirectoryOverride: dir.path).parse()
+        let usage = try XCTUnwrap(result.usages.first)
+        XCTAssertEqual(usage.model, "muse-spark-1.3-contributor")
+        XCTAssertEqual(usage.inputTokens, 10_000)
+        XCTAssertEqual(usage.outputTokens, 2_000)
+        XCTAssertEqual(usage.cacheReadTokens, 1_000)
+        XCTAssertEqual(usage.costUSD, 0.001402, accuracy: 0.000001)
+    }
+
+    func testSpark13StandardUsesHigherPricingThanContributor() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let content = [
+            metadataEnvelope(model: "muse-spark-1.3"),
+            modelCompletedEnvelope(input: 10_000, output: 10_000, cached: 0, model: "muse-spark-1.3")
+        ].joined(separator: "\n")
+        _ = try writeSession(dir: dir, content: content)
+        let result = try await MuseParser(logDirectoryOverride: dir.path).parse()
+        let usage = try XCTUnwrap(result.usages.first)
+        XCTAssertEqual(usage.model, "muse-spark-1.3")
+        // Standard 1.25/4.25 → 0.0125 + 0.0425 = 0.055
+        XCTAssertEqual(usage.costUSD, 0.055, accuracy: 0.0001)
+    }
+
 }

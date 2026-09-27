@@ -39,6 +39,7 @@ extension ChatSessionController {
         case .omp: return chatModelOMP
         case .junie: return chatModelJunie
         case .fx: return chatModelFx
+        case .muse: return chatModelMuse
         case .grok, .kimi: return chatModelJunie
         }
     }
@@ -58,6 +59,7 @@ extension ChatSessionController {
         case .omp: chatModelOMP = value
         case .junie: chatModelJunie = value
         case .fx: chatModelFx = value
+        case .muse: chatModelMuse = value
         case .grok, .kimi: chatModelJunie = value
         }
     }
@@ -107,6 +109,7 @@ extension ChatSessionController {
         case .omp: return .omp
         case .junie: return .junie
         case .fx: return .fx
+        case .muse: return .muse
         case .grok: return .grok
         case .kimi: return .grok
         }
@@ -173,6 +176,8 @@ extension ChatSessionController {
             // placeholder. Return it trimmed so the mirror/analytics rows
             // stay consistent with the other CLI backends.
             return chatModelFx.trimmingCharacters(in: .whitespacesAndNewlines)
+        case .muse:
+            return chatModelMuse.trimmingCharacters(in: .whitespacesAndNewlines)
         }
     }
 
@@ -222,7 +227,7 @@ extension ChatSessionController {
             return PromptTokenArbiter.estimateProseTokens(HermesSystemPromptBuilder.atomDirective)
         case .piAgent:
             return PromptTokenArbiter.estimateProseTokens(piSystemPromptWrapper(instanceID: piAgentInstanceID))
-        case .openclaw, .codex, .claude, .droid, .forge, .antigravity, .cursorAgent, .openClaude, .omp, .junie, .fx, .grok, .kimi:
+        case .openclaw, .codex, .claude, .droid, .forge, .antigravity, .cursorAgent, .openClaude, .omp, .junie, .fx, .muse, .grok, .kimi:
             return 0
         }
     }
@@ -235,7 +240,7 @@ extension ChatSessionController {
             return openClawGatewayModels
         case .piAgent:
             return piAgentGatewayModels
-        case .codex, .claude, .droid, .forge, .antigravity, .cursorAgent, .openClaude, .omp, .junie, .fx, .grok, .kimi:
+        case .codex, .claude, .droid, .forge, .antigravity, .cursorAgent, .openClaude, .omp, .junie, .fx, .muse, .grok, .kimi:
             return []
         }
     }

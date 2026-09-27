@@ -32,6 +32,25 @@ final class CLIArgumentBuilderForbiddenFlagTests: XCTestCase {
         XCTAssertTrue(hits.contains("--prompt-file"))
     }
 
+    func testForbiddenFlagDetectorCatchesMuseAutonomyBypasses() {
+        let hits = CLIArgumentBuilder.forbiddenLaunchFlags(in: [
+            "exec", "--json",
+            "--disable-approval",
+            "--disable-sandbox",
+            "--trust-workspace",
+            "--approval-mode", "never",
+            "--yolo"
+        ])
+        XCTAssertTrue(hits.contains("--disable-approval"))
+        XCTAssertTrue(hits.contains("--disable-sandbox"))
+        XCTAssertTrue(hits.contains("--trust-workspace"))
+        XCTAssertTrue(hits.contains("--approval-mode never"))
+        XCTAssertTrue(hits.contains("--yolo"))
+        XCTAssertTrue(
+            CLIArgumentBuilder.forbiddenLaunchFlags(in: ["--approval-mode=never"]).contains("--approval-mode=never")
+        )
+    }
+
     func testMuseExecUsesHeadlessFormWithModelAndWorkspace() {
         let args = CLIArgumentBuilder.museArguments(
             prompt: "hello world",
@@ -39,6 +58,8 @@ final class CLIArgumentBuilderForbiddenFlagTests: XCTestCase {
             workspaceDirectory: URL(fileURLWithPath: "/tmp")
         )
         XCTAssertEqual(args.first, "exec")
+        // Load-bearing: stdout must be the JSONL event log MuseExecJSONLParser reads.
+        XCTAssertEqual(args.dropFirst().first, "--json")
         XCTAssertTrue(args.contains("--model"))
         XCTAssertTrue(args.contains("muse-spark-1.3"))
         // The bare alias is rejected by `muse exec`; it must be normalized.
@@ -96,6 +117,8 @@ final class CLIArgumentBuilderForbiddenFlagTests: XCTestCase {
         let args = CLIArgumentBuilder.museArguments(prompt: "hi", capabilityGrant: grant)
         XCTAssertTrue(args.contains("--disable-write"))
         XCTAssertFalse(args.contains("--disable-shell"))
+        XCTAssertFalse(args.contains("--model"), "empty model must omit --model so Muse picks the logged-in SKU")
+        XCTAssertTrue(CLIArgumentBuilder.forbiddenLaunchFlags(in: args).isEmpty)
     }
 
     func testRemoteMissionOMPDoesNotAutoApprove() throws {

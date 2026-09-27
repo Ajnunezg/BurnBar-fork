@@ -47,6 +47,7 @@ public enum CLIAgentRuntime: String, Codable, Hashable, Sendable, CaseIterable {
     case cursorAgent = "cursoragent"
     case junie
     case fx
+    case muse
 
     /// Map an `AssistantRuntimeID` to its CLI counterpart. `hermes` and
     /// `pi` are intentionally absent — they have their own first-class
@@ -65,6 +66,7 @@ public enum CLIAgentRuntime: String, Codable, Hashable, Sendable, CaseIterable {
         case .cursorAgent: self = .cursorAgent
         case .junie:    self = .junie
         case .fx:       self = .fx
+        case .muse:     self = .muse
         case .hermes, .pi: return nil
         }
     }
@@ -83,6 +85,7 @@ public enum CLIAgentRuntime: String, Codable, Hashable, Sendable, CaseIterable {
         case .cursorAgent: return .cursorAgent
         case .junie:    return .junie
         case .fx:       return .fx
+        case .muse:     return .muse
         }
     }
 
@@ -100,6 +103,7 @@ public enum CLIAgentRuntime: String, Codable, Hashable, Sendable, CaseIterable {
         case .cursorAgent: return "Cursor Agent"
         case .junie:    return "Junie"
         case .fx:       return "fx"
+        case .muse:     return "Muse Code"
         }
     }
 }

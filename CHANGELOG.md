@@ -333,6 +333,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Insights. You stays labeled You, not Store.
 
 ### Added
+- **Muse Code is a first-class harness.** Meta's `muse` CLI (verified against
+  Muse Code 1.0.2) now stands alongside Codex, Claude Code, and Hermes
+  everywhere: switcher launch profile (`muse` executable, `~/.config/muse`
+  config dir, `~/.local/share/muse/sessions` session evidence), macOS chat
+  backend with headless `muse exec --json --model/--workspace` structured
+  streaming (incremental `run.output.delta` segments plus a terminal
+  completion backstop via `MuseExecJSONLParser`, so a dropped delta can never
+  silently truncate an answer) gated by
+  the enforceable `--disable-write`/`--disable-shell` flags (vendor
+  full-autonomy bypasses `--yolo`/`--disable-approval`/`--disable-sandbox`/
+  `--trust-workspace` are never passed), mobile Assistants tile + mirrored
+  CLI sessions + archived-log rows, handoff-only "Resume in…" target on all
+  three Apple surfaces plus Android and the MCP resume mirror, onboarding
+  scan/add (`Muse Code CLI`), daemon + Linux switcher shells, and Meta-blue
+  (`0668E1`) branding in every color table. Local usage parsing
+  (`MuseParser`, envelope JSONL, exact tokens + cost) already shipped; this
+  change wires the harness around it. Vendor autonomy bypasses are also
+  in the shared forbidden-flag detector. Pet Muse never substitutes the
+  local companion floor on a failed spawn. Pinned by
+  `PrimeAgentMuseProviderSurfaceTests`, `CLIArgumentBuilderForbiddenFlagTests`,
+  `CLIBridgeTests` live echo envelopes, and Android
+  `CliResumeTargetsTest`/`ThreadInboxRefreshPartsTest`.
 - **app.burnbar.ai is now reachable from every surface.** The member Data &
   Privacy Control Center existed only as a bare URL — nothing linked to it.
   The website's header More menu, mobile nav, footer trust column, and the
