@@ -3080,6 +3080,8 @@
 		A8E08E466A5B61FC03BD4387 /* UsageAccountAttributionUpsertTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF95CA6DC044F8AC2B618AAD /* UsageAccountAttributionUpsertTests.swift */; };
 		B6C5F41C2C9DB4B737AFA40E /* PopoverTrayLayoutSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4DE4D8A8A59839FB50CF9E2 /* PopoverTrayLayoutSettingsPanel.swift */; };
 		04CA13A7DE607CFC475FA495 /* PopoverTrayLayoutSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD2463CBF112440B075F9188 /* PopoverTrayLayoutSettingsTests.swift */; };
+		2A40D2DC6AA950ED3DF3628B /* FileTreeEventStreamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2433E166A68A230FA7716761 /* FileTreeEventStreamTests.swift */; };
+		43519A9F290278D0E2B1B44E /* SettingsWindowChromeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83681692257556A311E0795F /* SettingsWindowChromeTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -6241,6 +6243,8 @@
 		FF95CA6DC044F8AC2B618AAD /* UsageAccountAttributionUpsertTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UsageAccountAttributionUpsertTests.swift"; path = "AgentLensTests/Active/UsageAccountAttributionUpsertTests.swift"; sourceTree = SOURCE_ROOT; };
 		A4DE4D8A8A59839FB50CF9E2 /* PopoverTrayLayoutSettingsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PopoverTrayLayoutSettingsPanel.swift"; path = "AgentLens/Views/Settings/PopoverTrayLayoutSettingsPanel.swift"; sourceTree = SOURCE_ROOT; };
 		BD2463CBF112440B075F9188 /* PopoverTrayLayoutSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PopoverTrayLayoutSettingsTests.swift"; path = "AgentLensTests/Active/PopoverTrayLayoutSettingsTests.swift"; sourceTree = SOURCE_ROOT; };
+		2433E166A68A230FA7716761 /* FileTreeEventStreamTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "FileTreeEventStreamTests.swift"; path = "AgentLensTests/Active/FileTreeEventStreamTests.swift"; sourceTree = SOURCE_ROOT; };
+		83681692257556A311E0795F /* SettingsWindowChromeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "SettingsWindowChromeTests.swift"; path = "AgentLensTests/Active/UI/SettingsWindowChromeTests.swift"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -14266,6 +14270,8 @@
 				A556002A4CC0A7D7141F5802 /* UsageMemoryAcceptanceTests.swift in Sources */,
 				A8E08E466A5B61FC03BD4387 /* UsageAccountAttributionUpsertTests.swift in Sources */,
 				04CA13A7DE607CFC475FA495 /* PopoverTrayLayoutSettingsTests.swift in Sources */,
+				2A40D2DC6AA950ED3DF3628B /* FileTreeEventStreamTests.swift in Sources */,
+				43519A9F290278D0E2B1B44E /* SettingsWindowChromeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
