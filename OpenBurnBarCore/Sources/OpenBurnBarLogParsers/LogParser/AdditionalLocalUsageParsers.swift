@@ -264,12 +264,12 @@ enum LocalUsageParserSupport {
 
     static func model(in object: LocalUsageJSONObject) -> String? {
         if let model = firstString(object, keys: ["model", "modelName", "model_name", "modelId", "model_id"]),
-           !isPlaceholderModel(model) {
+           !TokenExtractionUtility.isPlaceholderModelName(model) {
             return TokenExtractionUtility.normalizeModelName(model)
         }
         if let message = dictionary(object["message"]),
            let model = firstString(message, keys: ["model", "modelName", "model_name", "modelId", "model_id"]),
-           !isPlaceholderModel(model) {
+           !TokenExtractionUtility.isPlaceholderModelName(model) {
             return TokenExtractionUtility.normalizeModelName(model)
         }
         return nil

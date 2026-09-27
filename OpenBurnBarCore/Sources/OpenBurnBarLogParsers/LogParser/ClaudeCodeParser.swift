@@ -434,9 +434,13 @@ public final class ClaudeCodeParser: LogParser, Sendable {
             return SessionScanOutcome(usage: nil, conversation: nil, scanState: scanState)
         }
 
-        // `models` only holds real ids (placeholders such as `<synthetic>` are
-        // rejected on insert); `min()` keeps the pick deterministic.
-        let model = effective.models.min() ?? "claude"
+        // Prefer a real model id over harness placeholders: sessions that
+        // contain a synthesized `<synthetic>` error message alongside real
+        // turns must attribute to the exact model, never to the placeholder
+        // (which sorts first lexicographically and would otherwise win).
+        let model = effective.models
+            .filter { !TokenExtractionUtility.isPlaceholderModelName($0) }
+            .min() ?? "claude"
         let pricing = ModelPricing.lookup(model: model)
         let totalCost = try pricing.cost(
             inputTokens: effective.inputTokens,

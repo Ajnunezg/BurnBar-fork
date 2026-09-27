@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exact model that did the work. Parsers now reject harness placeholder
   model names (`<…>` markers plus the empty/unknown/default/none
   sentinels) before they enter a session's model set, so the exact model wins;
+  sentinels) at insert and at selection time, preferring the exact model;
   sessions with only placeholder messages fall back to the provider
   default. The Claude parser cache schema bumped (v3→v4) so affected
   sessions re-parse, and inserts delete same-session placeholder rows
