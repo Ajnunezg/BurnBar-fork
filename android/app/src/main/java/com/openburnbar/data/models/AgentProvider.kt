@@ -37,7 +37,6 @@ enum class AgentProvider(val key: String, val displayName: String, val brandColo
     MIMO("mimo", "MiMo", 0xFFFF6900, 0xFFFF8533),
     ANTIGRAVITY("antigravity", "Antigravity", 0xFF6C63FF, 0xFF8F8AFF),
     MUSE("muse", "Muse", 0xFF0668E1, 0xFF3B82F6),
-    MUSE("muse", "Muse", 0xFF7A5CFF, 0xFF9A85FF),
     TOGETHER("together", "Together", 0xFF0668E1, 0xFF3B82F6),
     FX("fx", "fx", 0xFFA1A1AA, 0xFFD4D4D8),
     OPEN_BURN_BAR("openburnbar", "OpenBurnBar", 0xFFFA5053, 0xFFFF7578),

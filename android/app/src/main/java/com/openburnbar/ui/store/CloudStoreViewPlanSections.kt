@@ -888,7 +888,7 @@ internal fun MemoryBoostPlanRail(
                 title = metadata.title,
                 detail = metadata.detail,
                 drawableRes = metadata.drawableRes,
-                price = prices[product.id]?.formattedPrice ?: product.fallbackPrice,
+                price = prices[product.id]?.formattedPrice ?: MobileStoreEntitlementPolicy.UNAVAILABLE_PRICE_LABEL,
                 enabled = enabled,
                 purchaseTestTag = cloudStorePurchaseTag(product.id),
                 onClick = { onPurchase(product.id) },

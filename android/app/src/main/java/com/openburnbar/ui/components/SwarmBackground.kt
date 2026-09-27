@@ -1,6 +1,5 @@
 package com.openburnbar.ui.components
 
-import android.os.PowerManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -116,7 +115,7 @@ fun SwarmBackground(
     var version by remember { mutableIntStateOf(0) }
     SwarmPrewarmEffect(simulation)
     SwarmFrameLoop(simulation, reduceMotion, minStepIntervalNanos, pointer) { version++ }
-    SwarmPointerBox(modifier, isDark, onPointerChange = { pointer = it }) {
+    SwarmPointerBox(modifier, backgroundColor, onPointerChange = { pointer = it }) {
         SwarmParticleCanvas(simulation, accentColor, isDark, version, allowsSparkles)
     }
 }
@@ -181,7 +180,7 @@ private fun SwarmFrameLoop(
 }
 
 @Composable
-private fun SwarmPointerBox(modifier: Modifier, isDark: Boolean, onPointerChange: (Offset?) -> Unit, content: @Composable () -> Unit) {
+private fun SwarmPointerBox(modifier: Modifier, backgroundColor: Color, onPointerChange: (Offset?) -> Unit, content: @Composable () -> Unit) {
     Box(
         modifier =
         modifier
@@ -229,6 +228,10 @@ private fun DrawScope.drawSwarmDots(simulation: SwarmSimulation, accentColor: Co
         if (p.isGlyph) return@forEachIndexed
         val color = simulation.colorFor(p, accentColor, isDark)
         val inShape = simulation.inShapeMode && p.tx != null
+
+        var r = (p.size * if (inShape) 1.2 else 0.85).toDouble()
+        var isSparkling = false
+        var sparkleIntensity = 0.0
 
         if (allowsSparkles && inShape && simulation.shapeSettledAtNanos != null) {
             val pHash = ((index * 127) % 1000).toDouble() / 1000.0
@@ -293,15 +296,4 @@ private fun frameScaleFor(elapsedNanos: Long): Double {
     // 120Hz panels) run the bit-identical historical step; long gaps (first
     // frame, resume from background) collapse to at most two steps.
     return if (scale in 0.98..1.02) 1.0 else scale.coerceIn(0.5, 2.0)
-}
-
-@Composable
-private fun adaptiveParticleCount(): Int {
-    val ctx = LocalContext.current
-    val pm = ctx.getSystemService(PowerManager::class.java)
-    val low = pm?.isPowerSaveMode == true
-    val config = LocalConfiguration.current
-    val isTabletish = config.smallestScreenWidthDp >= 600
-    val base = if (isTabletish) 1080 else 520
-    return if (low) base / 2 else base
 }

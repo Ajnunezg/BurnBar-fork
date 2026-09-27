@@ -74,6 +74,16 @@ internal class SwarmSimulation(
     private var swarmDragStep: Double = 0.0
     private var morphDragStep: Double = 0.0
 
+    // The render plan's speed scale (iOS `SwarmCanvasView.motionSpeedMultiplier`
+    // feeding the simulation): 1.0 prominent, 0.55 subtle. Scales the noise
+    // forces, attract forces, flow-time, path progress, and the speed cap —
+    // the same sites iOS scales — so the subtle plan is calmer motion, not
+    // just fewer/slower frames. Clamped to the iOS range.
+    var motionSpeedMultiplier: Double = 1.0
+        set(value) {
+            field = value.coerceIn(0.35, 2.5)
+        }
+
     private val speedMultiplier: Double
         get() = if (isEnergetic) 1.0 else 0.35
 
@@ -86,6 +96,13 @@ internal class SwarmSimulation(
     var isRewinding: Boolean = false
     var isAvatarEnabled: Boolean = true
     var isBrandTextEnabled: Boolean = true
+
+    /**
+     * Render-plan auto-cycling gate (iOS: `allowsAutoCycling`). When false the
+     * field keeps integrating physics but never advances to the next formation;
+     * `nextCycleAtNanos` keeps bumping so re-enabling does not cycle instantly.
+     */
+    var isAutoCyclingEnabled: Boolean = true
 
     internal val providerLogoShowcaseKeys: Set<String>
         get() = AgentProvider.swarmGlyphProviders.mapTo(linkedSetOf()) { it.key }
@@ -255,7 +272,7 @@ internal class SwarmSimulation(
         stepScale = frameScale
         swarmDragStep = Math.pow(swarmDrag, frameScale)
         morphDragStep = Math.pow(morphDrag, frameScale)
-        if (nowNanos >= nextCycleAtNanos && activeModes.size > 1) {
+        if (nowNanos >= nextCycleAtNanos && activeModes.size > 1 && isAutoCyclingEnabled) {
             if (shouldDelayCycleForAdmireHold(nowNanos)) {
                 nextCycleAtNanos = nowNanos + SHAPE_SETTLE_RECHECK_NANOS
             } else {
@@ -266,7 +283,7 @@ internal class SwarmSimulation(
         } else if (nowNanos >= nextCycleAtNanos) {
             nextCycleAtNanos = nowNanos + cycleIntervalNanos
         }
-        flowTime += timeStep * 1000.0 * frameScale
+        flowTime += timeStep * 1000.0 * motionSpeedMultiplier * frameScale
 
         val width = bounds.width.toDouble()
         val height = bounds.height.toDouble()
@@ -295,12 +312,13 @@ internal class SwarmSimulation(
                 maxSpeedGlyph = maxSpeedGlyph,
                 maxSpeedPixel = maxSpeedPixel,
                 isRewinding = isRewinding,
+                motionSpeed = motionSpeedMultiplier,
             )
         if (mode == Mode.SWARM) {
             stepSwarmParticle(p, forces, cfg, width, height)
         } else {
             if (mode == Mode.SHAPE_ROUTER_FLOW && uiMode != UIMode.COOKING && p.role != null) {
-                retargetRouterFlowParticle(p, width, height, flowTime, isEnergetic, stepScale)
+                retargetRouterFlowParticle(p, width, height, flowTime, isEnergetic, stepScale, motionSpeedMultiplier)
             }
             stepMorphedParticle(p, forces, cfg, width, height)
         }
@@ -419,14 +437,14 @@ internal class SwarmSimulation(
     }
 
     private val effectiveShapeSettleFallbackNanos: Long
-        get() = (SHAPE_SETTLE_FALLBACK_NANOS / speedMultiplier).toLong()
+        get() = (SHAPE_SETTLE_FALLBACK_NANOS / (speedMultiplier * motionSpeedMultiplier)).toLong()
 
     private fun shouldDelayCycleForAdmireHold(nowNanos: Long): Boolean {
         if (!mode.requiresSettledAdmireHold()) return false
 
         if (shapeSettledAtNanos == null) {
             if (
-                formationIsSettled(particles, bounds, speedMultiplier, SHAPE_SETTLED_PARTICLE_FRACTION) ||
+                formationIsSettled(particles, bounds, speedMultiplier * motionSpeedMultiplier, SHAPE_SETTLED_PARTICLE_FRACTION) ||
                 nowNanos - modeAssignedAtNanos >= cycleIntervalNanos + effectiveShapeSettleFallbackNanos
             ) {
                 shapeSettledAtNanos = nowNanos

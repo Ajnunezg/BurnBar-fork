@@ -48,7 +48,7 @@ object RecapFactsBuilder {
         val sessionList = mutableListOf<RecapSessionInfo>()
 
         for (u in usages) {
-            val cost = u.costUSD.coerceAtLeast(0.0)
+            val cost = u.effectiveCost.coerceAtLeast(0.0)
             val tokens = u.totalTokens.coerceAtLeast(0).toLong()
             totalCost += cost
             totalTokens += tokens
@@ -97,7 +97,7 @@ object RecapFactsBuilder {
         val hourIdx = zdt.hour.coerceIn(0, RecapConstants.HOURS_PER_DAY - 1)
         val weekdayIdx = (zdt.dayOfWeek.value % RecapConstants.DAYS_PER_WEEK) // 0=Sunday, 6=Saturday
 
-        val cost = u.costUSD.coerceAtLeast(0.0)
+        val cost = u.effectiveCost.coerceAtLeast(0.0)
         val tokens = u.totalTokens.coerceAtLeast(0).toLong()
 
         dailyCost[dayIdx] += cost
@@ -120,7 +120,7 @@ object RecapFactsBuilder {
         val providerKey = u.provider.ifEmpty { "unknown-provider" }
         val pairingKey = "$providerKey$PAIRING_SEPARATOR$modelKey"
 
-        val cost = u.costUSD.coerceAtLeast(0.0)
+        val cost = u.effectiveCost.coerceAtLeast(0.0)
         val tokens = u.totalTokens.coerceAtLeast(0).toLong()
 
         val mAcc = modelStats.getOrPut(modelKey) { ModelAccumulator(modelKey) }
@@ -153,7 +153,7 @@ object RecapFactsBuilder {
                 model = modelKey,
                 providerKey = u.provider,
                 startTimeEpochMillis = u.startTime,
-                cost = u.costUSD.coerceAtLeast(0.0),
+                cost = u.effectiveCost.coerceAtLeast(0.0),
                 tokens = u.totalTokens.coerceAtLeast(0).toLong(),
                 durationSeconds = durationSecs,
             ),

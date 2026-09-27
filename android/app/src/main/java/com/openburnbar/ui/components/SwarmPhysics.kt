@@ -24,6 +24,7 @@ internal data class SwarmStepConfig(
     val maxSpeedGlyph: Double,
     val maxSpeedPixel: Double,
     val isRewinding: Boolean,
+    val motionSpeed: Double,
 )
 
 internal fun flowFieldNoise(x: Double, y: Double, flowTime: Double): Pair<Double, Double> {
@@ -50,12 +51,12 @@ internal fun wrapParticleInBounds(p: SwarmSimulation.Particle, width: Double, he
 }
 
 internal fun stepSwarmParticle(p: SwarmSimulation.Particle, forces: SwarmStepForces, cfg: SwarmStepConfig, width: Double, height: Double) {
-    p.vx += (forces.noiseX * cfg.swarmNoise + forces.pushX) * cfg.stepScale
-    p.vy += (forces.noiseY * cfg.swarmNoise + forces.pushY) * cfg.stepScale
+    p.vx += (forces.noiseX * cfg.swarmNoise * cfg.motionSpeed + forces.pushX) * cfg.stepScale
+    p.vy += (forces.noiseY * cfg.swarmNoise * cfg.motionSpeed + forces.pushY) * cfg.stepScale
     p.vx *= cfg.swarmDragStep
     p.vy *= cfg.swarmDragStep
     val speed = sqrt(p.vx * p.vx + p.vy * p.vy)
-    val maxSpeed = if (p.isGlyph) cfg.maxSpeedGlyph else cfg.maxSpeedPixel
+    val maxSpeed = (if (p.isGlyph) cfg.maxSpeedGlyph else cfg.maxSpeedPixel) * cfg.motionSpeed
     if (speed > maxSpeed && speed > 0) {
         p.vx = (p.vx / speed) * maxSpeed
         p.vy = (p.vy / speed) * maxSpeed
@@ -77,11 +78,11 @@ internal fun stepMorphedParticle(p: SwarmSimulation.Particle, forces: SwarmStepF
     val dist = sqrt(dx * dx + dy * dy)
     if (dist > 1) {
         val attract = if (cfg.isRewinding) -cfg.morphAttract * 1.5 else cfg.morphAttract
-        p.vx += (dx / dist) * attract * cfg.stepScale
-        p.vy += (dy / dist) * attract * cfg.stepScale
+        p.vx += (dx / dist) * attract * cfg.motionSpeed * cfg.stepScale
+        p.vy += (dy / dist) * attract * cfg.motionSpeed * cfg.stepScale
     }
-    p.vx += (forces.noiseX * cfg.morphNoise + forces.pushX) * cfg.stepScale
-    p.vy += (forces.noiseY * cfg.morphNoise + forces.pushY) * cfg.stepScale
+    p.vx += (forces.noiseX * cfg.morphNoise * cfg.motionSpeed + forces.pushX) * cfg.stepScale
+    p.vy += (forces.noiseY * cfg.morphNoise * cfg.motionSpeed + forces.pushY) * cfg.stepScale
     p.vx *= cfg.morphDragStep
     p.vy *= cfg.morphDragStep
     p.x += p.vx * cfg.stepScale
@@ -90,8 +91,8 @@ internal fun stepMorphedParticle(p: SwarmSimulation.Particle, forces: SwarmStepF
 }
 
 internal fun stepDriftingParticle(p: SwarmSimulation.Particle, forces: SwarmStepForces, cfg: SwarmStepConfig, width: Double, height: Double) {
-    p.vx += (forces.noiseX * cfg.swarmNoise * 0.75 + forces.pushX) * cfg.stepScale
-    p.vy += (forces.noiseY * cfg.swarmNoise * 0.75 + forces.pushY) * cfg.stepScale
+    p.vx += (forces.noiseX * cfg.swarmNoise * 0.75 * cfg.motionSpeed + forces.pushX) * cfg.stepScale
+    p.vy += (forces.noiseY * cfg.swarmNoise * 0.75 * cfg.motionSpeed + forces.pushY) * cfg.stepScale
     p.vx *= cfg.swarmDragStep
     p.vy *= cfg.swarmDragStep
     p.x += p.vx * cfg.stepScale
@@ -106,6 +107,7 @@ internal fun retargetRouterFlowParticle(
     flowTime: Double,
     isEnergetic: Boolean,
     stepScale: Double,
+    motionSpeed: Double,
 ) {
     val role = p.role ?: return
     val centerX = width * 0.5
@@ -137,7 +139,7 @@ internal fun retargetRouterFlowParticle(
                     "path-3" -> 0.28
                     else -> 0.0
                 }
-            p.flowProgress += (if (isEnergetic) 0.006 else 0.003) * stepScale
+            p.flowProgress += (if (isEnergetic) 0.006 else 0.003) * stepScale * motionSpeed
             if (p.flowProgress > 1.0) p.flowProgress = 0.0
             val t = p.flowProgress
             val pxn = -0.45 + 0.9 * t
