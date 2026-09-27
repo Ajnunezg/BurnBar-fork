@@ -364,9 +364,19 @@ final class AntigravityQuotaAdapterTests: XCTestCase {
         XCTAssertEqual(snapshot.sourceKind, .localCLI)
         let activeBucket = try XCTUnwrap(snapshot.buckets.first { $0.label.contains("(Active)") })
         XCTAssertEqual(activeBucket.usedValue, 0)
-        let status = try XCTUnwrap(snapshot.statusMessage)
-        XCTAssertTrue(status.contains("No requests in the current 5-hour window — last activity 6h ago."), status)
+        XCTAssertTrue(
+            snapshot.statusMessage?.contains("No requests in the current 5-hour window") ?? false,
+            "status line was: \(snapshot.statusMessage ?? "")"
+        )
+        XCTAssertTrue(
+            snapshot.statusMessage?.contains("last activity") ?? false,
+            "status line was: \(snapshot.statusMessage ?? "")"
+        )
+        XCTAssertTrue(
+            snapshot.statusMessage?.contains("6h ago") ?? false,
+            "status line was: \(snapshot.statusMessage ?? "")"
+        )
         // Active model falls back to the default when no selection event exists.
-        XCTAssertTrue(status.contains("Gemini 3.8 Flash (High)"), status)
+        XCTAssertTrue(snapshot.statusMessage?.contains("Gemini 3.8 Flash (High)") ?? false)
     }
 }

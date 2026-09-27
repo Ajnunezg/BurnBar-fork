@@ -593,7 +593,16 @@ public struct ClaudeQuotaAdapter: ProviderQuotaAdapter {
         from credentials: ClaudeOAuthCredentials?,
         configTierHint: String?
     ) -> ClaudePlanCaps? {
-        let raw = credentials.map { $0.rateLimitTier + " " + $0.subscriptionType } ?? configTierHint
+        if let credentials {
+            return Self.caps(forTierString: credentials.rateLimitTier + " " + credentials.subscriptionType)
+        }
+        return Self.caps(forTierString: configTierHint)
+    }
+
+    /// Maps a tier/subscription string onto the published allowance.
+    /// `nil` when the string doesn't name a recognizable tier — the caller
+    /// then renders counts without percentages rather than inventing a cap.
+    private static func caps(forTierString raw: String?) -> ClaudePlanCaps? {
         guard let raw, !raw.isEmpty else { return nil }
         let combined = raw.lowercased()
         if combined.contains("20x") || combined.contains("max_20") {

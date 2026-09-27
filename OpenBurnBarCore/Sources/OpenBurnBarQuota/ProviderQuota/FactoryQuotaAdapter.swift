@@ -180,6 +180,16 @@ public struct FactoryQuotaAdapter: ProviderQuotaAdapter {
                 customProxyTokens += facts.total
                 customProxySessions += 1
                 return
+            case .factoryUnknown, .standard, .droidCore:
+                // Cache reads feed only the cache-hit-rate diagnostic, and
+                // only for Factory-billed lanes so the rate never counts
+                // custom-proxy traffic against a Factory denominator.
+                cacheReadTokens += facts.cacheRead
+            }
+
+            switch facts.lane {
+            case .customProxy:
+                break
             case .factoryUnknown:
                 factoryUnknownTokens += facts.total
                 // Fall through — treat unknown Factory-billed models as
