@@ -3,8 +3,8 @@
   "summary": {
     "largestCycle": 34,
     "componentsInCycles": 34,
-    "upwardReferences": 60,
-    "cyclicReferences": 1637,
+    "upwardReferences": 62,
+    "cyclicReferences": 1643,
     "servicesRootFiles": 58
   },
   "servicesRootFiles": [
@@ -115,7 +115,8 @@
     "Services/Protocols -> Views : ChatSessionController": 1,
     "Services/Receipts -> App : OpenBurnBarRuntime": 1,
     "Services/Receipts -> Views : ReceiptAudioPlayer": 1,
-    "Services/SmartHub -> App : OpenBurnBarRuntime": 1
+    "Services/SmartHub -> App : OpenBurnBarRuntime": 1,
+    "Services/SmartHub -> Views : statusPill": 2
   },
   "cyclic": {
     "App -> Services/(root) : AccountManager": 3,
@@ -430,6 +431,7 @@
     "Services/ComputerUse -> Views : ChatSessionController": 3,
     "Services/ComputerUse -> Views : ComputerUseSessionPanelModel": 1,
     "Services/CursorConnector -> Services/(root) : SettingsManager": 1,
+    "Services/CursorConnector -> Services/ProviderQuota : quotaNonEmpty": 1,
     "Services/FirstRun -> Services/ComputerUse : SystemPermissionMonitor": 1,
     "Services/FirstRun -> Services/ComputerUse : SystemPermissionPromptRunner": 1,
     "Services/Fleet -> Views : AgentPresence": 2,
@@ -558,6 +560,7 @@
     "Services/SmartHub -> Services/ProviderQuota : ProviderQuotaService": 4,
     "Services/SmartHub -> Services/ProviderQuota : ProviderQuotaSnapshotStore": 1,
     "Services/SmartHub -> Services/Receipts : AgentCLIProcessClassifier": 1,
+    "Services/SmartHub -> Views : statusPill": 2,
     "Services/TextExpansion -> Services/(root) : SettingsManager": 1,
     "Services/TextExpansion -> Services/ComputerUse : MacAccessibilityInspector": 1,
     "Services/TextExpansion -> Services/ComputerUse : MacAccessibilityPermissionRequester": 1,
@@ -721,7 +724,7 @@
     "Views -> Services/FirstRun : FirstRunPermissionLadder": 2,
     "Views -> Services/Fleet : FleetAgentRow": 3,
     "Views -> Services/Fleet : FleetChatOpenPolicy": 1,
-    "Views -> Services/Fleet : FleetFormatting": 2,
+    "Views -> Services/Fleet : FleetFormatting": 4,
     "Views -> Services/Fleet : FleetLiveness": 2,
     "Views -> Services/Fleet : FleetLoadState": 1,
     "Views -> Services/Fleet : FleetService": 3,
@@ -765,6 +768,7 @@
     "Views -> Services/ProviderQuota : FusionSearchQuotaReader": 2,
     "Views -> Services/ProviderQuota : ProviderQuotaAccountDisplay": 3,
     "Views -> Services/ProviderQuota : ProviderQuotaService": 27,
+    "Views -> Services/ProviderQuota : isDefaultSwitcherCLIConfigDirectory": 1,
     "Views -> Services/Recap : MacRecapEnvironment": 1,
     "Views -> Services/Receipts : ReceiptQualityAuditor": 1,
     "Views -> Services/Search : OpenAIEmbeddingProvider": 1,

@@ -21,10 +21,14 @@ graph from source and holds it to five rules:
                 resolver cannot own such a name, so every edge through it would
                 vanish from the graph and baselined debt would look retired.
 
-Resolution is name based and deliberately conservative: only TOP-LEVEL type
-declarations (class/struct/enum/actor/protocol/typealias at brace depth 0) own
-a name (R5 keeps that ownership unique); a file never references a name it declares itself at any depth (nested-type
-shadowing). Comments and string literals are stripped first.
+Resolution is name based and deliberately conservative: TOP-LEVEL declarations
+(class/struct/enum/actor/protocol/typealias/func/var/let outside any brace)
+own a name, `private`/`fileprivate` declarations are file-local and never owned
+(R5 keeps ownership unique); a nested declaration shadows its name only inside
+its enclosing scope, never file-wide; a file never references a name it declares itself at any depth (nested-type
+, and its own top-level name file-wide. Comments and string literals are
+stripped first, except the executable expressions inside `\\( )` string
+interpolation.
 
 Debt is keyed `src -> dst : Symbol` with the number of referencing files, so a
 move inside a component never churns the baseline, a new debt edge fails, and a
@@ -55,39 +59,93 @@ from pathlib import Path
 
 SCAN_ROOT = "AgentLens"
 SERVICES = "AgentLens/Services"
-EXCLUDED_PARTS = {".build", ".derived-data", ".swiftpm", "Preview Content"}
+EXCLUDED_PARTS = {".build", ".derived-data", ".swiftpm"}
 
+# Strings keep their interpolation: `"\(Type.member)"` is executable code the
+# linker must resolve, so blanking the whole literal would erase real edges.
 _STRIP = re.compile(
-    r'"""[\s\S]*?"""'  # multi-line string literals
+    r'#*"""[\s\S]*?"""#*'  # multi-line string literals (raw included)
     r'|#+"[\s\S]*?"#+'  # raw strings (#"..."#, ##"..."##)
     r'|"(?:\\.|[^"\\\n])*"'  # ordinary string literals
     r"|/\*[\s\S]*?\*/"  # block comments
     r"|//[^\n]*"  # line comments
 )
-_DECL = re.compile(r"\b(?:class|struct|enum|actor|protocol|typealias)\s+([A-Z][A-Za-z0-9_]*)")
-_IDENT = re.compile(r"\b[A-Z][A-Za-z0-9_]*\b")
+_DECL = re.compile(r"\b(?:class|struct|enum|actor|protocol|typealias|func|var|let)\s+([A-Za-z_][A-Za-z0-9_]*)")
+_IDENT = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
+_PRIV = re.compile(r"\b(?:private|fileprivate)\b")
+
+
+def _blank_literal(text: str) -> str:
+    """Blank one literal, keeping `\\(expr)` interpolation code visible."""
+    raw = len(text) - len(text.lstrip("#"))
+    marker = "\\" + "#" * raw + "("
+    out = [c if c == "\n" else " " for c in text]
+    i = 0
+    while True:
+        j = text.find(marker, i)
+        while 0 < j and text[j - 1] == "\\":
+            j = text.find(marker, j + 1)
+        if j < 0:
+            return "".join(out)
+        depth, k = 1, j + len(marker)
+        while k < len(text) and depth:
+            depth += text[k] == "("
+            depth -= text[k] == ")"
+            k += 1
+        if depth:
+            return "".join(out)
+        out[j + len(marker) : k - 1] = text[j + len(marker) : k - 1]
+        i = k
 
 
 def strip_source(text: str) -> str:
     """Blank comments and string literals, preserving line structure."""
-    return _STRIP.sub(lambda m: "\n" * m.group(0).count("\n") + " ", text)
+
+    def repl(match: re.Match) -> str:
+        matched = match.group(0)
+        if matched.startswith(("//", "/*")):
+            return "\n" * matched.count("\n") + " "
+        return _blank_literal(matched)
+
+    return _STRIP.sub(repl, text)
 
 
-def declarations(stripped: str) -> tuple[set[str], set[str]]:
-    """Return (top-level names, all declared names) for one stripped file."""
+def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int]]]]:
+    """(top-level owned names, name -> lexical shadow ranges) for one file.
+
+    A file only owns names it declares at top level and only names it can hand
+    to another component, so `private`/`fileprivate` declarations are never
+    owned — but they still shadow their name file-wide. A nested declaration
+    shadows its name only inside the body of the scope that encloses it, which
+    is what makes `struct Outer { struct Foo {} }` different from a top-level
+    `Foo`: outside `Outer`, `Foo` still refers to the other component's type.
+    """
+    lines = stripped.splitlines()
+    # Innermost enclosing '{' line for every line, plus each pair's close line.
+    stack: list[int] = []
+    close_of: dict[int, int] = {}
+    opens_before: list[int] = []
+    for i, line in enumerate(lines):
+        opens_before.append(stack[-1] if stack else -1)
+        for ch in line:
+            if ch == "{":
+                stack.append(i)
+            elif ch == "}" and stack:
+                close_of[stack.pop()] = i
+    last = len(lines) - 1
     top: set[str] = set()
-    every: set[str] = set()
-    depth = 0
-    for line in stripped.splitlines():
+    shadows: dict[str, list[tuple[int, int]]] = collections.defaultdict(list)
+    for i, line in enumerate(lines):
         for match in _DECL.finditer(line):
             name = match.group(1)
-            every.add(name)
-            # A declaration is top-level when no brace is open before it.
-            if depth + line[: match.start()].count("{") - line[: match.start()].count("}") == 0:
-                top.add(name)
-        depth += line.count("{") - line.count("}")
-        depth = max(depth, 0)
-    return top, every
+            open_line = opens_before[i]
+            if open_line < 0:
+                shadows[name].append((0, last))
+                if not _PRIV.search(line[: match.start()]):
+                    top.add(name)
+            else:
+                shadows[name].append((open_line, close_of.get(open_line, last)))
+    return top, shadows
 
 
 class Manifest:
@@ -154,7 +212,7 @@ class Graph:
             sources[rel] = strip_source(path.read_text(encoding="utf-8", errors="ignore"))
 
         self.file_component: dict[str, str] = {}
-        declared_here: dict[str, set[str]] = {}
+        shadow_map: dict[str, dict[str, list[tuple[int, int]]]] = {}
         owners: dict[str, set[str]] = collections.defaultdict(set)
         declared_in: dict[str, set[str]] = collections.defaultdict(set)
         for rel, text in sources.items():
@@ -167,8 +225,8 @@ class Graph:
             if component == manifest.root_component:
                 self.root_files.append(rel)
             self.file_component[rel] = component
-            top, every = declarations(text)
-            declared_here[rel] = every
+            top, shadows = declarations(text)
+            shadow_map[rel] = shadows
             for name in top:
                 owners[name].add(component)
                 declared_in[name].add(rel)
@@ -181,10 +239,15 @@ class Graph:
             lambda: collections.defaultdict(set)
         )
         for rel, component in self.file_component.items():
-            local = declared_here[rel]
-            for name in set(_IDENT.findall(sources[rel])):
-                if name in local:
-                    continue
+            text = sources[rel]
+            shadows = shadow_map[rel]
+            for match in _IDENT.finditer(text):
+                name = match.group(0)
+                ranges = shadows.get(name)
+                if ranges:
+                    line_no = text.count("\n", 0, match.start())
+                    if any(start <= line_no <= end for start, end in ranges):
+                        continue
                 target = owner.get(name)
                 if target is not None and target != component:
                     self.refs[(component, target)][name].add(rel)

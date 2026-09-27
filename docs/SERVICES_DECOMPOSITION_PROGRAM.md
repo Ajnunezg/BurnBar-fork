@@ -116,9 +116,12 @@ itself held to the base commit's (`--base`, fed by CI from the PR or merge-group
 absent at base, a higher count, or a new root file fails, so running `--update` cannot launder
 new debt into the same change.
 
-Resolution is conservative. Only top-level declarations own a name, a file never references a
-name it declares itself, and comments and string literals are stripped. The analyzer runs over
-all of AgentLens in under a second.
+Resolution is conservative. Only top-level declarations own a name — types, plus top-level
+`func`/`var`/`let`, because a free function is as much a cross-file dependency as a type —
+while `private`/`fileprivate` names are file-local and never owned. Shadowing is lexical: a
+nested declaration suppresses its name only inside the scope that encloses it, never the whole
+file. Comments are stripped; string literals are stripped except the executable expressions
+inside `\( )` interpolation. The analyzer runs over all of AgentLens in about a second.
 
 Useful modes:
 

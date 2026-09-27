@@ -307,6 +307,75 @@ SWIFT
 }
 run_case "R4: file under an undeclared AgentLens root fails" 1 stderr "R4 undeclared" clean mut_m
 
+mut_n() { cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+// The nested FeatureAThing shadows the feature type ONLY inside DataStoreOuter.
+// The top-level use below still resolves to FeatureA, so this edge must count.
+struct DataStoreOuter {
+    struct FeatureAThing {
+        let id: String
+    }
+    func useNested() -> FeatureAThing {
+        FeatureAThing(id: "x")
+    }
+}
+
+struct DataStoreUsesTopLevelA {
+    let a: FeatureAThing
+}
+SWIFT
+}
+mut_o() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func featureAFactory() -> FeatureAThing? { nil }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreCallsFactory {
+    func go() { _ = featureAFactory() }
+}
+SWIFT
+}
+mut_p() { cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreInterpolates {
+    // Interpolation is executable code: the identifier inside \( ) must count.
+    let label = "\(FeatureAThing.self)"
+}
+SWIFT
+}
+mut_q() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+private struct SharedHelper {
+    let id: String
+}
+SWIFT
+  cat >>"${1}/AgentLens/Services/FeatureB/B.swift" <<'SWIFT'
+
+fileprivate struct SharedHelper {
+    let id: String
+}
+SWIFT
+}
+mut_r() {
+  mkdir -p "${1}/AgentLens/Services/DataStore/Preview Content"
+  cat >"${1}/AgentLens/Services/DataStore/Preview Content/P.swift" <<'SWIFT'
+import Foundation
+
+// Preview Content is compiled into the app target, so it must be scanned.
+struct PreviewFixture {
+    let a: FeatureAThing
+}
+SWIFT
+}
+run_case "lexical scoping: a nested type only shadows inside its enclosing scope" 1 stderr "R1 upward" clean mut_n
+run_case "top-level func dependencies count as edges" 1 stderr "R1 upward" clean mut_o
+run_case "references inside string interpolation count as edges" 1 stderr "R1 upward" clean mut_p
+run_case "private/fileprivate duplicate names do not trip R5" 0 stdout "services-layering: OK" clean mut_q
+run_case "Preview Content files are scanned and gated" 1 stderr "R1 upward" clean mut_r
+
 # ── Regression: the gate is wired into the CI debt-budgets job ───────────────
 workflow="${here}/../../.github/workflows/fast-feedback.yml"
 if [[ -f "${workflow}" ]] && grep -q "check-services-layering.sh" "${workflow}"; then
