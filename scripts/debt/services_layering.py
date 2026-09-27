@@ -12,9 +12,11 @@ graph from source and holds it to five rules:
   R2 acyclic    Every reference whose component edge lies inside a dependency
                 cycle is debt.
   R3 root       No new file may land in AgentLens/Services/ root.
-  R4 declared   Every AgentLens/Services/<Dir> must be declared in the layer
-                manifest, including one that holds only <Dir>/Contracts; an
-                undeclared directory would be silently ungated.
+  R4 declared   Every scanned Swift file must be owned by a declared component:
+                an AgentLens/Services/<Dir> missing from the manifest (including
+                one holding only <Dir>/Contracts), or any file under an
+                AgentLens root the manifest does not cover, would be silently
+                ungated — and every edge through its types would vanish.
   R5 unique     No top-level type name may be declared in two components. The
                 resolver cannot own such a name, so every edge through it would
                 vanish from the graph and baselined debt would look retired.
@@ -158,8 +160,9 @@ class Graph:
         for rel, text in sources.items():
             component = manifest.component(rel)
             if component is None:
-                if rel.startswith(SERVICES + "/"):
-                    self.undeclared.add("/".join(rel.split("/")[:3]))
+                # Any scanned file the manifest does not own is ungated: its
+                # declarations and edges would vanish from the graph.
+                self.undeclared.add("/".join(rel.split("/")[:-1]))
                 continue
             if component == manifest.root_component:
                 self.root_files.append(rel)

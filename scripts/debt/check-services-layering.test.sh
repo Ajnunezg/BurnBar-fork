@@ -295,6 +295,18 @@ run_base_case "base: baseline shrunk vs base passes" 0 "services-layering: OK" d
 run_base_case "base: baseline absent at base is allowed" 0 "is new relative to" clean no noop
 run_base_case "base: unresolvable base fails closed in CI" 1 "does not resolve" clean yes noop 0000000000000000000000000000000000000000
 
+mut_m() {
+  mkdir -p "${1}/AgentLens/Persistence"
+  cat >"${1}/AgentLens/Persistence/P.swift" <<'SWIFT'
+import Foundation
+
+struct PersistenceThing {
+    let id: String
+}
+SWIFT
+}
+run_case "R4: file under an undeclared AgentLens root fails" 1 stderr "R4 undeclared" clean mut_m
+
 # ── Regression: the gate is wired into the CI debt-budgets job ───────────────
 workflow="${here}/../../.github/workflows/fast-feedback.yml"
 if [[ -f "${workflow}" ]] && grep -q "check-services-layering.sh" "${workflow}"; then

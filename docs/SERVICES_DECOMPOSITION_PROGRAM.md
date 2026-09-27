@@ -106,7 +106,7 @@ door-tested targets. They sit behind contracts as adapters that the app target c
 | **R1 layering** | a component references a component on a higher layer |
 | **R2 acyclic** | a reference lies on a component-level dependency cycle |
 | **R3 root** | a new file appears directly in `AgentLens/Services/` |
-| **R4 declared** | an `AgentLens/Services/<Dir>` is missing from the manifest (it would be ungated), including one that holds only `<Dir>/Contracts` |
+| **R4 declared** | a scanned Swift file has no declared component: an `AgentLens/Services/<Dir>` missing from the manifest (including one that holds only `<Dir>/Contracts`), or any file under an AgentLens root the manifest does not cover — its edges would vanish silently |
 | **R5 unique** | a top-level type name is declared in two components (the resolver could not own it, so its edges would vanish and baselined debt would look retired) |
 
 Debt is keyed `src -> dst : Symbol` with the number of referencing files. A new key fails, a
@@ -231,7 +231,7 @@ extractions with only the imports the compiler needs):
 | `Services/Fleet/BurnBarFleetClientError.swift` | `Services/Fleet/Contracts/` |
 | `Services/OpenBurnBarOperating/OpenBurnBarOperatingModels.swift` | `Services/OpenBurnBarOperating/Contracts/` |
 | `Services/DataStore/DataStoreTypes.swift` | `Services/DataStore/Contracts/` |
-| `Services/DataStore/DeviceHardwareIcon.swift` | `Services/DataStore/Contracts/` |
+| `Services/DataStore/DeviceHardwareIcon.swift` | `Services/Foundation/` |
 | `Services/ProjectionPipeline/ProjectionPipelineCore.swift` | `Services/ProjectionPipeline/Contracts/` |
 | `Services/Search/{SearchTypes,Embedding/EmbeddingTypes,RetrievalQueryTypes}.swift` | `Services/Search/Contracts/` |
 | `Services/SearchQueryCache.swift` | `Services/DataStore/` |
