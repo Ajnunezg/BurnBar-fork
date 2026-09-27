@@ -70,7 +70,9 @@ EXCLUDED_PARTS = {".build", ".derived-data", ".swiftpm"}
 # block comments nest, and a literal's `\( )` expressions can contain literals
 # of their own (`"\(String(format: "%@", X))"`). Regex literals are blanked the
 # same way — `/FeatureAThing/` is pattern text, not a type reference.
-_DECL = re.compile(r"\b(class|struct|enum|actor|protocol|typealias|func|var|let)\s+`?([A-Za-z_][A-Za-z0-9_]*)`?")
+_DECL = re.compile(
+    r"\b(class|struct|enum|actor|protocol|typealias|func|var|let|macro|associatedtype)\s+`?([A-Za-z_][A-Za-z0-9_]*)`?"
+)
 _OP_DECL = re.compile(r"\bfunc\s+([!<=>?^|~&%*+\-./]+)")
 _OP_CHARS = set("!<=>?^|~&%*+-./")
 # Standard library and syntax operators are never owned by a component, so
@@ -125,8 +127,12 @@ _IDENT = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
 # Words that can legitimately continue a signature after a newline
 # (`func f()\nwhere T: Equatable {`, `async`, `throws`).
 _SIG_CONTINUATION = {"where", "async", "throws", "rethrows"}
-_WHERE = re.compile(r"\bwhere\b")
 _COND = re.compile(r"\b(if|while|for|case|catch|guard)\b")
+# A statement keyword inside a `{ ... in` match means the `{` belongs to an
+# outer block, not a closure signature — only `for` binds loop names.
+_STMT_LEAD = re.compile(
+    r"\b(for|if|while|guard|switch|do|return|func|case|throw|defer|let|var|repeat|else|try|await)\b"
+)
 _CASE = re.compile(r"\b(?:case|default)\b")
 _TUPLE_DECL = re.compile(r"\b(let|var)\s*\.?\w*\(")
 _PRIV = re.compile(r"\b(?:private|fileprivate)\b(?!\s*\()")
@@ -562,13 +568,15 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
     def record_params(sig_name_end: int) -> tuple[tuple[tuple[str, str], ...], str] | None:
         """Shadow parameter names: at their binding site and across the
         function's body. Parameter types stay live references. Returns the
-        overload signature ((label, annotation) params, return type) so R5
-        can tell real overloads from redeclarations."""
+        overload signature ((label, annotation) params, generic clause +
+        return type + where clause) so R5 can tell overloads apart."""
         j = sig_name_end
         while j < n and stripped[j] in " \t?!":
             j += 1
         generics = generic_params(j)
+        gtext = ""
         if generics is not None:
+            gtext = " ".join(stripped[j : generics[1]].split())
             names, j = generics
             while j < n and stripped[j] in " \t":
                 j += 1
@@ -592,15 +600,10 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
             if open_pos is not None:
                 shadows[pname].append((open_pos, scope_end))
         ret_end = open_pos if open_pos is not None else min(k + 400, n)
-        ret = ""
-        arrow = stripped.find("->", k, ret_end)
-        if arrow != -1:
-            bound = ret_end
-            w = _WHERE.search(stripped, arrow + 2, ret_end)
-            if w:
-                bound = w.start()
-            ret = " ".join(stripped[arrow + 2 : bound].split())
-        return param_sig(j + 1, k - 1), ret
+        # Overload signature: generic clause (`<T: C>`), return type, and
+        # `where` constraints all distinguish legal overloads.
+        tail = " ".join((gtext + " " + stripped[k:ret_end]).split())
+        return param_sig(j + 1, k - 1), tail
 
     def branch_open(pos: int) -> int | None:
         """The `{` opening the branch of the statement at pos. `{`s preceded
@@ -776,9 +779,25 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
             continue
         record_params(match.end())
     # Closure parameters: `{ x, y in` and `{ (a: Int, b: Int) in` bind inside
-    # the closure body only.
+    # the closure body only. A `{` may also precede a `for x in`/`if x in`
+    # statement — only `for` binds loop variables; anything else isn't a
+    # closure signature.
     for match in re.finditer(r"\{(?:[ \t]*\[[^\]]*\][ \t]*)?([\w\s,()<>:.?!&@~*+\-]*?)\bin\b", stripped):
         region_start, region_end = match.start(1), match.end(1)
+        lead = _STMT_LEAD.search(stripped, region_start, region_end)
+        if lead is not None:
+            if lead.group(1) != "for":
+                continue
+            # `for x in y {` — x is scoped to the loop body, not the closure's
+            # enclosing brace.
+            body = branch_open(match.end())
+            for pm in _IDENT.finditer(stripped, lead.end(), region_end):
+                if pm.group(0) in _EXPR_KW or pm.group(0) in ("in", "case", "where", "let", "var"):
+                    continue
+                shadows[pm.group(0)].append((pm.start(), pm.end()))
+                if body is not None and body in close_of:
+                    shadows[pm.group(0)].append((match.end(), close_of[body]))
+            continue
         depth, cut = 0, region_end
         for p in range(region_start, region_end - 1):
             c = stripped[p]

@@ -766,6 +766,62 @@ struct DataStoreCallsOverload {
 }
 SWIFT
 }
+mut_av() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func handler() -> Int { 42 }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreForAfter {
+    // The loop variable ends with the loop: the call after `}` is a real
+    // outward reference to FeatureA's handler.
+    func use(handlers: [() -> Void]) {
+        for handler in handlers { handler() }
+        handler()
+    }
+}
+SWIFT
+}
+mut_aw() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func parse<T>(_ value: T) -> T where T: BinaryInteger { value }
+SWIFT
+  cat >>"${1}/AgentLens/Services/FeatureB/B.swift" <<'SWIFT'
+
+// Overloads may differ only by generic constraints.
+func parse<T>(_ value: T) -> T where T: BinaryFloatingPoint { value }
+SWIFT
+}
+mut_ax() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+macro featureValue() -> Int
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreExpandsMacro {
+    let v = #featureValue()
+}
+SWIFT
+}
+mut_ay() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+struct Element {
+    let id: String
+}
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+// Element inside the protocol is the associated type, not FeatureA's.
+protocol Store {
+    associatedtype Element
+    func load() -> Element
+}
+SWIFT
+}
 run_case "private modifier binds to its own declaration only" 1 stderr "R5 ambiguous" clean mut_v
 run_case "private(set) declarations are still publicly owned" 1 stderr "R1 upward" clean mut_w
 run_case "a local binding does not shadow inside its own initializer" 1 stderr "R1 upward" clean mut_x
@@ -792,6 +848,10 @@ run_case "overloads may differ only by return type" 0 stdout "services-layering:
 run_case "tuple destructuring owns every bound name" 1 stderr "R1 upward" clean mut_as
 run_case "generic type parameters shadow outward owners" 0 stdout "services-layering: OK" clean mut_at
 run_case "unresolvable overload calls edge to every candidate" 1 stderr "R1 upward" clean mut_au
+run_case "for-in variables scope to the loop, not the function" 1 stderr "R1 upward" clean mut_av
+run_case "overloads may differ only by generic constraints" 0 stdout "services-layering: OK" clean mut_aw
+run_case "macro declarations are owned and #name uses count" 1 stderr "R1 upward" clean mut_ax
+run_case "associatedtype shadows its protocol scope" 0 stdout "services-layering: OK" clean mut_ay
 
 # ── Regression: the gate is wired into the CI debt-budgets job ───────────────
 workflow="${here}/../../.github/workflows/fast-feedback.yml"
