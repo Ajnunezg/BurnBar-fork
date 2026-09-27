@@ -236,7 +236,7 @@ struct AgentsSettingsView: View {
         await quotaService.refreshIfNeeded(dataStore: dataStore)
         providerAccounts = (try? await dataStore.fetchProviderAccounts()) ?? []
         switcherProfiles = (try? dataStore.switcherStore.fetchAllProfiles()) ?? []
-        let wiring = RoutingClientWiring()
+        let wiring = RoutingClientWiring(gatewayPort: settingsManager.gatewayPort)
         let connected = RoutingClientWiringTarget.allCases
             .filter { wiring.isWired(target: $0) }
             .count
@@ -556,7 +556,7 @@ struct AgentsRuntimesView: View {
                         icon: "antenna.radiowaves.left.and.right",
                         iconTint: DesignSystem.Colors.hermesAureate,
                         title: "Hermes Gateway",
-                        subtitle: "Local webapi on :8642, auto-launch with OpenBurnBar",
+                        subtitle: "Local webapi on :\(LocalService.hermesGateway.defaultPort), auto-launch with OpenBurnBar",
                         value: settingsManager.launchHermesWithOpenBurnBar ? "Auto" : "Manual",
                         valueTint: settingsManager.launchHermesWithOpenBurnBar
                             ? DesignSystem.Colors.success
@@ -623,7 +623,7 @@ struct AgentsRuntimesView: View {
                         icon: "network.badge.shield.half.filled",
                         iconTint: DesignSystem.Colors.teal,
                         title: "OpenClaw Gateway",
-                        subtitle: "OpenAI-compatible gateway (default 127.0.0.1:18789)",
+                        subtitle: "OpenAI-compatible gateway (default 127.0.0.1:\(LocalService.openClawGateway.defaultPort))",
                         value: openClawHostDisplay,
                         logoProvider: .openClaw
                     )

@@ -259,13 +259,25 @@ final class ConnectionsViewModel {
         self.vibeProxyMigrationService = vibeProxyMigrationService
     }
 
+    /// Builds a wiring helper seeded with the configured gateway port so
+    /// detection keeps working after `GatewaySettings.gatewayPort` moves off
+    /// the default.
+    private func makeWiring() -> RoutingClientWiring {
+        var wiring = wiringFactory()
+        let configured = SettingsManager.shared.gatewayPort
+        if configured > 0 {
+            wiring.gatewayPort = configured
+        }
+        return wiring
+    }
+
     // MARK: - Wiring state
 
     /// Read the current "wired or not" status straight from disk so the row
     /// always matches the truth on the user's Mac.
     func refreshWiringState() {
         for target in RoutingClientWiringTarget.allCases {
-            let wired = wiringFactory().isWired(target: target)
+            let wired = makeWiring().isWired(target: target)
             // Preserve transient states (connecting/probing) — only flip
             // between connected and notConnected when we know.
             switch appStates[target] {
@@ -374,7 +386,7 @@ final class ConnectionsViewModel {
             }
         }
         let gateway = makeGateway(from: settings)
-        let wiring = wiringFactory()
+        let wiring = makeWiring()
         let advertisedModels = await wiring.advertisedModels(gateway: gateway)
 
         do {
@@ -404,7 +416,7 @@ final class ConnectionsViewModel {
     ) async {
         appStates[target] = .probing
         let gateway = makeGateway(from: settings)
-        let wiring = wiringFactory()
+        let wiring = makeWiring()
         let advertisedModels = await wiring.advertisedModels(gateway: gateway)
         let probe = await wiring.probe(
             target: target,
@@ -418,7 +430,7 @@ final class ConnectionsViewModel {
     /// does **not** disable the gateway — other apps may still be wired.
     func disconnect(target: RoutingClientWiringTarget) async {
         do {
-            try wiringFactory().unwire(target: target)
+            try makeWiring().unwire(target: target)
             appStates[target] = .notConnected
         } catch {
             appStates[target] = .error(message: error.localizedDescription)
@@ -433,7 +445,7 @@ final class ConnectionsViewModel {
         settings: SettingsManager
     ) async {
         do {
-            try wiringFactory().unwire(target: target)
+            try makeWiring().unwire(target: target)
             appStates[target] = .notConnected
             settings.routedClientWiring.unenroll(targetRawValue: target.rawValue)
         } catch {
@@ -447,7 +459,7 @@ final class ConnectionsViewModel {
         for target: RoutingClientWiringTarget,
         settings: SettingsManager
     ) -> String {
-        wiringFactory().shellSnippet(target: target, gateway: makeGateway(from: settings))
+        makeWiring().shellSnippet(target: target, gateway: makeGateway(from: settings))
     }
 
     func copySnippet(
@@ -466,12 +478,12 @@ final class ConnectionsViewModel {
     }
 
     func revealConfigFile(target: RoutingClientWiringTarget) {
-        let url = wiringFactory().configURL(for: target)
+        let url = makeWiring().configURL(for: target)
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     func configPath(for target: RoutingClientWiringTarget) -> String {
-        wiringFactory().configURL(for: target).path
+        makeWiring().configURL(for: target).path
     }
 
     // MARK: - Proxy catalog
@@ -603,7 +615,7 @@ final class ConnectionsViewModel {
 
         await refreshProxyModelCatalog(settings: settings)
         let gateway = makeGateway(from: settings)
-        let wiring = wiringFactory()
+        let wiring = makeWiring()
         let advertisedModels = proxyModels.isEmpty
             ? await wiring.advertisedModels(gateway: gateway)
             : proxyModels
@@ -683,7 +695,7 @@ final class ConnectionsViewModel {
     ) async {
         guard appStates[target]?.isBusy != true else { return }
         let gateway = makeGateway(from: settings)
-        let wiring = wiringFactory()
+        let wiring = makeWiring()
         guard wiring.isWired(target: target) else { return }
         let advertisedModels = proxyModels.isEmpty
             ? await wiring.advertisedModels(gateway: gateway)
@@ -842,7 +854,7 @@ final class ConnectionsViewModel {
             return
         }
         settings.gatewayHost = "127.0.0.1"
-        settings.gatewayPort = 8317
+        settings.gatewayPort = LocalService.openBurnBarGateway.defaultPort
         settings.gatewayEnabled = true
     }
 

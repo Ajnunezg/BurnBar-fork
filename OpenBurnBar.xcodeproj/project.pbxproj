@@ -382,6 +382,7 @@
 		1C82CDE50D49E3C33D9F075A /* CredentialTransferSheetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29A041AE3008083D27409AD /* CredentialTransferSheetTests.swift */; };
 		1C94791BBE43CEA33AB83C96 /* OnboardingProviderPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D3A00C8EF2A430EA4BA4269 /* OnboardingProviderPill.swift */; };
 		1CABAD1787B850C27DA954DF /* OpenBurnBarDatabaseMattersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AA3987A02D4AC2F45BC7028 /* OpenBurnBarDatabaseMattersTests.swift */; };
+		1D2B251D91C0BAAA28C7476E /* LocalServiceHealth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C32F9930DC1273E281B64FA /* LocalServiceHealth.swift */; };
 		1D6EAD20682E51EEF4C5E0D2 /* SessionLogGroupsCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD167BC02DD11865D36D2969 /* SessionLogGroupsCacheTests.swift */; };
 		1D74C214980BF536944BCB30 /* PixelClockSettingsModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB2F0ABF8766EBF9EAD2CEB9 /* PixelClockSettingsModelTests.swift */; };
 		1D7EFE27EF90AF90E9316E51 /* ChatStreamingMessageMutationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB0C5FBA92D5E8A0537F0E1 /* ChatStreamingMessageMutationTests.swift */; };
@@ -3925,6 +3926,7 @@
 		3C141FCA8BD0D14DFABF13EA /* CapabilityDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapabilityDetailSheet.swift; sourceTree = "<group>"; };
 		3C18EF50912A4312BD00C61B /* StandingOrderStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingOrderStoreTests.swift; sourceTree = "<group>"; };
 		3C2FAB091B9252F5182CED90 /* BurnBarFleetCadencePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BurnBarFleetCadencePolicy.swift; sourceTree = "<group>"; };
+		3C32F9930DC1273E281B64FA /* LocalServiceHealth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalServiceHealth.swift; sourceTree = "<group>"; };
 		3C5B39093FDFC750DDD1CC77 /* PixelClockInputControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelClockInputControllerTests.swift; sourceTree = "<group>"; };
 		3C65A4D34D95F4A8798F1158 /* AIInboxDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIInboxDetailView.swift; sourceTree = "<group>"; };
 		3C680B269D319F8BD7E0ED70 /* BurnBarLinuxOnboardingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BurnBarLinuxOnboardingServiceTests.swift; sourceTree = "<group>"; };
@@ -10544,6 +10546,7 @@
 				F1075024DBE68364F8C7D2D3 /* ICloudSessionMirrorService.swift */,
 				FBFB7FE795BCD0E4705649DB /* InsightEngine.swift */,
 				DED248DDFB578CD7B88CC8DE /* LocalMetricsAggregator.swift */,
+				3C32F9930DC1273E281B64FA /* LocalServiceHealth.swift */,
 				2FCCDEBCD24F0B202BC15E42 /* MacCloudEntitlementStore.swift */,
 				DD04FC25A71156676C374D51 /* MacCloudVaultSignalPayloads.swift */,
 				32857AF7C8C5AF0BEE828F5B /* NavigationCoordinator.swift */,
@@ -14864,6 +14867,7 @@
 				38879CDD0540DC017966E945 /* LocalMetricsAggregator.swift in Sources */,
 				0DE26600775B6CA96A3B6664 /* LocalMetricsView.swift in Sources */,
 				99D65D24D0BCFEE180C050DE /* LocalNetworkDiscovery.swift in Sources */,
+				1D2B251D91C0BAAA28C7476E /* LocalServiceHealth.swift in Sources */,
 				6071981C6EE561D9A5568664 /* LockedFeatureVeil.swift in Sources */,
 				5B2063FA3EA689AF39397A20 /* MCPClientWiring.swift in Sources */,
 				E6EFCF180F5F5776BBD332DE /* MCPInstallCard.swift in Sources */,

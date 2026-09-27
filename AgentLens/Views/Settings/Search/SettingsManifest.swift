@@ -476,7 +476,7 @@ enum SettingsManifest {
             focusID: SettingsFocus.gatewayPort,
             title: "Gateway Port",
             subtitle: "TCP port the gateway listens on",
-            keywords: ["port", "tcp", "8317", "hydrant"]
+            keywords: ["port", "tcp", "\(LocalService.openBurnBarGateway.defaultPort)", "hydrant"]
         ),
         SettingsItem(
             id: "daemon.gateway.token",
