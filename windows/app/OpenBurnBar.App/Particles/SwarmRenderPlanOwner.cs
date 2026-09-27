@@ -181,7 +181,10 @@ public sealed class SwarmRenderPlanOwner : IDisposable
 
         NetworkInformation.NetworkStatusChanged -= OnNetworkStatusChanged;
         PowerManager.EnergySaverStatusChanged -= OnEnergySaverStatusChanged;
-        _uiSettings.AnimationsEnabledChanged -= OnAnimationsEnabledChanged;
+        if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041))
+        {
+            _uiSettings.AnimationsEnabledChanged -= OnAnimationsEnabledChanged;
+        }
         DetachSceneWindow();
     }
 
@@ -199,8 +202,17 @@ public sealed class SwarmRenderPlanOwner : IDisposable
         // Reduce Motion is a live accessibility signal (Settings → Accessibility
         // → Visual effects → Animation effects): re-resolve when it flips so a
         // running live plan drops to static without waiting for the next
-        // sensor transition.
-        TrySubscribe(() => _uiSettings.AnimationsEnabledChanged += OnAnimationsEnabledChanged);
+        // sensor transition. The event requires Windows 10.0.19041 while the
+        // app's TargetPlatformMinVersion is 17763 — version-gate the call site
+        // (CA1416); on older builds ReduceMotion stays at its ReadReduceMotion
+        // snapshot and simply never refreshes mid-session.
+        TrySubscribe(() =>
+        {
+            if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041))
+            {
+                _uiSettings.AnimationsEnabledChanged += OnAnimationsEnabledChanged;
+            }
+        });
     }
 
     private static void TrySubscribe(Action subscribe)
