@@ -1137,6 +1137,9 @@ struct AppConnectRow: View {
         }
         switch state {
         case .connected:
+            if target == .grok {
+                return "Routes Grok CLI through the local gateway. Quota meters live under Settings → Quotas."
+            }
             if modelSummary?.openburnbarModelCount == nil, !target.supportsModelSync {
                 return "Connected via local gateway"
             }

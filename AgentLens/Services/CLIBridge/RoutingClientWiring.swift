@@ -117,7 +117,7 @@ enum RoutingClientWiringTarget: String, CaseIterable, Identifiable, Sendable {
         case .antigravity:
             return "No route-ready Antigravity profile is enabled. Add or enable an Antigravity account first."
         case .grok:
-            return "No route-ready xAI account is enabled. Add or enable an xAI API key first."
+            return "No route-ready xAI inference key. That key routes Grok CLI traffic; it is not a GrokBuild or SuperGrok quota meter."
         }
     }
 
