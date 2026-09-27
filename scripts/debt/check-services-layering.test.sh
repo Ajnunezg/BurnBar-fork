@@ -526,6 +526,31 @@ for c in m["components"]:
 json.dump(m, open(p, "w"), indent=2)
 PY
 }
+mut_ae() {
+  python3 - "${1}/config/services-layers.json" <<'PY'
+import json, sys
+p = sys.argv[1]
+m = json.load(open(p))
+# A new feature-layer component rooted under an existing persistence
+# directory would reclassify those files via longest-prefix matching.
+m["components"].append({"name": "Services/DataStore/Sub", "layer": "feature", "paths": ["AgentLens/Services/DataStore/Sub"]})
+json.dump(m, open(p, "w"), indent=2)
+PY
+}
+mut_af() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+// Every comma-separated binding is owned, not just the first: featureFactory
+// is a top-level name other components can depend on.
+let placeholder = 0, featureFactory = { 42 }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreCallsSecondBinding {
+    let v = featureFactory()
+}
+SWIFT
+}
 run_case "private modifier binds to its own declaration only" 1 stderr "R5 ambiguous" clean mut_v
 run_case "private(set) declarations are still publicly owned" 1 stderr "R1 upward" clean mut_w
 run_case "a local binding does not shadow inside its own initializer" 1 stderr "R1 upward" clean mut_x
@@ -535,6 +560,8 @@ run_case "custom operator declarations carry dependency edges" 1 stderr "R1 upwa
 run_case "standard library operators are never component-owned" 0 stdout "services-layering: OK" clean mut_ab
 run_case "a local binding shadows its name only after declaration" 0 stdout "services-layering: OK" clean mut_ac
 run_base_case "base: manifest layer reclassification fails" 1 "manifest reclassifies Services/DataStore" debt yes mut_ad
+run_base_case "base: new component overlapping a declared path fails" 1 "overlapping" debt yes mut_ae
+run_case "multi-binding declarations own every bound name" 1 stderr "R1 upward" clean mut_af
 
 # ── Regression: the gate is wired into the CI debt-budgets job ───────────────
 workflow="${here}/../../.github/workflows/fast-feedback.yml"

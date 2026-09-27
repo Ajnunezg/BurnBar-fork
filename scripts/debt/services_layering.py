@@ -415,16 +415,38 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
     for match in _DECL.finditer(stripped):
         keyword, name = match.group(1), match.group(2)
         pair = enclosing(match.start())
-        if pair is None:
-            shadows[name].append((0, n))
-            seg_start = max(stripped.rfind(c, 0, match.start()) for c in ";{}") + 1
-            if not _PRIV.search(stripped[seg_start : match.start()]):
-                top.add(name)
-        elif keyword in ("let", "var") and not is_type_scope(pair[0]):
-            shadows[name].append((match.start(2), match.end(2)))  # the binding token itself
-            shadows[name].append((statement_end(match.end()), pair[1]))
-        else:
-            shadows[name].append(pair)
+        seg_start = max(stripped.rfind(c, 0, match.start()) for c in ";{}") + 1
+        private = bool(_PRIV.search(stripped[seg_start : match.start()]))
+        # `let a = 0, b = { 42 }` binds every name at depth 0, not just the
+        # first: each is owned or shadows like the leading binding.
+        bound = [(name, match.start(2), match.end(2))]
+        end = statement_end(match.end())
+        if keyword in ("let", "var"):
+            depth, i = 0, match.end()
+            while i < end:
+                c = stripped[i]
+                if c in "([{":
+                    depth += 1
+                elif c in ")]}" and depth:
+                    depth -= 1
+                elif c == "," and depth == 0:
+                    j = i + 1
+                    while j < end and stripped[j] in " \t":
+                        j += 1
+                    extra = re.match(r"[A-Za-z_][A-Za-z0-9_]*(?=\s*[:=,;]|$)", stripped[j:end])
+                    if extra:
+                        bound.append((extra.group(0), j, j + len(extra.group(0))))
+                i += 1
+        for bound_name, bound_start, bound_end in bound:
+            if pair is None:
+                shadows[bound_name].append((0, n))
+                if not private:
+                    top.add(bound_name)
+            elif keyword in ("let", "var") and not is_type_scope(pair[0]):
+                shadows[bound_name].append((bound_start, bound_end))
+                shadows[bound_name].append((end, pair[1]))
+            else:
+                shadows[bound_name].append(pair)
     # Top-level operator functions own their operator name (`func <~>`).
     for match in _OP_DECL.finditer(stripped):
         name = match.group(1)
@@ -729,12 +751,25 @@ def base_regressions(
             if old_manifest.get(key) != manifest.get(key):
                 raised.append(f"manifest setting {key} differs from base")
         old_layers = {c["name"]: c["layer"] for c in old_manifest.get("components", [])}
+        old_paths = {c["name"]: sorted(c.get("paths", [])) for c in old_manifest.get("components", [])}
         for component in manifest.get("components", []):
-            old_layer = old_layers.get(component["name"])
-            if old_layer is not None and old_layer != component["layer"]:
-                raised.append(
-                    f"manifest reclassifies {component['name']} {old_layer} -> {component['layer']} (absent at base)"
-                )
+            name = component["name"]
+            if name in old_layers:
+                if old_layers[name] != component["layer"]:
+                    raised.append(
+                        f"manifest reclassifies {name} {old_layers[name]} -> {component['layer']} (absent at base)"
+                    )
+                if old_paths[name] != sorted(component.get("paths", [])):
+                    raised.append(f"manifest repaths {name} ({old_paths[name]} -> {component.get('paths', [])})")
+                continue
+            # A newly named component may only cover directories that were not
+            # owned at base; a path under an existing component's root would
+            # reclassify that component's files via longest-prefix matching.
+            for path in component.get("paths", []):
+                for base_name, base_list in old_paths.items():
+                    for base_path in base_list:
+                        if path == base_path or path.startswith(base_path + "/") or base_path.startswith(path + "/"):
+                            raised.append(f"manifest adds component {name} at {path} overlapping {base_name} at base")
     return raised
 
 
