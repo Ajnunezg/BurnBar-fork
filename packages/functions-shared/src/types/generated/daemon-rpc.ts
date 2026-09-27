@@ -199,7 +199,34 @@ export type RpcMethod =
   | "daemon.fleet.directive.record"
   | "daemon.war.flame.route"
   | "daemon.war.flame.distill.list"
-  | "daemon.war.flame.distill.settle";
+  | "daemon.war.flame.distill.settle"
+  | "daemon.safari.bootstrap"
+  | "daemon.safari.ui.snapshot"
+  | "daemon.safari.approval.respond"
+  | "daemon.safari.trust.update"
+  | "daemon.safari.session.attach"
+  | "daemon.safari.session.detach"
+  | "daemon.safari.session.status"
+  | "daemon.safari.command.poll"
+  | "daemon.safari.command.complete"
+  | "daemon.safari.page_context"
+  | "daemon.safari.screenshot"
+  | "daemon.safari.full_page_screenshot"
+  | "daemon.safari.click"
+  | "daemon.safari.type"
+  | "daemon.safari.press_key"
+  | "daemon.safari.scroll"
+  | "daemon.safari.hover"
+  | "daemon.safari.focus"
+  | "daemon.safari.select_option"
+  | "daemon.safari.navigate"
+  | "daemon.safari.open_tab"
+  | "daemon.safari.close_tab"
+  | "daemon.safari.list_tabs"
+  | "daemon.safari.wait_for"
+  | "daemon.safari.run_javascript"
+  | "daemon.safari.extract"
+  | "daemon.safari.abort";
 
 export const RPC_METHOD_IDS: readonly RpcMethod[] = [
   "auth.bootstrap",
@@ -398,4 +425,31 @@ export const RPC_METHOD_IDS: readonly RpcMethod[] = [
   "daemon.war.flame.route",
   "daemon.war.flame.distill.list",
   "daemon.war.flame.distill.settle",
+  "daemon.safari.bootstrap",
+  "daemon.safari.ui.snapshot",
+  "daemon.safari.approval.respond",
+  "daemon.safari.trust.update",
+  "daemon.safari.session.attach",
+  "daemon.safari.session.detach",
+  "daemon.safari.session.status",
+  "daemon.safari.command.poll",
+  "daemon.safari.command.complete",
+  "daemon.safari.page_context",
+  "daemon.safari.screenshot",
+  "daemon.safari.full_page_screenshot",
+  "daemon.safari.click",
+  "daemon.safari.type",
+  "daemon.safari.press_key",
+  "daemon.safari.scroll",
+  "daemon.safari.hover",
+  "daemon.safari.focus",
+  "daemon.safari.select_option",
+  "daemon.safari.navigate",
+  "daemon.safari.open_tab",
+  "daemon.safari.close_tab",
+  "daemon.safari.list_tabs",
+  "daemon.safari.wait_for",
+  "daemon.safari.run_javascript",
+  "daemon.safari.extract",
+  "daemon.safari.abort",
 ];

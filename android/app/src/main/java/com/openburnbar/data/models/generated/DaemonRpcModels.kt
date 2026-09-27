@@ -204,6 +204,33 @@ object DaemonRpcMethods {
     const val WAR_FLAME_ROUTE = "daemon.war.flame.route"
     const val WAR_FLAME_DISTILL_LIST = "daemon.war.flame.distill.list"
     const val WAR_FLAME_DISTILL_SETTLE = "daemon.war.flame.distill.settle"
+    const val SAFARI_BOOTSTRAP = "daemon.safari.bootstrap"
+    const val SAFARI_UI_SNAPSHOT = "daemon.safari.ui.snapshot"
+    const val SAFARI_APPROVAL_RESPOND = "daemon.safari.approval.respond"
+    const val SAFARI_TRUST_UPDATE = "daemon.safari.trust.update"
+    const val SAFARI_SESSION_ATTACH = "daemon.safari.session.attach"
+    const val SAFARI_SESSION_DETACH = "daemon.safari.session.detach"
+    const val SAFARI_SESSION_STATUS = "daemon.safari.session.status"
+    const val SAFARI_COMMAND_POLL = "daemon.safari.command.poll"
+    const val SAFARI_COMMAND_COMPLETE = "daemon.safari.command.complete"
+    const val SAFARI_PAGE_CONTEXT = "daemon.safari.page_context"
+    const val SAFARI_SCREENSHOT = "daemon.safari.screenshot"
+    const val SAFARI_FULL_PAGE_SCREENSHOT = "daemon.safari.full_page_screenshot"
+    const val SAFARI_CLICK = "daemon.safari.click"
+    const val SAFARI_TYPE = "daemon.safari.type"
+    const val SAFARI_PRESS_KEY = "daemon.safari.press_key"
+    const val SAFARI_SCROLL = "daemon.safari.scroll"
+    const val SAFARI_HOVER = "daemon.safari.hover"
+    const val SAFARI_FOCUS = "daemon.safari.focus"
+    const val SAFARI_SELECT_OPTION = "daemon.safari.select_option"
+    const val SAFARI_NAVIGATE = "daemon.safari.navigate"
+    const val SAFARI_OPEN_TAB = "daemon.safari.open_tab"
+    const val SAFARI_CLOSE_TAB = "daemon.safari.close_tab"
+    const val SAFARI_LIST_TABS = "daemon.safari.list_tabs"
+    const val SAFARI_WAIT_FOR = "daemon.safari.wait_for"
+    const val SAFARI_RUN_JAVA_SCRIPT = "daemon.safari.run_javascript"
+    const val SAFARI_EXTRACT = "daemon.safari.extract"
+    const val SAFARI_ABORT = "daemon.safari.abort"
 
     val ALL: List<String> = listOf(
         AUTH_BOOTSTRAP,
@@ -402,5 +429,32 @@ object DaemonRpcMethods {
         WAR_FLAME_ROUTE,
         WAR_FLAME_DISTILL_LIST,
         WAR_FLAME_DISTILL_SETTLE,
+        SAFARI_BOOTSTRAP,
+        SAFARI_UI_SNAPSHOT,
+        SAFARI_APPROVAL_RESPOND,
+        SAFARI_TRUST_UPDATE,
+        SAFARI_SESSION_ATTACH,
+        SAFARI_SESSION_DETACH,
+        SAFARI_SESSION_STATUS,
+        SAFARI_COMMAND_POLL,
+        SAFARI_COMMAND_COMPLETE,
+        SAFARI_PAGE_CONTEXT,
+        SAFARI_SCREENSHOT,
+        SAFARI_FULL_PAGE_SCREENSHOT,
+        SAFARI_CLICK,
+        SAFARI_TYPE,
+        SAFARI_PRESS_KEY,
+        SAFARI_SCROLL,
+        SAFARI_HOVER,
+        SAFARI_FOCUS,
+        SAFARI_SELECT_OPTION,
+        SAFARI_NAVIGATE,
+        SAFARI_OPEN_TAB,
+        SAFARI_CLOSE_TAB,
+        SAFARI_LIST_TABS,
+        SAFARI_WAIT_FOR,
+        SAFARI_RUN_JAVA_SCRIPT,
+        SAFARI_EXTRACT,
+        SAFARI_ABORT,
     )
 }

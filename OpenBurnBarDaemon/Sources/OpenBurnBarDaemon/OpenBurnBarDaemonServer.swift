@@ -109,6 +109,10 @@ public actor BurnBarDaemonServer {
     let membershipService: any BurnBarMembershipServing
     /// Scoped loopback-gateway tokens minted for the memory engine (Memory Pro).
     let memoryGatewayTokenStore: BurnBarGatewayScopedTokenStore
+    let safariSessionBroker: BurnBarSafariSessionBroker
+    let safariTrustStore: BurnBarSafariTrustStore
+    let safariAppGroupPayloadResolver: BurnBarSafariAppGroupPayloadResolver?
+    var safariRunResumeTasks: [String: Task<Void, Never>] = [:]
     var chatThreadService: (any BurnBarChatThreadServing)?
     // Wave 2.1c-v: the daemon-owned writer of `switcher_active_profile`.
     // Injected by tests; otherwise bootstrapped eagerly from the configured
@@ -184,6 +188,9 @@ public actor BurnBarDaemonServer {
         missionControlService: (any BurnBarMissionControlServing)? = nil,
         membershipService: (any BurnBarMembershipServing)? = nil,
         memoryGatewayTokenStore: BurnBarGatewayScopedTokenStore? = nil,
+        safariSessionBroker: BurnBarSafariSessionBroker? = nil,
+        safariTrustStore: BurnBarSafariTrustStore? = nil,
+        safariAppGroupPayloadResolver: BurnBarSafariAppGroupPayloadResolver? = nil,
         rateLimiter: BurnBarRateLimiter? = nil,
         peerAuthenticator: BurnBarDaemonPeerAuthenticator = .disabled,
         capabilityProfile: BurnBarPeerCapabilityProfile = .full,
@@ -406,13 +413,19 @@ public actor BurnBarDaemonServer {
             approvalPublisher = nil
             sessionEndedObserver = nil
         }
+        let resolvedSafariSessionBroker =
+            safariSessionBroker ?? BurnBarSafariSessionBroker()
         let resolvedComputerUseService = computerUseService ?? ComputerUseService(
+            safariSessionBroker: resolvedSafariSessionBroker,
             authorizationRegistry: resolvedComputerUseAuthorizationRegistry,
             approvalPublisher: approvalPublisher,
             sessionEndedObserver: sessionEndedObserver
         )
         #else
+        let resolvedSafariSessionBroker =
+            safariSessionBroker ?? BurnBarSafariSessionBroker()
         let resolvedComputerUseService = computerUseService ?? ComputerUseService(
+            safariSessionBroker: resolvedSafariSessionBroker,
             authorizationRegistry: resolvedComputerUseAuthorizationRegistry
         )
         #endif
@@ -567,6 +580,17 @@ public actor BurnBarDaemonServer {
         let resolvedMemoryGatewayTokenStore = memoryGatewayTokenStore ?? BurnBarGatewayScopedTokenStore()
         self.membershipService = resolvedMembershipService
         self.memoryGatewayTokenStore = resolvedMemoryGatewayTokenStore
+        self.safariSessionBroker = resolvedSafariSessionBroker
+        self.safariTrustStore = safariTrustStore ?? BurnBarSafariTrustStore()
+        if let safariAppGroupPayloadResolver {
+            self.safariAppGroupPayloadResolver = safariAppGroupPayloadResolver
+        } else if let appGroupRoot = BurnBarSafariSharedContainer.liveRoot() {
+            self.safariAppGroupPayloadResolver = BurnBarSafariAppGroupPayloadResolver(
+                trustedRoot: appGroupRoot
+            )
+        } else {
+            self.safariAppGroupPayloadResolver = nil
+        }
 
         if let path = configuration.indexDatabasePath?.trimmingCharacters(in: .whitespacesAndNewlines),
            path.isEmpty == false {
@@ -1358,4 +1382,492 @@ public actor BurnBarDaemonServer {
         )
     }
 
+    public func healthResponse() -> BurnBarHealthResponse {
+        BurnBarHealthResponse(
+            ok: true,
+            daemonVersion: configuration.daemonVersion,
+            protocolVersion: BurnBarProtocolVersion.current,
+            socketPath: configuration.socketPath,
+            gatewayEnabled: configuration.gateway.isEnabled,
+            gatewayHost: configuration.gateway.isEnabled ? configuration.gateway.host : nil,
+            gatewayPort: configuration.gateway.isEnabled ? configuration.gateway.port : nil
+        )
+    }
+
+    private func responseData(for requestData: Data) async -> Data {
+        await responseData(for: requestData, peerPID: nil)
+    }
+
+    private func responseData(
+        for requestData: Data,
+        peerPID: pid_t?,
+        peerCapabilityProfile: BurnBarPeerCapabilityProfile? = nil
+    ) async -> Data {
+        let rpcStartedAt = ContinuousClock.now
+        defer {
+            let elapsed = rpcStartedAt.duration(to: ContinuousClock.now)
+            let milliseconds = Int(elapsed.components.seconds * 1000)
+                + Int(elapsed.components.attoseconds / 1_000_000_000_000_000)
+            BurnBarDaemonMetricsCounters.recordRPCLatency(milliseconds: milliseconds)
+        }
+        do {
+            let decoder = JSONDecoder()
+            let incomingRequest = try decoder.decode(IncomingRequestEnvelope.self, from: requestData)
+            BurnBarDaemonMetricsCounters.recordRPCRequest()
+
+            if let requiredToken = configuration.socketAuthToken?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty {
+                let providedToken = incomingRequest.authToken?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty
+                guard let providedToken, constantTimeTokensEqual(providedToken, requiredToken) else {
+                    BurnBarDaemonMetricsCounters.recordRPCError()
+                    logger.warning(
+                        "rpc_request_unauthorized",
+                        metadata: [
+                            "request_id": incomingRequest.id,
+                            "method": incomingRequest.method,
+                            "peer_pid": peerPID.map(String.init) ?? "unknown"
+                        ]
+                    )
+                    return encodeErrorResponse(
+                        id: incomingRequest.id,
+                        code: BurnBarRPCErrorCode.unauthorized,
+                        message: "Unauthorized OpenBurnBar RPC request."
+                    )
+                }
+            }
+
+            guard let method = BurnBarRPCMethod(rawValue: incomingRequest.method) else {
+                BurnBarDaemonMetricsCounters.recordRPCError()
+                logger.error(
+                    "rpc_method_not_found",
+                    metadata: [
+                        "request_id": incomingRequest.id,
+                        "method": incomingRequest.method
+                    ]
+                )
+                return encodeErrorResponse(
+                    id: incomingRequest.id,
+                    code: BurnBarRPCErrorCode.methodNotFound,
+                    message: "Unsupported OpenBurnBar RPC method '\(incomingRequest.method)'."
+                )
+            }
+
+            // T-DMN-01: per-operation capability attenuation. Refuse — fail closed
+            // — any method whose capability group is outside this peer's scoped
+            // profile, BEFORE the rate limiter or any handler runs. This bounds
+            // what an authenticated-but-compromised first-party peer may do.
+            let effectiveCapabilityProfile = peerCapabilityProfile
+                .map { capabilityProfile.attenuated(to: $0) }
+                ?? capabilityProfile
+            guard effectiveCapabilityProfile.permits(method) else {
+                BurnBarDaemonMetricsCounters.recordRPCError()
+                logger.warning(
+                    "rpc_request_capability_denied",
+                    metadata: [
+                        "request_id": incomingRequest.id,
+                        "method": incomingRequest.method,
+                        "capability": BurnBarRPCCapability.capability(for: method).rawValue,
+                        "peer_pid": peerPID.map(String.init) ?? "unknown"
+                    ]
+                )
+                return encodeErrorResponse(
+                    id: incomingRequest.id,
+                    code: BurnBarRPCErrorCode.unauthorized,
+                    message: "OpenBurnBar RPC method '\(incomingRequest.method)' is outside this peer's capability scope."
+                )
+            }
+
+            // Rate limiting check (per peer PID)
+            if let rateLimiter {
+                let clientKey = peerPID.map(String.init) ?? "unknown"
+                let limitResult = await rateLimiter.checkLimit(clientKey: clientKey)
+                if case .throttled(let retryAfter) = limitResult {
+                    BurnBarDaemonMetricsCounters.recordRPCError()
+                    logger.warning(
+                        "rpc_rate_limit_exceeded",
+                        metadata: [
+                            "request_id": incomingRequest.id,
+                            "method": incomingRequest.method,
+                            "peer_pid": clientKey,
+                            "retry_after": "\(retryAfter)"
+                        ]
+                    )
+                    return encodeErrorResponse(
+                        id: incomingRequest.id,
+                        code: BurnBarRPCErrorCode.rateLimitExceeded,
+                        message: "Rate limit exceeded. Retry after \(String(format: "%.1f", retryAfter)) seconds."
+                    )
+                }
+            }
+
+            let request = BurnBarRPCRequestEnvelope(id: incomingRequest.id, method: method, authToken: incomingRequest.authToken)
+
+            switch method {
+            case .linuxAuthStatus, .linuxAuthBegin, .linuxAuthCancel,
+                 .linuxAuthRotateIdentity, .linuxAuthSignOut,
+                 .linuxAccountCloudDataExport,
+                 .linuxAccountCloudDataDelete, .linuxTrustedDeviceList,
+                 .linuxTrustedDeviceApprove, .linuxTrustedDeviceRevoke,
+                 .linuxCloudSyncStatus,
+                 .linuxCloudSyncPolicyUpdate, .linuxCloudSyncRun:
+                return try await handleLinuxAuthRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .health, .catalog, .authBootstrap, .linuxOnboardingSnapshot:
+                return try await handleLifecycleRPC(
+                    method: method,
+                    decoder: decoder,
+                    request: request,
+                    requestData: requestData
+                )
+            case .configGet, .configUpdate, .linuxOnboardingAction, .linuxOnboardingReset,
+                 .textExpansionGet, .textExpansionUpsert, .textExpansionDelete, .textExpansionConsentUpdate,
+                 .textExpansionEngineStatus, .textExpansionEngineStart, .textExpansionEngineStop,
+                 .textExpansionEngineExpand,
+                 .providerCredentialSlotUpsert, .providerCredentialSlotRemove,
+                 .providerModelVariantUpsert, .providerModelVariantRemove,
+                 .providerModelAliasUpsert, .providerModelAliasRemove,
+                 .providerCustomModelUpsert, .providerCustomModelRemove,
+                 .providerModelDisplayNameSet, .providerModelDisplayNameClear:
+                return try await handleConfigRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+#if os(Linux)
+            case .linuxPrivacyInventory, .linuxPrivacyDeletionPreview,
+                 .linuxPrivacyDeletionExecute, .linuxPrivacyExport,
+                 .linuxPrivacyRetentionStatus, .linuxPrivacyRetentionApply:
+                return try await handleLinuxPrivacyRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+#else
+            case .linuxPrivacyInventory, .linuxPrivacyDeletionPreview,
+                 .linuxPrivacyDeletionExecute, .linuxPrivacyExport,
+                 .linuxPrivacyRetentionStatus, .linuxPrivacyRetentionApply:
+                return encodeErrorResponse(
+                    id: request.id,
+                    code: BurnBarRPCErrorCode.methodNotFound,
+                    message: "Linux privacy RPCs are unavailable on macOS."
+                )
+#endif
+            case .usageRecord, .usageRecent, .usageProjection, .usageRecount,
+                 .usageHistory, .usageInsights:
+                return try await handleUsageRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .chatThreadList, .chatThreadGet, .chatMessageAppend:
+                return try await handleChatRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .inboxList, .inboxGet, .inboxRunsRecent,
+                 .inboxConfigGet, .inboxConfigUpdate, .inboxRunNow,
+                 .inboxThreadGet, .inboxReply,
+                 .inboxPlansList, .inboxPlansGet, .inboxPlansAccept,
+                 .inboxPlansUpdateStep, .inboxPlansGrade, .inboxMemoryExport:
+                return try await handleInboxRPC(
+                    method: method,
+                    decoder: decoder,
+                    request: request,
+                    requestData: requestData
+                )
+            case .proxyRouteLogRecent, .proxyRouteLogClear,
+                 .quotaSignalsRecent, .quotaSignalsClear,
+                 .perfMeasure:
+                return try await handleObservabilityRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .membershipStatus, .membershipCheckoutURL, .membershipPortalURL, .membershipRestore:
+                return try await handleMembershipRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .connectorPlaneGet, .connectorConfigUpdate, .connectorAction,
+                 .browserToolingGet, .browserToolingUpdate, .browserAction:
+                return try await handleToolingRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .computerUseCapabilityStateUpdate,
+                 .computerUseSessionGrantReadiness, .computerUseSessionGrantAcquire,
+                 .computerUseSessionGrantStatus,
+                 .computerUseSessionStart, .computerUseInvoke,
+                 .computerUseApprovalPending, .computerUseApprovalRespond,
+                 .computerUsePanicHalt, .computerUseAuditExport,
+                 .phoneControlPinProvision:
+                return try await handleComputerUseRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData,
+                    peerPID: peerPID
+                )
+            case .safariBootstrap,
+                 .safariUISnapshot,
+                 .safariApprovalRespond,
+                 .safariTrustUpdate,
+                 .safariSessionAttach,
+                 .safariSessionDetach,
+                 .safariSessionStatus,
+                 .safariCommandPoll,
+                 .safariCommandComplete,
+                 .safariPageContext,
+                 .safariScreenshot,
+                 .safariFullPageScreenshot,
+                 .safariClick,
+                 .safariType,
+                 .safariPressKey,
+                 .safariScroll,
+                 .safariHover,
+                 .safariFocus,
+                 .safariSelectOption,
+                 .safariNavigate,
+                 .safariOpenTab,
+                 .safariCloseTab,
+                 .safariListTabs,
+                 .safariWaitFor,
+                 .safariRunJavaScript,
+                 .safariExtract,
+                 .safariAbort:
+                return try await handleSafariRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .daemonMediaSessionState, .daemonMediaCallAccept,
+                 .daemonMediaCallDecline, .daemonMediaCallEnd,
+                 .daemonMediaCapabilityGet, .daemonMediaStatus,
+                 .daemonMediaFileOfferList, .daemonMediaFileAccept,
+                 .daemonMediaFileDecline, .daemonMediaFileSend:
+                return try await handleMediaRPC(
+                    method: method,
+                    decoder: decoder,
+                    request: request,
+                    requestData: requestData
+                )
+            case .controllerSummary, .controllerRuntimeSnapshot,
+                 .controllerProjectsList, .controllerProjectGet,
+                 .controllerProjectUpsert, .controllerProjectDelete,
+                 .controllerProjectReassign, .reviewRunRecord,
+                 .questionCreate, .questionGet, .questionsList, .questionAnswer,
+                 .followupCreate, .followupsList, .followupDone, .followupSnooze, .followupCalendar,
+                 .missionCreate, .missionsList, .missionGet, .missionHealth, .missionApprove, .missionCancel,
+                 .missionDispatchPacket, .missionRecordResult, .missionAuthorizeRemote,
+                 .notificationConfigGet, .notificationConfigUpdate, .notificationHealth, .notificationCommand,
+                 .simulatorRun, .simulatorList, .simulatorReplay, .projectionRebuild:
+                return try await handleMissionControlRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .clientAttach, .clientClaimControl, .clientDetach:
+                return try await handleClientRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .runCreate, .runList, .runGet, .runPoll, .runCancel, .runRetry, .runResume,
+             .subscriptionStart, .subscriptionResume, .subscriptionStop,
+                 .workspaceExecuteTool, .workspaceToolResult, .approvalRespond:
+                return try await handleRunWorkspaceApprovalRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .searchQuery, .searchSQL:
+                return try await handleSearchRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .memoryRemember, .memoryRecall, .memoryReviewStatus, .memoryForget, .memoryAuditTrail, .memoryAnalytics:
+                return try await handleMemoryRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .codeIndexProject, .codeWatchProject, .codeSearch, .codeContextPack, .codeGetSymbol, .codeFindReferences,
+             .codeCallGraph, .codeDiagnostics, .codeIndexStatus, .codeExplore, .codeOpsDiagnostics,
+             .codeDatabaseSnapshot, .codeDatabaseRestore:
+                return try await handleCodeRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .databaseRecoveryStatus, .databaseRecoveryBundleExport, .databaseRecoveryBundleImport:
+                return try await handleDatabaseRecoveryRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .fleetSnapshot, .fleetOrchestratorGet, .fleetOrchestratorSet, .fleetDirectiveRecord:
+                return try await handleFleetRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            case .warFlameRoute, .warFlameDistillList, .warFlameDistillSettle:
+                return try await handleWarFlameRPC(
+                    method: method,
+                    decoder: decoder,
+                    requestData: requestData
+                )
+            }
+        } catch {
+            BurnBarDaemonMetricsCounters.recordRPCError()
+            logger.error(
+                "rpc_request_failed",
+                metadata: ["error": "\(error)"]
+            )
+            return encodeErrorResponse(
+                id: "invalid-request",
+                code: error is DecodingError ? BurnBarRPCErrorCode.invalidParams : BurnBarRPCErrorCode.internalError,
+                message: error.localizedDescription
+            )
+        }
+    }
+
+    private static func runAcceptLoop(
+        server: BurnBarDaemonServer,
+        listenerFileDescriptor: Int32,
+        connectionGate: BurnBarConnectionGate,
+        logger: BurnBarDaemonLogger
+    ) async {
+        while !Task.isCancelled {
+            let clientFileDescriptor = accept(listenerFileDescriptor, nil, nil)
+            if clientFileDescriptor == -1 {
+                let code = errno
+                if code == EINTR {
+                    continue
+                }
+
+                if code == EBADF || code == EINVAL || Task.isCancelled {
+                    break
+                }
+
+                logger.error(
+                    "accept_failed",
+                    metadata: ["errno": "\(code)"]
+                )
+                continue
+            }
+
+            // Round-4 perf sweep: back-pressure. If the gate is at capacity,
+            // close the connection immediately rather than spawning an
+            // unbounded handler. This prevents FD/memory exhaustion under
+            // client bursts; the client's retry is cheap over a local socket.
+            guard connectionGate.tryAcquire() else {
+                close(clientFileDescriptor)
+                logger.warning(
+                    "connection_limit_reached",
+                    metadata: ["max": "\(connectionGate.maxCount)"]
+                )
+                continue
+            }
+
+            Task.detached(priority: .utility) { [logger] in
+                await Self.handleClientConnection(
+                    server: server,
+                    clientFileDescriptor: clientFileDescriptor,
+                    connectionGate: connectionGate,
+                    logger: logger
+                )
+            }
+        }
+
+        logger.debug("accept_loop_stopped")
+    }
+
+    private static func peerPID(for clientFileDescriptor: Int32) -> pid_t? {
+        #if canImport(Darwin)
+        var pid: pid_t = 0
+        var pidSize = socklen_t(MemoryLayout<pid_t>.size)
+        let result = getsockopt(clientFileDescriptor, SOL_LOCAL, LOCAL_PEERPID, &pid, &pidSize)
+        return result == 0 ? pid : nil
+        #elseif os(Linux)
+        var credential = BurnBarLinuxPeerSocketCredentials()
+        var credentialSize = socklen_t(MemoryLayout<BurnBarLinuxPeerSocketCredentials>.size)
+        let result = withUnsafeMutablePointer(to: &credential) { pointer in
+            getsockopt(clientFileDescriptor, SOL_SOCKET, SO_PEERCRED, pointer, &credentialSize)
+        }
+        guard result == 0,
+              credentialSize == socklen_t(MemoryLayout<BurnBarLinuxPeerSocketCredentials>.size) else {
+            return nil
+        }
+        return credential.pid
+        #else
+        return nil
+        #endif
+    }
+
+    private static func handleClientConnection(
+        server: BurnBarDaemonServer,
+        clientFileDescriptor: Int32,
+        connectionGate: BurnBarConnectionGate,
+        logger: BurnBarDaemonLogger
+    ) async {
+        defer {
+            close(clientFileDescriptor)
+            connectionGate.release()
+        }
+
+        BurnBarUnixDomainSocket.configureNoSigPipe(for: clientFileDescriptor)
+        BurnBarUnixDomainSocket.configureIOTimeouts(for: clientFileDescriptor)
+
+        let peerPID = Self.peerPID(for: clientFileDescriptor)
+
+        // RR-3: authenticate the peer's first-party code signature on the live
+        // socket BEFORE reading or honoring any RPC. Fail closed — a mismatched,
+        // forged, or swapped peer binary never reaches `responseData`, so the
+        // bearer token alone can no longer authorize a non-first-party process.
+        let peerAuthenticator = server.peerAuthenticator
+        let peerCapabilityProfile: BurnBarPeerCapabilityProfile
+        do {
+            peerCapabilityProfile = try peerAuthenticator.validatePeer(
+                socketFD: clientFileDescriptor,
+                peerPID: peerPID
+            )
+        } catch {
+            logger.warning(
+                "rpc_peer_rejected",
+                metadata: [
+                    "error": "\(error)",
+                    "peer_pid": peerPID.map(String.init) ?? "unknown"
+                ]
+            )
+            return
+        }
+
+        do {
+            let requestData = try BurnBarUnixDomainSocket.readRequest(
+                from: clientFileDescriptor,
+                maxBytes: maxRequestBytes
+            )
+            let responseData = await server.responseData(
+                for: requestData,
+                peerPID: peerPID,
+                peerCapabilityProfile: peerCapabilityProfile
+            ) + Data([0x0A])
+            try BurnBarUnixDomainSocket.writeAll(responseData, to: clientFileDescriptor)
+            logger.debug(
+                "rpc_response_sent",
+                metadata: ["bytes": "\(responseData.count)"]
+            )
+        } catch {
+            logger.error(
+                "client_request_failed",
+                metadata: ["error": "\(error)"]
+            )
+        }
+    }
 }
