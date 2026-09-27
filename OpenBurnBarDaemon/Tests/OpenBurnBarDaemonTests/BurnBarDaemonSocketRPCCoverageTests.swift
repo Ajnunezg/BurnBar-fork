@@ -8,10 +8,6 @@ final class BurnBarDaemonSocketRPCCoverageTests: XCTestCase {
         let allMethods = Set(BurnBarRPCMethod.allCases)
 
         for method in BurnBarRPCMethod.allCases {
-            XCTAssertTrue(
-                handled.contains(method),
-                "BurnBarRPCMethod.\(method) (\(method.rawValue)) is not mapped to a daemon socket handler domain"
-            )
             XCTAssertNotNil(
                 BurnBarDaemonSocketRPCCoverage.domain(for: method),
                 "BurnBarRPCMethod.\(method) (\(method.rawValue)) has no handler domain assignment"
@@ -26,38 +22,20 @@ final class BurnBarDaemonSocketRPCCoverageTests: XCTestCase {
     }
 
     func testHandlerDomainsAreDisjoint() {
-        let domains: [Set<BurnBarRPCMethod>] = [
-            BurnBarDaemonSocketRPCCoverage.auth,
-            BurnBarDaemonSocketRPCCoverage.lifecycle,
-            BurnBarDaemonSocketRPCCoverage.config,
-            BurnBarDaemonSocketRPCCoverage.usage,
-            BurnBarDaemonSocketRPCCoverage.chat,
-            BurnBarDaemonSocketRPCCoverage.observability,
-            BurnBarDaemonSocketRPCCoverage.membership,
-            BurnBarDaemonSocketRPCCoverage.tooling,
-            BurnBarDaemonSocketRPCCoverage.computerUse,
-            BurnBarDaemonSocketRPCCoverage.media,
-            BurnBarDaemonSocketRPCCoverage.missionControl,
-            BurnBarDaemonSocketRPCCoverage.client,
-            BurnBarDaemonSocketRPCCoverage.runWorkspaceApproval,
-            BurnBarDaemonSocketRPCCoverage.search,
-            BurnBarDaemonSocketRPCCoverage.memory,
-            BurnBarDaemonSocketRPCCoverage.code,
-            BurnBarDaemonSocketRPCCoverage.databaseRecovery,
-            BurnBarDaemonSocketRPCCoverage.inbox,
-            BurnBarDaemonSocketRPCCoverage.fleet,
-            BurnBarDaemonSocketRPCCoverage.warRoom
-        ]
-
-        for (index, left) in domains.enumerated() {
-            for right in domains[(index + 1)...] {
-                XCTAssertTrue(
-                    left.isDisjoint(with: right),
-                    "RPC handler domains must not overlap: \(left) intersects \(right)"
-                )
+        let total = BurnBarDaemonRPCDomain.allCases.reduce(0) { $0 + $1.methods.count }
+        XCTAssertEqual(
+            total,
+            BurnBarRPCMethod.allCases.count,
+            "Every RPC method must belong to exactly one handler domain"
+        )
+        for domain in BurnBarDaemonRPCDomain.allCases {
+            XCTAssertFalse(domain.methods.isEmpty, "Domain \(domain.rawValue) owns no methods")
+            for method in domain.methods {
+                XCTAssertEqual(BurnBarDaemonSocketRPCCoverage.domain(for: method), domain)
             }
         }
     }
+
     func testChatMethodsUseChatDomain() {
         for method in [
             BurnBarRPCMethod.chatThreadCreate,
@@ -66,7 +44,44 @@ final class BurnBarDaemonSocketRPCCoverageTests: XCTestCase {
             .chatMessageAppend
         ] {
             XCTAssertTrue(BurnBarDaemonSocketRPCCoverage.chat.contains(method))
-            XCTAssertEqual(BurnBarDaemonSocketRPCCoverage.domain(for: method), "chat")
+            XCTAssertEqual(BurnBarDaemonSocketRPCCoverage.domain(for: method), .chat)
         }
+    }
+
+    func testLinuxPrivacyMethodsHaveTheirOwnDomain() {
+        for method in [
+            BurnBarRPCMethod.linuxPrivacyInventory,
+            .linuxPrivacyDeletionPreview,
+            .linuxPrivacyDeletionExecute,
+            .linuxPrivacyExport,
+            .linuxPrivacyRetentionStatus,
+            .linuxPrivacyRetentionApply
+        ] {
+            XCTAssertEqual(BurnBarDaemonSocketRPCCoverage.domain(for: method), .privacy)
+        }
+    }
+
+    func testIsolatedHandlersDeclareTheDomainTheyAreRoutedFor() async {
+        let server = BurnBarDaemonServer(
+            configuration: BurnBarDaemonConfiguration(
+                socketAuthToken: "test-token",
+                startsMissionControlBackgroundLoops: false
+            )
+        )
+        var isolated: Set<BurnBarDaemonRPCDomain> = []
+        for domain in BurnBarDaemonRPCDomain.allCases {
+            guard let handler = await server.isolatedRPCHandler(for: domain) else { continue }
+            XCTAssertEqual(type(of: handler).domain, domain)
+            isolated.insert(domain)
+        }
+        XCTAssertEqual(isolated, [.chat, .membership, .client, .tooling, .fleet, .warRoom])
+    }
+
+    func testDomainRawValuesMatchIPCCanonNames() {
+        XCTAssertEqual(BurnBarDaemonRPCDomain.computerUse.rawValue, "computer_use")
+        XCTAssertEqual(BurnBarDaemonRPCDomain.missionControl.rawValue, "mission_control")
+        XCTAssertEqual(BurnBarDaemonRPCDomain.runWorkspaceApproval.rawValue, "run_workspace_approval")
+        XCTAssertEqual(BurnBarDaemonRPCDomain.databaseRecovery.rawValue, "database_recovery")
+        XCTAssertEqual(BurnBarDaemonRPCDomain.warRoom.rawValue, "war_room")
     }
 }

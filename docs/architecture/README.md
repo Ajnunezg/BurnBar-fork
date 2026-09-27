@@ -20,6 +20,7 @@ Agent workflow: see [AGENTS.md](../../AGENTS.md) — search before building; ADR
 | [015-windows-tpm-app-check.md](015-windows-tpm-app-check.md) | Windows lower-trust TPM custom App Check and verifier boundary |
 | [016-remote-mission-integrity.md](016-remote-mission-integrity.md) | Server-owned mission create/claim/cancel; daemon evaluate never-widens |
 | [017-services-layering-and-composition-root.md](017-services-layering-and-composition-root.md) | AgentLens layers, acyclic components, `<Feature>/Contracts`, phased composition root; enforced by `services_layering.py` |
+| [018-daemon-rpc-domains.md](018-daemon-rpc-domains.md) | Daemon RPC domains, off-actor domain handlers, and the surface ceiling |
 
 Related operational docs:
 

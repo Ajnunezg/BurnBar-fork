@@ -127,203 +127,65 @@ extension BurnBarDaemonServer {
 
             let request = BurnBarRPCRequestEnvelope(id: incomingRequest.id, method: method, authToken: incomingRequest.authToken)
 
-            switch method {
-            case .linuxAuthStatus, .linuxAuthBegin, .linuxAuthCancel,
-                 .linuxAuthRotateIdentity, .linuxAuthSignOut,
-                 .linuxAccountCloudDataExport,
-                 .linuxAccountCloudDataDelete, .linuxTrustedDeviceList,
-                 .linuxTrustedDeviceApprove, .linuxTrustedDeviceRevoke,
-                 .linuxCloudSyncStatus,
-                 .linuxCloudSyncPolicyUpdate, .linuxCloudSyncRun:
-                return try await handleLinuxAuthRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
+            guard let domain = BurnBarDaemonSocketRPCCoverage.domain(for: method) else {
+                BurnBarDaemonMetricsCounters.recordRPCError()
+                logger.error(
+                    "rpc_method_unrouted",
+                    metadata: ["request_id": incomingRequest.id, "method": incomingRequest.method]
                 )
-            case .health, .catalog, .authBootstrap, .linuxOnboardingSnapshot:
-                return try await handleLifecycleRPC(
-                    method: method,
-                    decoder: decoder,
-                    request: request,
-                    requestData: requestData
+                return encodeErrorResponse(
+                    id: incomingRequest.id,
+                    code: BurnBarRPCErrorCode.methodNotFound,
+                    message: "OpenBurnBar RPC method '\(incomingRequest.method)' has no daemon handler domain."
                 )
-            case .configGet, .configUpdate, .linuxOnboardingAction, .linuxOnboardingReset,
-                 .textExpansionGet, .textExpansionUpsert, .textExpansionDelete, .textExpansionConsentUpdate,
-                 .textExpansionEngineStatus, .textExpansionEngineStart, .textExpansionEngineStop,
-                 .textExpansionEngineExpand,
-                 .providerCredentialSlotUpsert, .providerCredentialSlotRemove,
-                 .providerModelVariantUpsert, .providerModelVariantRemove,
-                 .providerModelAliasUpsert, .providerModelAliasRemove,
-                 .providerCustomModelUpsert, .providerCustomModelRemove,
-                 .providerModelDisplayNameSet, .providerModelDisplayNameClear:
-                return try await handleConfigRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
+            }
+            if let handler = isolatedRPCHandler(for: domain) {
+                return try await handler.handle(BurnBarDaemonRPCCall(method: method, requestData: requestData))
+            }
+
+            switch domain {
+            case .auth:
+                return try await handleLinuxAuthRPC(method: method, decoder: decoder, requestData: requestData)
+            case .lifecycle:
+                return try await handleLifecycleRPC(method: method, decoder: decoder, request: request, requestData: requestData)
+            case .config:
+                return try await handleConfigRPC(method: method, decoder: decoder, requestData: requestData)
+            case .privacy:
 #if os(Linux)
-            case .linuxPrivacyInventory, .linuxPrivacyDeletionPreview,
-                 .linuxPrivacyDeletionExecute, .linuxPrivacyExport,
-                 .linuxPrivacyRetentionStatus, .linuxPrivacyRetentionApply:
-                return try await handleLinuxPrivacyRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
+                return try await handleLinuxPrivacyRPC(method: method, decoder: decoder, requestData: requestData)
 #else
-            case .linuxPrivacyInventory, .linuxPrivacyDeletionPreview,
-                 .linuxPrivacyDeletionExecute, .linuxPrivacyExport,
-                 .linuxPrivacyRetentionStatus, .linuxPrivacyRetentionApply:
                 return encodeErrorResponse(
                     id: request.id,
                     code: BurnBarRPCErrorCode.methodNotFound,
                     message: "Linux privacy RPCs are unavailable on macOS."
                 )
 #endif
-            case .usageRecord, .usageRecent, .usageProjection, .usageRecount,
-                 .usageHistory, .usageInsights:
-                return try await handleUsageRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .chatThreadCreate, .chatThreadList, .chatThreadGet, .chatMessageAppend:
-                return try await handleChatRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .inboxList, .inboxGet, .inboxRunsRecent,
-                 .inboxConfigGet, .inboxConfigUpdate, .inboxRunNow,
-                 .inboxThreadGet, .inboxReply,
-                 .inboxPlansList, .inboxPlansGet, .inboxPlansAccept,
-                 .inboxPlansUpdateStep, .inboxPlansGrade, .inboxMemoryExport:
-                return try await handleInboxRPC(
-                    method: method,
-                    decoder: decoder,
-                    request: request,
-                    requestData: requestData
-                )
-            case .proxyRouteLogRecent, .proxyRouteLogClear,
-                 .quotaSignalsRecent, .quotaSignalsClear,
-                 .perfMeasure:
-                return try await handleObservabilityRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .membershipStatus, .membershipCheckoutURL, .membershipPortalURL, .membershipRestore:
-                return try await handleMembershipRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .connectorPlaneGet, .connectorConfigUpdate, .connectorAction,
-                 .browserToolingGet, .browserToolingUpdate, .browserAction:
-                return try await handleToolingRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .computerUseCapabilityStateUpdate,
-                 .computerUseSessionGrantReadiness, .computerUseSessionGrantAcquire,
-                 .computerUseSessionGrantStatus,
-                 .computerUseSessionStart, .computerUseInvoke,
-                 .computerUseApprovalPending, .computerUseApprovalRespond,
-                 .computerUsePanicHalt, .computerUseAuditExport,
-                 .phoneControlPinProvision:
-                return try await handleComputerUseRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData,
-                    peerPID: peerPID
-                )
-            case .daemonMediaSessionState, .daemonMediaCallAccept,
-                 .daemonMediaCallDecline, .daemonMediaCallEnd,
-                 .daemonMediaCapabilityGet, .daemonMediaStatus,
-                 .daemonMediaFileOfferList, .daemonMediaFileAccept,
-                 .daemonMediaFileDecline, .daemonMediaFileSend:
-                return try await handleMediaRPC(
-                    method: method,
-                    decoder: decoder,
-                    request: request,
-                    requestData: requestData
-                )
-            case .controllerSummary, .controllerRuntimeSnapshot,
-                 .controllerProjectsList, .controllerProjectGet,
-                 .controllerProjectUpsert, .controllerProjectDelete,
-                 .controllerProjectReassign, .reviewRunRecord,
-                 .questionCreate, .questionGet, .questionsList, .questionAnswer,
-                 .followupCreate, .followupsList, .followupDone, .followupSnooze, .followupCalendar,
-                 .missionCreate, .missionsList, .missionGet, .missionHealth, .missionApprove, .missionCancel,
-                 .missionDispatchPacket, .missionRecordResult, .missionAuthorizeRemote,
-                 .notificationConfigGet, .notificationConfigUpdate, .notificationHealth, .notificationCommand,
-                 .simulatorRun, .simulatorList, .simulatorReplay, .projectionRebuild:
-                return try await handleMissionControlRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .clientAttach, .clientClaimControl, .clientDetach:
-                return try await handleClientRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .runCreate, .runList, .runGet, .runPoll, .runCancel, .runRetry, .runResume,
-             .subscriptionStart, .subscriptionResume, .subscriptionStop,
-                 .workspaceExecuteTool, .workspaceToolResult, .approvalRespond:
-                return try await handleRunWorkspaceApprovalRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .searchQuery, .searchSQL, .searchVectorSnapshotUpsert, .searchIndexApply:
-                return try await handleSearchRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .switcherActiveProfileApply:
-                return try await handleSwitcherRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .memoryRemember, .memoryRecall, .memoryReviewStatus, .memoryForget, .memoryAuditTrail, .memoryAnalytics, .memoryModelPolicy,
-                 .memorySyncInboxList, .memorySyncInboxAck, .memorySnapshotUpsert, .memorySnapshotDelete,
-                 .memorySnapshotDeleteAll, .memoryAuthorityApply:
-                return try await handleMemoryRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .codeIndexProject, .codeWatchProject, .codeSearch, .codeContextPack, .codeGetSymbol, .codeFindReferences,
-             .codeCallGraph, .codeDiagnostics, .codeIndexStatus, .codeExplore, .codeOpsDiagnostics,
-             .codeDatabaseSnapshot, .codeDatabaseRestore:
-                return try await handleCodeRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .databaseRecoveryStatus, .databaseRecoveryBundleExport, .databaseRecoveryBundleImport:
-                return try await handleDatabaseRecoveryRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .fleetSnapshot, .fleetOrchestratorGet, .fleetOrchestratorSet, .fleetDirectiveRecord:
-                return try await handleFleetRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
-            case .warFlameRoute, .warFlameDistillList, .warFlameDistillSettle:
-                return try await handleWarFlameRPC(
-                    method: method,
-                    decoder: decoder,
-                    requestData: requestData
-                )
+            case .usage:
+                return try await handleUsageRPC(method: method, decoder: decoder, requestData: requestData)
+            case .inbox:
+                return try await handleInboxRPC(method: method, decoder: decoder, request: request, requestData: requestData)
+            case .observability:
+                return try await handleObservabilityRPC(method: method, decoder: decoder, requestData: requestData)
+            case .computerUse:
+                return try await handleComputerUseRPC(method: method, decoder: decoder, requestData: requestData, peerPID: peerPID)
+            case .media:
+                return try await handleMediaRPC(method: method, decoder: decoder, request: request, requestData: requestData)
+            case .missionControl:
+                return try await handleMissionControlRPC(method: method, decoder: decoder, requestData: requestData)
+            case .runWorkspaceApproval:
+                return try await handleRunWorkspaceApprovalRPC(method: method, decoder: decoder, requestData: requestData)
+            case .search:
+                return try await handleSearchRPC(method: method, decoder: decoder, requestData: requestData)
+            case .switcher:
+                return try await handleSwitcherRPC(method: method, decoder: decoder, requestData: requestData)
+            case .memory:
+                return try await handleMemoryRPC(method: method, decoder: decoder, requestData: requestData)
+            case .code:
+                return try await handleCodeRPC(method: method, decoder: decoder, requestData: requestData)
+            case .databaseRecovery:
+                return try await handleDatabaseRecoveryRPC(method: method, decoder: decoder, requestData: requestData)
+            case .chat, .membership, .client, .tooling, .fleet, .warRoom:
+                preconditionFailure("\(domain.rawValue) RPCs are served by an isolated domain handler")
             }
         } catch {
             BurnBarDaemonMetricsCounters.recordRPCError()

@@ -11,6 +11,7 @@ Do not add a new `scripts/ci/*.sh` without listing it here.
 | `scripts/debt/check-string-any-boundary-budget.sh` | `[String: Any]` including Core/Daemon |
 | `scripts/debt/check-swift-file-size-budget.sh` | Swift 1500-line target |
 | `scripts/debt/check-rpc-method-freeze.sh` | RPC method table + v2 in supported |
+| `scripts/debt/check-rpc-domain-ceiling.sh` | Daemon RPC per-domain cap + actor-bound surface ratchet |
 | `scripts/debt/check-domain-core-freeze.sh` | Rust domain-core adapter freeze |
 | `scripts/debt/check-parser-twins.sh` | AgentLens/Core parser twins |
 | `scripts/debt/check-singleton-budget.sh` | Settings/Account + `static let shared` |

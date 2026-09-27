@@ -674,7 +674,7 @@ final class BurnBarChatThreadServiceTests: XCTestCase {
             .chatMessageAppend
         ] {
             XCTAssertEqual(BurnBarRPCCapability.capability(for: method), .chat)
-            XCTAssertEqual(BurnBarDaemonSocketRPCCoverage.domain(for: method), "chat")
+            XCTAssertEqual(BurnBarDaemonSocketRPCCoverage.domain(for: method), .chat)
         }
     }
 
