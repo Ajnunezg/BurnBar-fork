@@ -551,6 +551,66 @@ struct DataStoreCallsSecondBinding {
 }
 SWIFT
 }
+mut_ag() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+// Multi-binding declarations can continue on the next line after a comma:
+// newlineWrapped is still a top-level owned name.
+let placeholder = 0,
+    newlineWrapped = { 42 }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreCallsNewlineBinding {
+    let v = newlineWrapped()
+}
+SWIFT
+}
+mut_ah() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+// `private` must not leak past a newline: SharedName on the next line is
+// public, so the duplicate in FeatureB must still trip R5.
+private typealias LocalAlias = Int
+struct SharedName {
+    let id: String
+}
+SWIFT
+  cat >>"${1}/AgentLens/Services/FeatureB/B.swift" <<'SWIFT'
+
+struct SharedName {
+    let id: String
+}
+SWIFT
+}
+mut_ai() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func handler() -> Int { 42 }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreParamShadow {
+    // `handler` here is the parameter, not FeatureA's top-level function:
+    // none of these uses is a cross-component reference.
+    func use(handler: () -> Void) { handler() }
+    init(handler: Int) { _ = handler }
+    func close() { { handler in _ = handler() } }
+}
+SWIFT
+}
+mut_aj() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func `repeat`() -> Int { 42 }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+struct DataStoreCallsEscaped {
+    let r = `repeat`()
+}
+SWIFT
+}
 run_case "private modifier binds to its own declaration only" 1 stderr "R5 ambiguous" clean mut_v
 run_case "private(set) declarations are still publicly owned" 1 stderr "R1 upward" clean mut_w
 run_case "a local binding does not shadow inside its own initializer" 1 stderr "R1 upward" clean mut_x
@@ -562,6 +622,10 @@ run_case "a local binding shadows its name only after declaration" 0 stdout "ser
 run_base_case "base: manifest layer reclassification fails" 1 "manifest reclassifies Services/DataStore" debt yes mut_ad
 run_base_case "base: new component overlapping a declared path fails" 1 "overlapping" debt yes mut_ae
 run_case "multi-binding declarations own every bound name" 1 stderr "R1 upward" clean mut_af
+run_case "multi-binding declarations continue across newlines" 1 stderr "R1 upward" clean mut_ag
+run_case "private modifier stops at the previous newline" 1 stderr "R5 ambiguous" clean mut_ah
+run_case "parameter bindings are not cross-component references" 0 stdout "services-layering: OK" clean mut_ai
+run_case "escaped declaration names are indexed" 1 stderr "R1 upward" clean mut_aj
 
 # ── Regression: the gate is wired into the CI debt-budgets job ───────────────
 workflow="${here}/../../.github/workflows/fast-feedback.yml"

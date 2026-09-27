@@ -70,7 +70,7 @@ EXCLUDED_PARTS = {".build", ".derived-data", ".swiftpm"}
 # block comments nest, and a literal's `\( )` expressions can contain literals
 # of their own (`"\(String(format: "%@", X))"`). Regex literals are blanked the
 # same way — `/FeatureAThing/` is pattern text, not a type reference.
-_DECL = re.compile(r"\b(class|struct|enum|actor|protocol|typealias|func|var|let)\s+([A-Za-z_][A-Za-z0-9_]*)")
+_DECL = re.compile(r"\b(class|struct|enum|actor|protocol|typealias|func|var|let)\s+`?([A-Za-z_][A-Za-z0-9_]*)`?")
 _OP_DECL = re.compile(r"\bfunc\s+([!<=>?^|~&%*+\-./]+)")
 _OP_CHARS = set("!<=>?^|~&%*+-./")
 # Standard library and syntax operators are never owned by a component, so
@@ -394,7 +394,9 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
     def statement_end(pos: int) -> int:
         """Offset where the declaration at `pos` completes: the first `;` or
         newline at balanced depth. The name enters scope only after this —
-        references inside its own initializer still resolve outward."""
+        references inside its own initializer still resolve outward. A
+        newline after a depth-zero comma is continuation, not termination:
+        `let a = 0,\\n b = { 42 }` binds `b` too."""
         depth, i, limit = 0, pos, len(stripped)
         while i < limit:
             c = stripped[i]
@@ -404,7 +406,13 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
                 if depth == 0:
                     break
                 depth -= 1
-            elif depth == 0 and c in ";\n":
+            elif depth == 0 and c == "\n":
+                j = i - 1
+                while j >= pos and stripped[j] in " \t\r":
+                    j -= 1
+                if j < pos or stripped[j] != ",":
+                    break
+            elif depth == 0 and c == ";":
                 break
             i += 1
         return i
@@ -412,10 +420,95 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
     n = len(stripped)
     top: set[str] = set()
     shadows: dict[str, list[tuple[int, int]]] = collections.defaultdict(list)
+
+    def binding_spans(region_start: int, region_end: int) -> list[tuple[str, int, int]]:
+        """(name, start, end) for each bound name in a comma-separated
+        region — signature params, closure params. The bound name is the
+        last identifier before the segment's first depth-0 ':' (an
+        external label precedes the internal name, so the last wins)."""
+        spans: list[tuple[str, int, int]] = []
+        depth, seg_start = 0, region_start
+        for i in range(region_start, region_end + 1):
+            c = stripped[i] if i < region_end else ","
+            if c in "([{":
+                depth += 1
+            elif c in ")]}":
+                depth -= 1
+            elif c == "," and depth == 0:
+                head_end = i
+                head_depth = 0
+                for p in range(seg_start, i):
+                    c2 = stripped[p]
+                    if c2 in "([{":
+                        head_depth += 1
+                    elif c2 in ")]}":
+                        head_depth -= 1
+                    elif c2 == ":" and head_depth == 0:
+                        head_end = p
+                        break
+                ids = list(_IDENT.finditer(stripped[seg_start:head_end]))
+                if ids:
+                    m = ids[-1]
+                    spans.append((m.group(0), seg_start + m.start(), seg_start + m.end()))
+                seg_start = i + 1
+        return spans
+
+    def body_open(sig_end: int) -> int | None:
+        """The `{` opening the body of the signature ending near sig_end.
+        None when there is no body (protocol requirements)."""
+        j = sig_end
+        while j < n:
+            c = stripped[j]
+            if c == "{":
+                return j
+            if c in ";}":
+                return None
+            if c == "\n":
+                k = j + 1
+                while k < n and stripped[k] in " \t\r":
+                    k += 1
+                if k >= n or stripped[k] != "{":
+                    return None
+            j += 1
+        return None
+
+    def record_params(sig_name_end: int) -> None:
+        """Shadow parameter names: at their binding site and across the
+        function's body. Parameter types stay live references."""
+        j = sig_name_end
+        while j < n and stripped[j] in " \t?!":
+            j += 1
+        if j < n and stripped[j] == "<":
+            d = 0
+            while j < n:
+                if stripped[j] == "<":
+                    d += 1
+                elif stripped[j] == ">":
+                    d -= 1
+                    if d == 0:
+                        j += 1
+                        break
+                j += 1
+            while j < n and stripped[j] in " \t":
+                j += 1
+        if j >= n or stripped[j] != "(":
+            return
+        d, k = 1, j + 1
+        while k < n and d:
+            d += stripped[k] == "("
+            d -= stripped[k] == ")"
+            k += 1
+        spans = binding_spans(j + 1, k - 1)
+        open_pos = body_open(k)
+        for pname, ps, pe in spans:
+            shadows[pname].append((ps, pe))
+            if open_pos is not None and open_pos in close_of:
+                shadows[pname].append((open_pos, close_of[open_pos]))
+
     for match in _DECL.finditer(stripped):
         keyword, name = match.group(1), match.group(2)
         pair = enclosing(match.start())
-        seg_start = max(stripped.rfind(c, 0, match.start()) for c in ";{}") + 1
+        seg_start = max(stripped.rfind(c, 0, match.start()) for c in ";{}\n") + 1
         private = bool(_PRIV.search(stripped[seg_start : match.start()]))
         # `let a = 0, b = { 42 }` binds every name at depth 0, not just the
         # first: each is owned or shadows like the leading binding.
@@ -431,7 +524,7 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
                     depth -= 1
                 elif c == "," and depth == 0:
                     j = i + 1
-                    while j < end and stripped[j] in " \t":
+                    while j < end and stripped[j] in " \t\r\n":
                         j += 1
                     extra = re.match(r"[A-Za-z_][A-Za-z0-9_]*(?=\s*[:=,;]|$)", stripped[j:end])
                     if extra:
@@ -447,15 +540,50 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
                 shadows[bound_name].append((end, pair[1]))
             else:
                 shadows[bound_name].append(pair)
+        if keyword == "func":
+            record_params(match.end())
     # Top-level operator functions own their operator name (`func <~>`).
     for match in _OP_DECL.finditer(stripped):
         name = match.group(1)
+        record_params(match.end())
         if name in _STDLIB_OPS:
             continue
         if enclosing(match.start()) is None:
-            seg_start = max(stripped.rfind(c, 0, match.start()) for c in ";{}") + 1
+            seg_start = max(stripped.rfind(c, 0, match.start()) for c in ";{}\n") + 1
             if not _PRIV.search(stripped[seg_start : match.start()]):
                 top.add(name)
+    # init parameters bind like func parameters (skipping `.init` call sites).
+    for match in re.finditer(r"\binit\b", stripped):
+        if match.start() > 0 and stripped[match.start() - 1] == ".":
+            continue
+        record_params(match.end())
+    # Closure parameters: `{ x, y in` and `{ (a: Int, b: Int) in` bind inside
+    # the closure body only.
+    for match in re.finditer(r"\{(?:[ \t]*\[[^\]]*\][ \t]*)?([\w\s,()<>:.?!&@~*+\-]*?)\bin\b", stripped):
+        region_start, region_end = match.start(1), match.end(1)
+        depth, cut = 0, region_end
+        for p in range(region_start, region_end - 1):
+            c = stripped[p]
+            if c in "([{":
+                depth += 1
+            elif c in ")]}":
+                depth -= 1
+            elif c == "-" and stripped[p + 1] == ">" and depth == 0:
+                cut = p
+                break
+        # `{ (a: Int) in` wraps the parameter list in one paren layer.
+        rs, re_ = region_start, cut
+        while rs < re_ and stripped[rs] in " \t":
+            rs += 1
+        while re_ > rs and stripped[re_ - 1] in " \t":
+            re_ -= 1
+        if rs < re_ and stripped[rs] == "(" and stripped[re_ - 1] == ")":
+            rs, re_ = rs + 1, re_ - 1
+        body = close_of.get(match.start())
+        for pname, ps, pe in binding_spans(rs, re_):
+            shadows[pname].append((ps, pe))
+            if body is not None:
+                shadows[pname].append((match.end(), body))
     return top, shadows
 
 
