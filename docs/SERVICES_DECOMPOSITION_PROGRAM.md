@@ -219,7 +219,7 @@ paths.
 ## Wave 1 — persistence becomes a leaf
 
 After-state (`services_layering.py --report`): **57 components, largest cycle 34
-(37 → 34), 34 components in cycles, 60 upward references (157 → 60), 1,637 cyclic
+(37 → 34), 34 components in cycles, 62 upward references (157 → 62), 1,643 cyclic
 references (3,054 → 1,637), 58 Services-root files (62 → 58).**
 `Services/DataStore`, `Models`, `Services/Foundation`, `Services/DaemonIPC` and
 every `<Feature>.Contracts` component are members of no dependency cycle, and
