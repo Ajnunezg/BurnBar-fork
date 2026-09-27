@@ -24,9 +24,10 @@
  *      pinned" on the page. Unpinned numbers must look unpinned.
  *   6. The extraction floor quoted on the page matches `RECALL_FLOOR` in
  *      tools/openburnbar-mcp/tests/test_eval_extraction.py.
- *   7. Cross-device sync is described as not shipped. The page must carry the
- *      "Not shipped" lane and must never claim sync/replication across devices
- *      is available, because the pull half is still in review.
+ *   7. Cross-device sync is published as whatever `tools/openburnbar-mcp/`
+ *      can be read to do — derived from the source, not pinned to a
+ *      sentence. This invariant used to enforce the opposite claim; see its
+ *      own block below for why that was the bug and not the feature.
  *
  * And, since the coverage round, the atlas — the page's claim to list every
  * tool the server has, which is exactly the kind of claim that rots quietly:
@@ -53,6 +54,13 @@
  *      depends on is explained somewhere on the page.
  *  14. The platform statement names Windows and Linux, and the page never
  *      claims to run on them.
+ *  15b. Every "one click in the app" install route equals a real case of
+ *      `MCPClientWiringTarget` in
+ *      AgentLens/Services/CLIBridge/MCPClientWiring.swift — by display name
+ *      and by the config path that target's `configURL(for:)` writes — in both
+ *      directions. Wiring a new client into the app used to leave the page
+ *      quietly claiming a shorter list (it did, between #2554 and #2555);
+ *      now the page fails until it is re-counted.
  *
  * And, since the review round, the three places a number could still be
  * asserted vacuously or published as something it is not:
@@ -263,20 +271,124 @@ check(
   `the page quotes a different extraction floor than the committed RECALL_FLOOR = ${floor}`
 );
 
-/* ── 7 · cross-device sync is not advertised as shipped ─────────────────── */
+/* ── 7 · cross-device sync is published as what the engine actually does ──
+ *
+ * THIS INVARIANT USED TO PIN THE OPPOSITE CLAIM. It required the page to say
+ * the pull-and-merge half was unshipped and in review. PR #2519 (77527f23c5)
+ * landed that half on `main`, and because a gate was holding the old sentence
+ * in place the page could not drift back to true on its own: the copy was
+ * wrong and CI failed anyone who fixed it. Pinning a fact is the right
+ * pattern; pinning a *sentence about* a fact is how the pin outlives it.
+ *
+ * So the shipped/unshipped question is now READ OUT OF THE SOURCE on every
+ * run, and the page must agree with whichever way it reads:
+ *
+ *   a. `burnbar_memory_sync_pull` is a registered `@mcp.tool()` and a member
+ *      of `MEMORY_TOOLSET` — the tool the engine drains the inbox through.
+ *   b. `merge_remote` is defined in `memory_engine/_sync.py` — the merge.
+ *   c. `hooks/claude-code-session-start.sh` gates the drain on an opt-in
+ *      environment variable, whose literal name the page must print.
+ *
+ * With (a) and (b) present, the page must NOT publish device sync as in
+ * review or unshipped, and must still publish the two conditions that ARE
+ * true: it is Mac-to-Mac, and nothing merges until something calls the pull.
+ * Delete the tool or the merge and (a)/(b) fail loudly, which puts the gate
+ * back on the "we removed it and the page still promises it" drift — the one
+ * that can actually happen from here.
+ */
+
+const syncSrc = readFileSync(join(MCP, "memory_engine", "_sync.py"), "utf8");
+const hookSrc = readFileSync(join(MCP, "hooks", "claude-code-session-start.sh"), "utf8");
+
+const pullToolRegistered = /@mcp\.tool\(\)\s*(?:async\s+)?def\s+burnbar_memory_sync_pull\b/.test(
+  serverSrc
+);
+const pullToolInToolset = /"burnbar_memory_sync_pull"/.test(toolsetBlock[1]);
+const mergeShipped = /^\s*def\s+merge_remote\s*\(/m.test(syncSrc);
+
+/* The drain's opt-in switch, read from the hook rather than transcribed. Its
+ * default arm is the literal `off`, which is also what makes the "nothing
+ * merges on its own" row on the page true. */
+const hookEnv = hookSrc.match(/\$\{(OPENBURNBAR_[A-Z0-9_]+):-off\}/)?.[1];
+assert.ok(
+  hookEnv,
+  "could not read the default-off opt-in variable from hooks/claude-code-session-start.sh"
+);
+
+check(
+  pullToolRegistered && pullToolInToolset,
+  "burnbar_memory_sync_pull is no longer a registered memory tool in server.py — the page " +
+    "publishes cross-device sync as shipped and nothing backs that any more"
+);
+check(
+  mergeShipped,
+  "memory_engine/_sync.py no longer defines merge_remote — the page publishes cross-device " +
+    "sync as shipped and nothing backs that any more"
+);
+
+/* The lane the claim lives in, taken from the data module so a check about
+ * one lane cannot be satisfied by prose somewhere else on the page. */
+const boundaryStart = dataSrc.indexOf("export const BOUNDARY: BoundaryLane[] = [");
+assert.ok(boundaryStart > 0, "could not find BOUNDARY in src/data/memory.ts");
+const boundarySrc = dataSrc.slice(boundaryStart, dataSrc.indexOf("\n];", boundaryStart));
+const notShippedStart = boundarySrc.indexOf('id: "not-yet"');
+const leavesStart = boundarySrc.indexOf('id: "leaves"');
+assert.ok(notShippedStart > 0 && leavesStart > 0, "BOUNDARY lost its leaves / not-yet lanes");
+const notShippedLane = boundarySrc.slice(notShippedStart);
+const optInLane = boundarySrc.slice(leavesStart, notShippedStart);
 
 check(text.includes("Not shipped"), '/memory must carry the "Not shipped" lane');
+
+/* The stale claim, in every phrasing it lived in. `main` pulls and merges. */
+const STALE = [
+  /\bin review, not shipped\b/i,
+  /(?:cross-device sync|pull[-\s]and[-\s]merge|the pull half|pull and merge half)[^.]{0,140}?\b(?:in review|not shipped|is written and)\b/i,
+  /\b(?:pull|merge)[^.]{0,80}?\bis (?:still )?in review\b/i
+];
+for (const pattern of STALE) {
+  check(
+    !pattern.test(text),
+    `/memory still publishes cross-device sync as unshipped, but #2519 landed the pull half: ${pattern}`
+  );
+}
 check(
-  /pull half is|pull and merge/i.test(text),
-  "the not-shipped lane must name the pull-and-merge half specifically"
+  !/pull[-\s]and[-\s]merge|the pull half/i.test(notShippedLane),
+  'the "Not shipped" lane still names the pull-and-merge half — it is on `main`; the lane must ' +
+    "name what is actually missing instead"
 );
+
+/* What must stay published, because it is still true. */
+check(
+  /\bMac(s)?\b/.test(notShippedLane) && /(iphone|ipad|ios)/i.test(notShippedLane),
+  'the "Not shipped" lane must say device sync reaches only another Mac — there is no memory ' +
+    "engine on iOS"
+);
+check(
+  notShippedLane.includes("burnbar_memory_sync_pull") && notShippedLane.includes(hookEnv),
+  `the "Not shipped" lane must say nothing merges until something calls ` +
+    `burnbar_memory_sync_pull, and name its opt-in switch ${hookEnv}`
+);
+check(
+  text.includes("burnbar_memory_sync_pull") && text.includes(hookEnv),
+  `both the pull tool and its opt-in switch ${hookEnv} must reach the rendered page`
+);
+check(
+  /other Macs|device sync|other devices/i.test(optInLane),
+  "the opt-in lane must carry device sync as its own row: it is a separate consent from backup, " +
+    "with its own switch and the same paid entitlement"
+);
+
+/* Overclaims, now pointed the way the copy can actually go wrong: sync is
+ * real, so the lie available to us is that it is effortless or universal. */
 const OVERCLAIMS = [
-  /sync(s|ed)? (?:your )?memories across (?:your )?devices/i,
-  /memories follow you (?:to|across) (?:your )?(?:other |second )?(?:mac|device)/i,
-  /cross-device sync is (?:now )?(?:live|available|here)/i
+  /memories (?:sync|arrive|appear|show up)[^.]{0,40}\bautomatically\b/i,
+  /(?:cross-device )?sync is on by default/i,
+  /sync(?:s|ed)? (?:your )?memories to (?:your )?(?:iphone|ipad|phone)/i,
+  /works on (?:every|all your) devices/i,
+  /nothing to turn on/i
 ];
 for (const pattern of OVERCLAIMS) {
-  check(!pattern.test(text), `/memory appears to advertise unshipped device sync: ${pattern}`);
+  check(!pattern.test(text), `/memory appears to overclaim device sync: ${pattern}`);
 }
 
 /* ── 8 · the atlas is complete, in both directions ───────────────────────
@@ -710,6 +822,81 @@ check(
     `(assert len(matrix) == ${realShapes.length}) for the page to badge it Pinned`
 );
 
+/* ── 15b · one-click install routes match the app's real wiring targets ── */
+
+/* The claim "one click in the app" is a claim about Swift, so read the Swift.
+ * `MCPClientWiringTarget` is the enum MCPInstallCard renders a row per, and
+ * `configURL(for:)` is the exact file each row discloses before it writes. */
+
+const wiringSrc = readFileSync(
+  join(REPO, "AgentLens", "Services", "CLIBridge", "MCPClientWiring.swift"),
+  "utf8"
+);
+
+const displayBlock = wiringSrc.match(
+  /var displayName: String \{\s*switch self \{([\s\S]*?)\}\s*\}/
+);
+assert.ok(displayBlock, "could not find MCPClientWiringTarget.displayName in MCPClientWiring.swift");
+const wiringNames = new Map(
+  [...displayBlock[1].matchAll(/case \.([A-Za-z]+):\s*return "([^"]+)"/g)].map((m) => [m[1], m[2]])
+);
+assert.ok(
+  wiringNames.size >= 3,
+  `parsed only ${wiringNames.size} wiring display names — the parser is wrong`
+);
+
+const configBlock = wiringSrc.match(
+  /func configURL\(for target: MCPClientWiringTarget\) -> URL \{\s*switch target \{([\s\S]*?)\n {8}\}/
+);
+assert.ok(configBlock, "could not find MCPClientWiring.configURL(for:) in MCPClientWiring.swift");
+const wiringPaths = new Map(
+  [...configBlock[1].matchAll(
+    /case \.([A-Za-z]+): return (home|configHome)\.appendingPathComponent\("([^"]+)"\)/g
+  )].map((m) => [m[1], `${m[2] === "home" ? "~" : "~/.config"}/${m[3]}`])
+);
+assert.ok(
+  wiringPaths.size === wiringNames.size,
+  `parsed ${wiringPaths.size} config paths for ${wiringNames.size} wiring targets — the parser is wrong`
+);
+
+const routesBlock = dataSrc.match(/INSTALL_ROUTES: InstallRoute\[\] = \[([\s\S]*?)\n\];/);
+assert.ok(routesBlock, "could not find INSTALL_ROUTES in src/data/memory.ts");
+const pageRoutes = [
+  ...routesBlock[1].matchAll(
+    /client: "([^"]+)",\s*\n\s*how: "([^"]+)",\s*\n\s*where: "([^"]+)",\s*\n\s*route: "([^"]+)"/g
+  )
+].map((m) => ({ client: m[1], how: m[2], where: m[3], route: m[4] }));
+assert.ok(pageRoutes.length >= 4, `parsed only ${pageRoutes.length} install routes — the parser is wrong`);
+
+const pageOneClick = new Map(
+  pageRoutes.filter((r) => r.route === "one-click").map((r) => [r.client, r.where])
+);
+const realOneClick = new Map(
+  [...wiringNames].map(([kase, name]) => [name, wiringPaths.get(kase)])
+);
+
+for (const [name, where] of realOneClick) {
+  const onPage = pageOneClick.get(name);
+  check(
+    onPage !== undefined,
+    `MCPClientWiring wires "${name}" one-click, but INSTALL_ROUTES does not list it as one-click`
+  );
+  check(
+    onPage === undefined || onPage === where,
+    `INSTALL_ROUTES says "${name}" writes ${onPage}; configURL(for:) writes ${where}`
+  );
+}
+for (const name of pageOneClick.keys()) {
+  check(
+    realOneClick.has(name),
+    `INSTALL_ROUTES claims one-click install for "${name}", which MCPClientWiringTarget does not wire`
+  );
+}
+check(
+  text.includes(`${realOneClick.size} clients are one click`),
+  `the page should say "${realOneClick.size} clients are one click" — it wires ${realOneClick.size}`
+);
+
 /* ── 14 · the platform statement stays honest ───────────────────────── */
 
 check(
@@ -742,11 +929,14 @@ console.log(
     `constants match tools/openburnbar-mcp/; ${measurements.length} measurements render in their own ` +
     `bench cards (${unpinned.length} honestly labelled unpinned); extraction floor ${floor} matches ` +
     `the committed assertion; ${realShapes.length} credential shapes across ${contextCount} ` +
-    `placements match the gate suite; device sync is published as not shipped.\n` +
+    `placements match the gate suite; device sync is published as shipped-and-conditional, ` +
+    `derived from burnbar_memory_sync_pull + merge_remote with ${hookEnv} named on the page.\n` +
     `✓ memory atlas: all ${registeredAll.length} tools listed and printed as the total, none invented ` +
     `(${registeredBurnbar.length} burnbar_* + ${registeredOrchestration.length} ` +
     `ministry_*/castle_*/bench_*); ${atlasEntries.filter((e) => e.memory).length} marked ` +
     `memory-toolset; ${gatedCount} capability-gated tools match their denial sites, ` +
     `${guardedTotal} of those guarded and annotated with the condition that reaches them; ` +
-    `${pageCapEnv.size} capability env vars match server.py; platform claim is honest.`
+    `${pageCapEnv.size} capability env vars match server.py; platform claim is honest.\n` +
+    `\u2713 install routes: ${realOneClick.size} one-click clients and their config paths match ` +
+    `MCPClientWiringTarget in MCPClientWiring.swift.`
 );
