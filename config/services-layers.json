@@ -4,6 +4,7 @@
   "contractsDirectory": "Contracts",
   "contractsLayer": "contracts",
   "servicesRootComponent": "Services/(root)",
+  "pathExclusions": ["AgentLens/Views/Chat/ChatEngineUIStubs.swift"],
   "components": [
     { "name": "Models", "layer": "foundation", "paths": ["AgentLens/Models"] },
     { "name": "Utilities", "layer": "foundation", "paths": ["AgentLens/Utilities"] },

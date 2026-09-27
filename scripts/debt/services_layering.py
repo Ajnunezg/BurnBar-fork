@@ -122,6 +122,9 @@ _STDLIB_OPS = {
     "..<",
 }
 _IDENT = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
+# Words that can legitimately continue a signature after a newline
+# (`func f()\nwhere T: Equatable {`, `async`, `throws`).
+_SIG_CONTINUATION = {"where", "async", "throws", "rethrows"}
 _PRIV = re.compile(r"\b(?:private|fileprivate)\b(?!\s*\()")
 _SCOPE_KW = re.compile(r"\b(class|struct|enum|actor|protocol|extension|func|init|deinit|var|let)\b")
 _TYPE_SCOPE_KW = {"class", "struct", "enum", "actor", "protocol", "extension"}
@@ -418,8 +421,52 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
         return i
 
     n = len(stripped)
-    top: set[str] = set()
+    # name -> list of (kind, signature) so R5 can permit real overloads.
+    top: dict[str, list[tuple[str, tuple | None]]] = collections.defaultdict(list)
     shadows: dict[str, list[tuple[int, int]]] = collections.defaultdict(list)
+
+    def split_segments(region_start: int, region_end: int) -> list[tuple[int, int, int]]:
+        """(seg_start, seg_end, head_end) per depth-0 comma-separated
+        segment; head_end is the first depth-0 ':' (param annotation)."""
+
+        def is_generic_open(pos: int) -> bool:
+            # `<` begins a generic argument list when it follows a type-ish
+            # token; `a < b` and `a <= b`/`a << b` do not.
+            if pos + 1 >= len(stripped) or stripped[pos + 1] in "=<> \t":
+                return False
+            return pos > 0 and (stripped[pos - 1].isalnum() or stripped[pos - 1] in "_.>)]?")
+
+        segments: list[tuple[int, int, int]] = []
+        depth, angle, seg_start = 0, 0, region_start
+        for i in range(region_start, region_end + 1):
+            c = stripped[i] if i < region_end else ","
+            if c in "([{":
+                depth += 1
+            elif c in ")]}":
+                depth -= 1
+            elif c == "<" and is_generic_open(i):
+                angle += 1
+            elif c == ">" and angle:
+                angle -= 1
+            elif c == "," and depth == 0 and angle == 0:
+                head_end = i
+                head_depth, head_angle = 0, 0
+                for p in range(seg_start, i):
+                    c2 = stripped[p]
+                    if c2 in "([{":
+                        head_depth += 1
+                    elif c2 in ")]}":
+                        head_depth -= 1
+                    elif c2 == "<" and is_generic_open(p):
+                        head_angle += 1
+                    elif c2 == ">" and head_angle:
+                        head_angle -= 1
+                    elif c2 == ":" and head_depth == 0 and head_angle == 0:
+                        head_end = p
+                        break
+                segments.append((seg_start, i, head_end))
+                seg_start = i + 1
+        return segments
 
     def binding_spans(region_start: int, region_end: int) -> list[tuple[str, int, int]]:
         """(name, start, end) for each bound name in a comma-separated
@@ -427,31 +474,39 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
         last identifier before the segment's first depth-0 ':' (an
         external label precedes the internal name, so the last wins)."""
         spans: list[tuple[str, int, int]] = []
-        depth, seg_start = 0, region_start
-        for i in range(region_start, region_end + 1):
-            c = stripped[i] if i < region_end else ","
-            if c in "([{":
-                depth += 1
-            elif c in ")]}":
-                depth -= 1
-            elif c == "," and depth == 0:
-                head_end = i
-                head_depth = 0
-                for p in range(seg_start, i):
-                    c2 = stripped[p]
-                    if c2 in "([{":
-                        head_depth += 1
-                    elif c2 in ")]}":
-                        head_depth -= 1
-                    elif c2 == ":" and head_depth == 0:
-                        head_end = p
-                        break
-                ids = list(_IDENT.finditer(stripped[seg_start:head_end]))
-                if ids:
-                    m = ids[-1]
-                    spans.append((m.group(0), seg_start + m.start(), seg_start + m.end()))
-                seg_start = i + 1
+        for seg_start, _seg_end, head_end in split_segments(region_start, region_end):
+            ids = list(_IDENT.finditer(stripped[seg_start:head_end]))
+            if ids:
+                m = ids[-1]
+                spans.append((m.group(0), seg_start + m.start(), seg_start + m.end()))
         return spans
+
+    def param_sig(region_start: int, region_end: int) -> tuple[tuple[str, str], ...]:
+        """(label, annotation) per parameter — the overload signature R5
+        uses to tell legal overloads from a redeclaration. Whitespace is
+        collapsed and default values are cut."""
+        sig: list[tuple[str, str]] = []
+        for seg_start, seg_end, head_end in split_segments(region_start, region_end):
+            ids = _IDENT.findall(stripped[seg_start:head_end])
+            label = ids[0] if ids else "_"
+            anno_end = seg_end
+            depth, angle = 0, 0
+            for p in range(head_end + 1, seg_end):
+                c = stripped[p]
+                if c in "([{":
+                    depth += 1
+                elif c in ")]}":
+                    depth -= 1
+                elif c == "<" and p + 1 < seg_end and stripped[p + 1] not in "=<> \t":
+                    angle += 1
+                elif c == ">" and angle:
+                    angle -= 1
+                elif c == "=" and depth == 0 and angle == 0 and stripped[p - 1] not in "<>=!":
+                    anno_end = p
+                    break
+            anno = " ".join(stripped[head_end + 1 : anno_end].split())
+            sig.append((label, anno))
+        return tuple(sig)
 
     def body_open(sig_end: int) -> int | None:
         """The `{` opening the body of the signature ending near sig_end.
@@ -467,14 +522,20 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
                 k = j + 1
                 while k < n and stripped[k] in " \t\r":
                     k += 1
-                if k >= n or stripped[k] != "{":
+                if k >= n:
+                    return None
+                if stripped[k] in "{-":
+                    continue
+                word = _IDENT.match(stripped, k)
+                if word is None or word.group(0) not in _SIG_CONTINUATION:
                     return None
             j += 1
         return None
 
-    def record_params(sig_name_end: int) -> None:
+    def record_params(sig_name_end: int) -> tuple[tuple[str, str], ...] | None:
         """Shadow parameter names: at their binding site and across the
-        function's body. Parameter types stay live references."""
+        function's body. Parameter types stay live references. Returns the
+        parameter signature so overloads can be told apart."""
         j = sig_name_end
         while j < n and stripped[j] in " \t?!":
             j += 1
@@ -492,7 +553,7 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
             while j < n and stripped[j] in " \t":
                 j += 1
         if j >= n or stripped[j] != "(":
-            return
+            return None
         d, k = 1, j + 1
         while k < n and d:
             d += stripped[k] == "("
@@ -504,6 +565,7 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
             shadows[pname].append((ps, pe))
             if open_pos is not None and open_pos in close_of:
                 shadows[pname].append((open_pos, close_of[open_pos]))
+        return param_sig(j + 1, k - 1)
 
     for match in _DECL.finditer(stripped):
         keyword, name = match.group(1), match.group(2)
@@ -530,28 +592,27 @@ def declarations(stripped: str) -> tuple[set[str], dict[str, list[tuple[int, int
                     if extra:
                         bound.append((extra.group(0), j, j + len(extra.group(0))))
                 i += 1
+        sig = record_params(match.end()) if keyword == "func" else None
         for bound_name, bound_start, bound_end in bound:
             if pair is None:
                 shadows[bound_name].append((0, n))
                 if not private:
-                    top.add(bound_name)
+                    top[bound_name].append((keyword, sig))
             elif keyword in ("let", "var") and not is_type_scope(pair[0]):
                 shadows[bound_name].append((bound_start, bound_end))
                 shadows[bound_name].append((end, pair[1]))
             else:
                 shadows[bound_name].append(pair)
-        if keyword == "func":
-            record_params(match.end())
     # Top-level operator functions own their operator name (`func <~>`).
     for match in _OP_DECL.finditer(stripped):
         name = match.group(1)
-        record_params(match.end())
+        sig = record_params(match.end())
         if name in _STDLIB_OPS:
             continue
         if enclosing(match.start()) is None:
             seg_start = max(stripped.rfind(c, 0, match.start()) for c in ";{}\n") + 1
             if not _PRIV.search(stripped[seg_start : match.start()]):
-                top.add(name)
+                top[name].append(("func", sig))
     # init parameters bind like func parameters (skipping `.init` call sites).
     for match in re.finditer(r"\binit\b", stripped):
         if match.start() > 0 and stripped[match.start() - 1] == ".":
@@ -594,6 +655,9 @@ class Manifest:
         self.contracts_dir: str = data.get("contractsDirectory", "Contracts")
         self.contracts_layer: str = data["contractsLayer"]
         self.root_component: str = data["servicesRootComponent"]
+        # Repo-relative paths the app target does not compile (project.yml
+        # excludes) — they must not feed the graph.
+        self.path_exclusions: list[str] = [p.rstrip("/") for p in data.get("pathExclusions", [])]
         self.components: dict[str, str] = {}
         self.prefixes: list[tuple[str, str]] = []
         for component in data["components"]:
@@ -646,6 +710,8 @@ class Graph:
                 continue
             rel = path.relative_to(repo).as_posix()
             rel = moves.get(rel, rel)
+            if any(rel == e or rel.startswith(e + "/") for e in manifest.path_exclusions):
+                continue
             if rel.startswith(SCAN_ROOT + "/Lab/"):
                 continue  # Lab compiles only in the Lab configuration; lab-boundary gates it.
             sources[rel] = strip_source(path.read_text(encoding="utf-8", errors="ignore"))
@@ -654,6 +720,7 @@ class Graph:
         shadow_map: dict[str, dict[str, list[tuple[int, int]]]] = {}
         owners: dict[str, set[str]] = collections.defaultdict(set)
         declared_in: dict[str, set[str]] = collections.defaultdict(set)
+        decl_entries: dict[str, list[tuple[str, str, tuple | None]]] = collections.defaultdict(list)
         for rel, text in sources.items():
             component = manifest.component(rel)
             if component is None:
@@ -666,11 +733,31 @@ class Graph:
             self.file_component[rel] = component
             top, shadows = declarations(text)
             shadow_map[rel] = shadows
-            for name in top:
+            for name, entries in top.items():
                 owners[name].add(component)
                 declared_in[name].add(rel)
-        # name -> files declaring it, for every name owned by more than one component (R5).
-        self.ambiguous = {name: sorted(declared_in[name]) for name, comps in sorted(owners.items()) if len(comps) > 1}
+                decl_entries[name].extend((component, kind, sig) for kind, sig in entries)
+        # name -> files declaring it, for every name declared by more than
+        # one component (R5). Valid overloads are exempt: same-named funcs
+        # in different components are legal Swift as long as no (label,
+        # annotation) signature repeats across components. Any non-callable
+        # duplicate or a signature collision is still ambiguous — an edge
+        # through the name cannot be attributed.
+        self.ambiguous: dict[str, list[str]] = {}
+        for name, entries in decl_entries.items():
+            if len({comp for comp, _kind, _sig in entries}) <= 1:
+                continue
+            conflict = True
+            if all(kind == "func" for _comp, kind, _sig in entries):
+                seen: dict[tuple | None, str] = {}
+                conflict = False
+                for comp, _kind, sig in entries:
+                    if sig in seen and seen[sig] != comp:
+                        conflict = True
+                        break
+                    seen[sig] = comp
+            if conflict:
+                self.ambiguous[name] = sorted(declared_in[name])
         owner = {name: next(iter(comps)) for name, comps in owners.items() if len(comps) == 1}
         # Custom operators (`func <~>`) carry dependencies too; `_IDENT`
         # cannot see them, so each owned operator is matched as a maximal

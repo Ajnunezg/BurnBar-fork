@@ -611,6 +611,72 @@ struct DataStoreCallsEscaped {
 }
 SWIFT
 }
+mut_ak() {
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+// The comma inside Dictionary<String, FeatureAThing> is inside angle
+// brackets, not a parameter separator: FeatureAThing is a type annotation
+// and stays a live reference.
+func use(values: Dictionary<String, FeatureAThing>) {}
+SWIFT
+}
+mut_al() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func handler() -> Int { 42 }
+SWIFT
+  cat >>"${1}/AgentLens/Services/DataStore/D.swift" <<'SWIFT'
+
+// A `where` clause on the line after `)` still belongs to the signature:
+// handler is the parameter, not FeatureA's top-level function.
+func use<T>(handler: () -> Void)
+where T: Equatable { handler() }
+SWIFT
+}
+mut_am() {
+  python3 - "${1}/config/services-layers.json" <<'PY'
+import json, sys
+p = sys.argv[1]
+m = json.load(open(p))
+m["pathExclusions"] = ["AgentLens/Services/FeatureB/Shim.swift"]
+json.dump(m, open(p, "w"), indent=2)
+PY
+  cat >"${1}/AgentLens/Services/FeatureB/Shim.swift" <<'SWIFT'
+// Excluded from the app target (pathExclusions): its declarations cannot
+// own names or feed the graph, so ShimDup collides with nothing.
+struct ShimDup {
+    let id: String
+}
+SWIFT
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+struct ShimDup {
+    let id: String
+}
+SWIFT
+}
+mut_an() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func parse(_ value: Int) -> Int { value }
+SWIFT
+  cat >>"${1}/AgentLens/Services/FeatureB/B.swift" <<'SWIFT'
+
+func parse(_ value: String) -> String { value }
+SWIFT
+}
+mut_ao() {
+  cat >>"${1}/AgentLens/Services/FeatureA/A.swift" <<'SWIFT'
+
+func parse(_ value: Int) -> Int { value }
+SWIFT
+  cat >>"${1}/AgentLens/Services/FeatureB/B.swift" <<'SWIFT'
+
+// Same signature in a second component is a redeclaration, not an
+// overload: R5 still rejects it.
+func parse(_ value: Int) -> Int { value }
+SWIFT
+}
 run_case "private modifier binds to its own declaration only" 1 stderr "R5 ambiguous" clean mut_v
 run_case "private(set) declarations are still publicly owned" 1 stderr "R1 upward" clean mut_w
 run_case "a local binding does not shadow inside its own initializer" 1 stderr "R1 upward" clean mut_x
@@ -626,6 +692,11 @@ run_case "multi-binding declarations continue across newlines" 1 stderr "R1 upwa
 run_case "private modifier stops at the previous newline" 1 stderr "R5 ambiguous" clean mut_ah
 run_case "parameter bindings are not cross-component references" 0 stdout "services-layering: OK" clean mut_ai
 run_case "escaped declaration names are indexed" 1 stderr "R1 upward" clean mut_aj
+run_case "commas inside generic parameter types are not separators" 1 stderr "R1 upward" clean mut_ak
+run_case "where clause on the next line still binds parameters" 0 stdout "services-layering: OK" clean mut_al
+run_case "pathExclusions keep noncompiled files out of the graph" 0 stdout "services-layering: OK" clean mut_am
+run_case "cross-component function overloads are legal" 0 stdout "services-layering: OK" clean mut_an
+run_case "identical callable signatures across components still trip R5" 1 stderr "R5 ambiguous" clean mut_ao
 
 # ── Regression: the gate is wired into the CI debt-budgets job ───────────────
 workflow="${here}/../../.github/workflows/fast-feedback.yml"
