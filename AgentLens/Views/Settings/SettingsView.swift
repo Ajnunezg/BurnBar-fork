@@ -270,6 +270,12 @@ struct SettingsView: View {
             )
         case .sessionSummaries:
             SessionSummariesDetailView(settingsManager: settingsManager)
+        case .memorySync:
+            MemorySyncSettingsView(
+                settingsManager: settingsManager,
+                runtimeContext: runtimeContext,
+                accountManager: accountManager
+            )
         case .aiInboxRoot:
             AIInboxSettingsRootView()
                 .navigationTitle("AI Inbox")
