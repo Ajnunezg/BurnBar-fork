@@ -103,6 +103,9 @@ def inspect_release_feeds(value: Any, path: Path) -> None:
         return
     if "MinimumOSVersion" in value:
         return
+    platforms = value.get("CFBundleSupportedPlatforms") or []
+    if "iPhoneOS" in platforms or value.get("LSRequiresIPhoneOS"):
+        return
     expected = {
         direct_feed_key: expected_direct_feed,
         sparkle_feed_key: expected_sparkle_feed,

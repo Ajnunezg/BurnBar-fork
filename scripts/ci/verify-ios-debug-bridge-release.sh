@@ -66,6 +66,7 @@ force_load_marker='^_{1,2}swift_FORCE_LOAD_\$_swift[A-Za-z0-9_]*_\$_[A-Za-z0-9_]
 
 symbol_hits="$(
   nm -j "${executable_path}" 2>/dev/null \
+    | grep -v '__swift_FORCE_LOAD_' \
     | LC_ALL=C grep -E -i "${forbidden_pattern}" \
     | LC_ALL=C grep -E -v "${force_load_marker}" \
     | head -n 20 \
