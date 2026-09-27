@@ -691,6 +691,16 @@ struct DashboardView: View {
             }
             .presentationBackground(Material.ultraThinMaterial)
         }
+        .sheet(isPresented: Binding(
+            get: { consentCoordinator?.showUsageMemoryConsent ?? false },
+            set: { consentCoordinator?.showUsageMemoryConsent = $0 }
+        )) {
+            UsageMemoryConsentSheet(settingsManager: settingsManager) { grant in
+                consentCoordinator?.confirmUsageMemoryConsent(grant: grant)
+                consentCoordinator?.showUsageMemoryConsent = false
+            }
+            .presentationBackground(Material.ultraThinMaterial)
+        }
         .sheet(isPresented: $showAnalyticsConsent) {
             AnalyticsConsentPromptView { granted in
                 if granted {
@@ -712,16 +722,26 @@ struct DashboardView: View {
         .onAppear {
             presentAnalyticsConsentIfNeeded()
             presentMemoryConsentIfNeeded()
+            presentUsageMemoryConsentIfNeeded()
         }
         .onChange(of: showIndexingConsent) { wasShowing, isShowing in
             if wasShowing && !isShowing {
                 presentAnalyticsConsentIfNeeded()
                 presentMemoryConsentIfNeeded()
+                presentUsageMemoryConsentIfNeeded()
             }
         }
         .onChange(of: showAnalyticsConsent) { wasShowing, isShowing in
             if wasShowing && !isShowing {
                 presentMemoryConsentIfNeeded()
+                presentUsageMemoryConsentIfNeeded()
+            }
+        }
+        .onChange(of: consentCoordinator?.showMemoryConsent ?? false) { wasShowing, isShowing in
+            if wasShowing && !isShowing {
+                // Chat-memory consent just settled; usage-memory consent is the
+                // next (third) link in the one-at-a-time first-run chain.
+                presentUsageMemoryConsentIfNeeded()
             }
         }
         .onChange(of: accountManager.isSignedIn) { _, isSignedIn in
@@ -1060,6 +1080,201 @@ struct DashboardView: View {
                 anchorProject: nil,
                 dateRange: selectedTimeRange.dateRange()
             )
+        }
+    }
+
+    // MARK: - View helpers
+
+    private func presentAnalyticsConsentIfNeeded() {
+        guard !AnalyticsConsentStore.shared.hasDecided,
+              !showIndexingConsent,
+              !showCLIConsentSheet,
+              !showSessionLogCloudConsent else { return }
+        showAnalyticsConsent = true
+    }
+
+    /// Presents the first-run memory consent once every other first-run sheet has
+    /// settled, so the permission moments never stack. Memory consent is the last
+    /// link in the chain: it waits for the indexing prompt, the CLI/cloud sheets,
+    /// and the analytics decision before surfacing.
+    private func presentMemoryConsentIfNeeded() {
+        guard let consentCoordinator,
+              consentCoordinator.shouldShowMemoryConsent,
+              !consentCoordinator.showMemoryConsent,
+              !showIndexingConsent,
+              !showCLIConsentSheet,
+              !showSessionLogCloudConsent,
+              !showAnalyticsConsent,
+              AnalyticsConsentStore.shared.hasDecided else { return }
+        consentCoordinator.showMemoryConsent = true
+    }
+
+    /// Presents the first-run usage-memory consent, the THIRD link in the chain:
+    /// `shouldShowUsageMemoryConsent` already requires the indexing prompt and
+    /// the chat-memory consent to be settled, and the guards below additionally
+    /// hold it back while any other first-run sheet is on screen.
+    private func presentUsageMemoryConsentIfNeeded() {
+        guard let consentCoordinator,
+              consentCoordinator.shouldShowUsageMemoryConsent,
+              !consentCoordinator.showUsageMemoryConsent,
+              !consentCoordinator.showMemoryConsent,
+              !showIndexingConsent,
+              !showCLIConsentSheet,
+              !showSessionLogCloudConsent,
+              !showAnalyticsConsent,
+              AnalyticsConsentStore.shared.hasDecided else { return }
+        consentCoordinator.showUsageMemoryConsent = true
+    }
+
+    private func autoExpandTimeRangeIfNeeded() {
+        guard !didAutoExpandEmptyTimeRange else { return }
+        defer { didAutoExpandEmptyTimeRange = true }
+        let currentRangeEmpty = dataStore.usageWindowSummary(for: selectedTimeRange).sessionCount == 0
+        let allTimeEmpty = dataStore.totalUsageSessionCount == 0
+        if currentRangeEmpty, !allTimeEmpty {
+            selectedTimeRange = .allTime
+        }
+    }
+
+    // MARK: - Memory Review
+
+    /// First-class Memory Review destination. The inbox is the human approval gate
+    /// for extracted memories. The closures bind directly to the SHARED
+    /// `ControlPlaneStore` published on the runtime context; when that store is not
+    /// yet wired (e.g. the test-stub scene), we render a graceful unavailable state
+    /// mirroring how other routes degrade on a missing dependency.
+    @ViewBuilder
+    private var memoryReviewView: some View {
+        if let store = runtimeContext?.chatMemoryStore {
+            MemoryReviewInboxHost(
+                store: store,
+                scope: memoryReviewScope,
+                afterStatusChange: {
+                    await refreshPendingMemoryReviewCount()
+                    // Any status change can revoke an already-exported inbox
+                    // memory. The export is a FULL-SET replacement, so pushing
+                    // after every change makes revocation propagate to the
+                    // daemon by omission — without this, a rejected fact keeps
+                    // entering model prompts until the next unrelated approval.
+                    if let store = runtimeContext?.chatMemoryStore {
+                        await InboxMemoryExportService(
+                            store: store,
+                            scope: memoryReviewScope,
+                            socketURL: OpenBurnBarDaemonRuntimePaths.live().socketURL
+                        ).pushApprovedSnippets()
+                    }
+                }
+            )
+            .id(ObjectIdentifier(store))
+        } else {
+            ContentUnavailableView(
+                "Memory is unavailable",
+                systemImage: "brain.head.profile",
+                description: Text("The memory store is not ready yet. It activates once OpenBurnBar finishes starting up.")
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(dashboardLiveBackdropActive ? Color.clear : DesignSystem.Colors.background)
+        }
+    }
+
+    /// Chat-memory extraction writes app-scoped quarantined rows. The review inbox
+    /// must read that same bucket so signed-in users can approve extracted memories.
+    private var memoryReviewScope: MemoryScope {
+        MemoryScope(appID: "openburnbar")
+    }
+
+    /// The AI Inbox destination.
+    ///
+    /// Rows are written by the daemon into the shared database, so this reads
+    /// straight through `DataStore` rather than round-tripping the socket — the
+    /// surface renders instantly even while the daemon is restarting.
+    ///
+    /// The memory-approval handler is bound to the SAME scope the Memory review
+    /// surface uses, so a fact approved from the inbox is visible and revocable
+    /// there too rather than living in a parallel bucket.
+    @ViewBuilder
+    private var inboxView: some View {
+        InboxView(
+            model: InboxModel(
+                loadRows: { [dataStore] states in
+                    try await dataStore.fetchAIInboxRows(states: states)
+                },
+                loadMarker: { [dataStore] in try await dataStore.aiInboxChangeMarker() },
+                markRead: { [dataStore] id in try await dataStore.markAIInboxItemRead(id: id) },
+                markUnread: { [dataStore] id in try await dataStore.markAIInboxItemUnread(id: id) },
+                setArchived: { [dataStore] id, archived in
+                    try await dataStore.setAIInboxItemArchived(id: id, archived: archived)
+                },
+                snooze: { [dataStore] id, until in
+                    try await dataStore.snoozeAIInboxItem(id: id, until: until)
+                },
+                setFeedback: { [dataStore] id, feedback in
+                    try await dataStore.setAIInboxItemFeedback(id: id, feedback: feedback)
+                },
+                markAllRead: { [dataStore] in try await dataStore.markAllAIInboxItemsRead() },
+                loadRuns: { [dataStore] in try await dataStore.fetchAIInboxRuns() },
+                shelf: inboxShelf
+            ),
+            onOpenSessionLog: { conversationID in
+                // Resolve the citation into a real jump target so the click lands
+                // on the passage that justified the item, not the top of a long
+                // transcript. If the conversation is no longer indexed we still
+                // navigate — going nowhere would read as a broken link.
+                Task { @MainActor in
+                    let resolver = InboxConversationJumpResolver(dataStore: dataStore)
+                    sessionLogJumpTarget = await resolver.jumpTarget(conversationID: conversationID)
+                    navigate(to: .sessionLogs)
+                }
+            },
+            onOpenSettings: { presentSettings(itemID: SettingsDeepLinkRouting.aiInboxItemID) },
+            memoryApproval: runtimeContext?.chatMemoryStore.map { store in
+                InboxMemoryApprovalHandler(
+                    store: store,
+                    scope: memoryReviewScope,
+                    // After each approval, push the refreshed approved-snippet
+                    // set to the daemon so the next tick can cite the fact
+                    // (L21). Best-effort: approval never fails on daemon-down.
+                    exporter: { [memoryReviewScope] in
+                        await InboxMemoryExportService(
+                            store: store,
+                            scope: memoryReviewScope,
+                            socketURL: OpenBurnBarDaemonRuntimePaths.live().socketURL
+                        ).pushApprovedSnippets()
+                    }
+                )
+            },
+            openItemID: pendingInboxItemID
+        )
+        // Consume the deep link so returning to the Inbox later opens normally.
+        .onAppear { pendingInboxItemID = nil }
+        .background(dashboardLiveBackdropActive ? Color.clear : DesignSystem.Colors.background)
+    }
+
+    /// Name posted by the shared background cadence after each pass, so the
+    /// badge tracks daemon-written rows without the view owning a second timer.
+    static let inboxBadgeRefreshNotification = Notification.Name("openburnbar.aiInbox.badgeRefresh")
+
+    /// Refreshes the inbox badge.
+    ///
+    /// Deliberately a `COUNT` rather than a fetch: this runs on the shared
+    /// background cadence, and the whole point of the feature is that an idle
+    /// inbox is free. A failure (daemon never ran, table absent) clears the badge
+    /// instead of surfacing an error — a badge is not the place to report a fault.
+    @MainActor
+    func refreshAIInboxUnreadCount() async {
+        aiInboxUnreadCount = try? await dataStore.aiInboxUnreadCount()
+    }
+
+    @MainActor
+    private func refreshPendingMemoryReviewCount() async {
+        guard let store = runtimeContext?.chatMemoryStore else {
+            pendingMemoryReviewCount = nil
+            return
+        }
+        do {
+            pendingMemoryReviewCount = try await store.pendingChatMemoryReviewCount(scope: memoryReviewScope)
+        } catch {
+            pendingMemoryReviewCount = nil
         }
     }
 
