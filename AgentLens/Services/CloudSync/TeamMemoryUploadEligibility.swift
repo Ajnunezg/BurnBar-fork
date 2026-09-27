@@ -50,7 +50,7 @@ struct TeamProjectLink: Equatable, Sendable {
     static let maxBytes = 2_048
 
     /// `teamId` -> `teamProjectId`. Every value here is already known to be
-    /// inside `TeamMemorySyncService.teamProjectIDPattern`; `decode` drops the
+    /// inside `TeamMemoryIdentity.teamProjectIDPattern`; `decode` drops the
     /// ones that are not.
     let teamProjectIDsByTeamID: [String: String]
 
@@ -77,7 +77,7 @@ struct TeamProjectLink: Equatable, Sendable {
     /// correctly.
     ///
     /// An entry whose `teamProjectId` is outside
-    /// `TeamMemorySyncService.teamProjectIDPattern` is DROPPED AND COUNTED, by
+    /// `TeamMemoryIdentity.teamProjectIDPattern` is DROPPED AND COUNTED, by
     /// the same rule and for the same reason: this string is member-authored
     /// text from a shared repository that ends up in plaintext engine state on
     /// every teammate's Mac, so an unbounded one is a prompt-injection channel.

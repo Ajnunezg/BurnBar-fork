@@ -148,16 +148,7 @@ struct OrgRollupView: View {
     }
 }
 
-// MARK: - Types
-
-enum OrgGroupBy: String, CaseIterable, Identifiable {
-    case user
-    case project
-    case credential
-    case provider
-
-    var id: String { rawValue }
-
+extension OrgGroupBy {
     var label: String {
         switch self {
         case .user: return "User / Seat"
@@ -184,15 +175,6 @@ enum OrgGroupBy: String, CaseIterable, Identifiable {
         case .provider: return DesignSystem.Colors.blaze
         }
     }
-}
-
-struct OrgRollupRow: Identifiable {
-    let id = UUID()
-    let label: String
-    let totalCost: Double
-    let totalTokens: Double
-    let sessionCount: Int
-    let deviceCount: Int
 }
 
 #if DEBUG

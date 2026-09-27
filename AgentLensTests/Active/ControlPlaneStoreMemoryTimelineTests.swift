@@ -352,11 +352,11 @@ final class ControlPlaneStoreMemoryTimelineTests: XCTestCase {
         // `bodyHash` (PR 4 review N2). The fixture's stored `body_hash` column
         // is left as the daemon-mirror value it really is — a different,
         // non-lowered hash — precisely so that reading it would fail this test.
-        let derived = TeamMemoryPullService.teamLocalEngineMemoryID(
+        let derived = TeamMemoryIdentity.teamLocalEngineMemoryID(
             teamID: "team_abcdef0123456789",
             projectID: "proj_fixture",
             engineScope: "project",
-            canonicalBodyHash: TeamMemorySyncService.canonicalBodyHash("Retention is ninety days.")
+            canonicalBodyHash: TeamMemoryIdentity.canonicalBodyHash("Retention is ninety days.")
         )
         try await queue.write { db in
             try db.execute(
@@ -429,7 +429,7 @@ final class ControlPlaneStoreMemoryTimelineTests: XCTestCase {
     /// team fact. `test_memory_blind_sync.py` pins the same three vectors.
     func test_the_team_local_id_derivation_matches_the_engine_byte_for_byte() {
         XCTAssertEqual(
-            TeamMemoryPullService.teamLocalEngineMemoryID(
+            TeamMemoryIdentity.teamLocalEngineMemoryID(
                 teamID: "team_abcdef0123456789",
                 projectID: "proj_fixture",
                 engineScope: "project",
@@ -438,7 +438,7 @@ final class ControlPlaneStoreMemoryTimelineTests: XCTestCase {
             "mem_67cfa917b1b5e9b3cfde42a2f2967aaf"
         )
         XCTAssertEqual(
-            TeamMemoryPullService.teamLocalEngineMemoryID(
+            TeamMemoryIdentity.teamLocalEngineMemoryID(
                 teamID: "team_0123456789abcdef",
                 projectID: "proj_fixture",
                 engineScope: "project",
@@ -448,13 +448,13 @@ final class ControlPlaneStoreMemoryTimelineTests: XCTestCase {
         )
         // The team id is an input, so two teams sharing one body land apart.
         XCTAssertNotEqual(
-            TeamMemoryPullService.teamLocalEngineMemoryID(
+            TeamMemoryIdentity.teamLocalEngineMemoryID(
                 teamID: "team_abcdef0123456789",
                 projectID: "proj_fixture",
                 engineScope: "project",
                 canonicalBodyHash: "hash"
             ),
-            TeamMemoryPullService.teamLocalEngineMemoryID(
+            TeamMemoryIdentity.teamLocalEngineMemoryID(
                 teamID: "team_0123456789abcdef",
                 projectID: "proj_fixture",
                 engineScope: "project",
@@ -475,7 +475,7 @@ final class ControlPlaneStoreMemoryTimelineTests: XCTestCase {
     /// silently dropped the badge, which reads identically to "personal".
     func test_the_derivation_canonicalises_its_inputs_the_way_the_engine_does() {
         XCTAssertEqual(
-            TeamMemoryPullService.teamLocalEngineMemoryID(
+            TeamMemoryIdentity.teamLocalEngineMemoryID(
                 teamID: " team_abcdef0123456789\n",
                 projectID: "  proj_fixture ",
                 engineScope: "\tPROJECT ",
@@ -496,12 +496,12 @@ final class ControlPlaneStoreMemoryTimelineTests: XCTestCase {
     /// them. Pinned as a literal, and pinned again in Python.
     func test_the_canonical_body_hash_is_the_engines_lowered_one() {
         XCTAssertEqual(
-            TeamMemorySyncService.canonicalBodyHash("Body"),
+            TeamMemoryIdentity.canonicalBodyHash("Body"),
             "230d8358dc8e8890b4c58deeb62912ee2f20357ae92a5cc861b98e68fe31acb5"
         )
         XCTAssertEqual(
-            TeamMemorySyncService.canonicalBodyHash("Body"),
-            TeamMemorySyncService.canonicalBodyHash("body"),
+            TeamMemoryIdentity.canonicalBodyHash("Body"),
+            TeamMemoryIdentity.canonicalBodyHash("body"),
             "the engine lowercases before hashing, so case cannot split one fact in two"
         )
     }
@@ -526,11 +526,11 @@ final class ControlPlaneStoreMemoryTimelineTests: XCTestCase {
             ts: "2026-09-01T00:00:00.000Z"
         )
         let body = "The release train leaves on Thursdays."
-        let derived = TeamMemoryPullService.teamLocalEngineMemoryID(
+        let derived = TeamMemoryIdentity.teamLocalEngineMemoryID(
             teamID: "team_abcdef0123456789",
             projectID: "proj_fixture",
             engineScope: "project",
-            canonicalBodyHash: TeamMemorySyncService.canonicalBodyHash(body)
+            canonicalBodyHash: TeamMemoryIdentity.canonicalBodyHash(body)
         )
         let limit = ControlPlaneStore.teamProvenanceScanLimit
         try await queue.write { db in

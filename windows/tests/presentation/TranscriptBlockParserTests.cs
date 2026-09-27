@@ -6,7 +6,7 @@ namespace OpenBurnBar.App.Presentation.Tests;
 
 /// <summary>
 /// Real parity tests for the transcript parser ported from
-/// AgentLens/Services/TranscriptBlockParser.swift. Pure string logic, so the Windows
+/// AgentLens/Models/TranscriptBlockParser.swift. Pure string logic, so the Windows
 /// port must produce byte-identical block structure for the same transcript inputs.
 /// </summary>
 public sealed class TranscriptBlockParserTests

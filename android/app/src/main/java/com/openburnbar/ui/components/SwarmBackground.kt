@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import com.openburnbar.data.models.AgentProvider
 import com.openburnbar.ui.settings.rememberExcludeBrandShapesFromSwarm
@@ -41,6 +40,20 @@ import kotlinx.coroutines.withContext
  * into "$", "</>", provider logos, Grok/xAI marks, concentric quota rings, and
  * a router failover S-curve — then breaking apart again. Touches push nearby
  * particles away. Reduce Motion pauses the cycling and silences the noise field.
+ *
+ * The swarm is gated by [SwarmBackgroundPowerPolicy] (the Kotlin port of the
+ * iOS gate in `SwarmBackgroundPreferences.swift`, consumed on iOS by
+ * `ConstellationBackgroundView`): prefs + platform sensors resolve to a
+ * [SwarmBackgroundRenderPlan], and only [SwarmRenderMode.LIVE] runs the
+ * simulation and its frame loop. Static/disabled plans render the flat field
+ * color with no Canvas and no loop, matching the iOS static/disabled
+ * fallbacks. Live plans apply the plan's frame-rate cap, particle scale,
+ * auto-cycling, and sparkle gates.
+ *
+ * @param preferences Swarm prefs. Defaults to the persisted Where/When pickers
+ * ([SwarmBackgroundPreferencesStore], everywhere/always when unset) so the
+ * historical always-on behavior is preserved until the user picks otherwise
+ * in Settings → Theme. Tests inject explicit prefs.
  */
 @Composable
 fun SwarmBackground(
@@ -57,26 +70,54 @@ fun SwarmBackground(
     // AA-legible darker dot colours) regardless of the OS dark-mode setting, so
     // the dot-crest reads on paper. The light-locked editorial dot-crest.
     forceLight: Boolean = false,
+    preferences: SwarmBackgroundPreferences = persistedSwarmBackgroundPreferences(),
+    visibility: MobileBackgroundVisibility = MobileBackgroundVisibility.PROMINENT,
 ) {
     val reduceMotion = LocalAuroraReduceMotion.current
     val isDark = if (forceLight) false else androidx.compose.foundation.isSystemInDarkTheme()
+    val backgroundColor = if (isDark) Color(0xFF050508) else Color(0xFFF3EFE7)
+
+    // Enforcement gate: resolve the render plan before touching the
+    // simulation. The guard chain is order-sensitive and lives in the policy;
+    // the shared helper supplies the platform sensors + surface eligibility.
+    // (Same gate shape as SwarmPlanGate, kept inline because the live body
+    // consumes the plan: sparkle/auto-cycle/frame-rate/particle/motion scales.)
+    val plan = rememberSwarmRenderPlan(visibility = visibility, preferences = preferences)
+    when (plan.mode) {
+        SwarmRenderMode.LIVE -> {}
+        SwarmRenderMode.DISABLED_FALLBACK -> {
+            AuroraAnimatedBackdrop(isDark = isDark, density = AuroraDensity.FULL, reduceMotion = reduceMotion)
+            return
+        }
+        SwarmRenderMode.STATIC_BACKDROP -> {
+            SwarmStaticBackdrop(modifier = modifier, isDark = isDark)
+            return
+        }
+    }
+
     val enableSwarmSparkles by rememberSwarmSparkles()
     val excludeBrandShapesSetting by rememberExcludeBrandShapesFromSwarm()
     val actualExcludeBrandShapes = excludeBrandShapes || excludeBrandShapesSetting
+    val allowsSparkles = enableSwarmSparkles && plan.allowsSparkles
+    val effectiveParticleCount = scaledSwarmParticleCount(particleCount, plan)
+    val minStepIntervalNanos = swarmFrameIntervalNanos(plan)
+
     val uiMode = LocalUIMode.current
     val selectedProviderGlyphs = enabledProviderGlyphs ?: AgentProvider.swarmGlyphProviders.toSet()
     val simulation =
-        rememberSwarmSimulation(particleCount, pace, selectedProviderGlyphs, actualExcludeBrandShapes, uiMode).apply {
+        rememberSwarmSimulation(effectiveParticleCount, pace, selectedProviderGlyphs, actualExcludeBrandShapes, uiMode).apply {
             this.isAvatarEnabled = isAvatarEnabled
             this.isBrandTextEnabled = isBrandTextEnabled
+            this.isAutoCyclingEnabled = plan.allowsAutoCycling
             this.paletteName = paletteName
+            this.motionSpeedMultiplier = plan.motionSpeedMultiplierScale
         }
     var pointer by remember { mutableStateOf<Offset?>(null) }
     var version by remember { mutableIntStateOf(0) }
     SwarmPrewarmEffect(simulation)
-    SwarmFrameLoop(simulation, reduceMotion, pointer) { version++ }
+    SwarmFrameLoop(simulation, reduceMotion, minStepIntervalNanos, pointer) { version++ }
     SwarmPointerBox(modifier, isDark, onPointerChange = { pointer = it }) {
-        SwarmParticleCanvas(simulation, accentColor, isDark, version, enableSwarmSparkles)
+        SwarmParticleCanvas(simulation, accentColor, isDark, version, allowsSparkles)
     }
 }
 
@@ -115,17 +156,23 @@ private fun SwarmPrewarmEffect(simulation: SwarmSimulation) {
 }
 
 @Composable
-private fun SwarmFrameLoop(simulation: SwarmSimulation, reduceMotion: Boolean, pointer: Offset?, onStepped: () -> Unit) {
+private fun SwarmFrameLoop(
+    simulation: SwarmSimulation,
+    reduceMotion: Boolean,
+    minStepIntervalNanos: Long,
+    pointer: Offset?,
+    onStepped: () -> Unit,
+) {
     val currentPointer by rememberUpdatedState(pointer)
-    LaunchedEffect(reduceMotion) {
+    LaunchedEffect(reduceMotion, minStepIntervalNanos) {
         var lastStepNanos = 0L
         while (!reduceMotion) {
             val frameNanos = awaitFrame()
-            // Cap physics + redraw at ~60Hz so 90/120Hz panels skip vsyncs
-            // instead of running extra simulation steps; matches the live
-            // wallpaper's ENERGETIC cadence (FRAME_INTERVAL_ENERGETIC_MS).
+            // Cap physics + redraw at the plan's frame rate (30fps prominent,
+            // 15fps subtle) so 90/120Hz panels skip vsyncs instead of running
+            // extra simulation steps.
             val elapsedNanos = frameNanos - lastStepNanos
-            if (elapsedNanos < MIN_STEP_INTERVAL_NANOS) continue
+            if (elapsedNanos < minStepIntervalNanos) continue
             lastStepNanos = frameNanos
             simulation.advance(frameNanos, currentPointer, frameScaleFor(elapsedNanos))
             onStepped() // trigger recomposition for the Canvas
@@ -140,7 +187,7 @@ private fun SwarmPointerBox(modifier: Modifier, isDark: Boolean, onPointerChange
         modifier
             .fillMaxSize()
             // Match app appearance so cards stay coherent over the swarm.
-            .background(if (isDark) Color(0xFF050508) else Color(0xFFF3EFE7))
+            .background(backgroundColor)
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { onPointerChange(it) },
@@ -165,29 +212,25 @@ private fun SwarmPointerBox(modifier: Modifier, isDark: Boolean, onPointerChange
 }
 
 @Composable
-private fun SwarmParticleCanvas(simulation: SwarmSimulation, accentColor: Color, isDark: Boolean, version: Int, enableSwarmSparkles: Boolean) {
+private fun SwarmParticleCanvas(simulation: SwarmSimulation, accentColor: Color, isDark: Boolean, version: Int, allowsSparkles: Boolean) {
     Canvas(modifier = Modifier.fillMaxSize()) {
         // `version` read inside an enclosing snapshot — read once so Canvas
         // recomposes each frame.
         val tick = version
 
         simulation.ensureBounds(size)
-        drawSwarmDots(simulation, accentColor, isDark, enableSwarmSparkles)
+        drawSwarmDots(simulation, accentColor, isDark, allowsSparkles)
         drawSwarmGlyphs(simulation, accentColor, isDark)
     }
 }
 
-private fun DrawScope.drawSwarmDots(simulation: SwarmSimulation, accentColor: Color, isDark: Boolean, enableSwarmSparkles: Boolean) {
+private fun DrawScope.drawSwarmDots(simulation: SwarmSimulation, accentColor: Color, isDark: Boolean, allowsSparkles: Boolean) {
     simulation.particles.forEachIndexed { index, p ->
         if (p.isGlyph) return@forEachIndexed
         val color = simulation.colorFor(p, accentColor, isDark)
         val inShape = simulation.inShapeMode && p.tx != null
 
-        var r = (p.size * if (inShape) 1.2 else 0.85).toDouble()
-        var isSparkling = false
-        var sparkleIntensity = 0.0
-
-        if (enableSwarmSparkles && inShape && simulation.shapeSettledAtNanos != null) {
+        if (allowsSparkles && inShape && simulation.shapeSettledAtNanos != null) {
             val pHash = ((index * 127) % 1000).toDouble() / 1000.0
             val speed = 0.5 + ((index * 17) % 5) * 0.15
             val sparkleVal = Math.sin(simulation.flowTime * speed + pHash * Math.PI * 2)
@@ -239,11 +282,9 @@ private fun DrawScope.drawSwarmGlyphs(simulation: SwarmSimulation, accentColor: 
 
 enum class SwarmPace { ENERGETIC, CINEMATIC }
 
-// Step cadence: the swarm physics were tuned at 60Hz, so simulation steps are
-// capped at ~60Hz (the live wallpaper's BurnBarWallpaperConstants
-// .FRAME_INTERVAL_ENERGETIC_MS cadence) and each step is scaled by the real
-// elapsed time so motion speed is identical on 60/90/120Hz panels.
-private const val MIN_STEP_INTERVAL_NANOS = 16_000_000L
+// Step cadence: the swarm physics were tuned at 60Hz, so each step is scaled
+// by the real elapsed time (frameScaleFor) and the plan's frame-rate cap sets
+// the loop floor — 60Hz is only the fallback when a plan carries no cap.
 private const val CANONICAL_FRAME_NANOS = 16_666_667.0
 
 private fun frameScaleFor(elapsedNanos: Long): Double {

@@ -52,7 +52,7 @@ fi
 
 # ── 2. Seam files stay thin (conformances + factory only) ────────────────────
 seam_files=(
-  "AgentLens/Services/DataStore/BudgetGate+AgentLens.swift"
+  "AgentLens/Services/Settings/Stores/BudgetGate+AgentLens.swift"
   "OpenBurnBarMobile/Models/BudgetGate+Mobile.swift"
 )
 for seam in "${seam_files[@]}"; do
@@ -148,7 +148,7 @@ check_pair() {
 # were removed with the de-fork.
 
 check_pair "BudgetSettings" \
-  "AgentLens/Services/DataStore/BudgetSettings+AgentLens.swift" \
+  "AgentLens/Services/Settings/Stores/BudgetSettings+AgentLens.swift" \
   "OpenBurnBarMobile/Models/BudgetSettings+Mobile.swift" \
   "This pair is intentionally forked but expected to stay near-parallel; new one-sided edits are usually parity bugs."
 

@@ -183,7 +183,7 @@ Managed by `OpenBurnBarDatabase` in `OpenBurnBarCore`. All I/O goes through GRDB
 
 ### Search / Retrieval — `SearchDocumentRecord` and `SearchChunkRecord`
 
-**`SearchDocumentRecord`** (`AgentLens/Services/DataStore/DataStoreTypes.swift`)
+**`SearchDocumentRecord`** (`AgentLens/Services/DataStore/Contracts/DataStoreTypes.swift`)
 
 | Field | Type | Description |
 |-------|------|-------------|

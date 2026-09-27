@@ -772,7 +772,7 @@ final class TeamMemorySyncDomain: TeamMemorySyncCycling, Sendable {
         //     residual, with the same operator recovery: delete the team's
         //     push-watermark row.
         let pushWatermark = try await watermarks.fetchTeamMemoryPushInstant(
-            accountUid: TeamMemoryPullService.watermarkAccountKey(teamID: teamID, localUserID: uid)
+            accountUid: TeamMemoryIdentity.watermarkAccountKey(teamID: teamID, localUserID: uid)
         )
 
         var uploaded = 0
@@ -971,7 +971,7 @@ final class TeamMemorySyncDomain: TeamMemorySyncCycling, Sendable {
         // cycle's business instead of nobody's.
         if failedDocuments == 0 {
             try await watermarks.recordTeamMemoryPushInstant(
-                accountUid: TeamMemoryPullService.watermarkAccountKey(teamID: teamID, localUserID: uid),
+                accountUid: TeamMemoryIdentity.watermarkAccountKey(teamID: teamID, localUserID: uid),
                 instant: now
             )
         }

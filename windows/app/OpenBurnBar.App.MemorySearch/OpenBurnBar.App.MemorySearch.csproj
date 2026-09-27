@@ -14,7 +14,7 @@
       Memory:
         AgentLens/Services/Memory/MemoryExtractionPromptBuilder.swift        (prompt template)
         AgentLens/Services/Memory/MemoryExtractionPolicy.swift               (accept/reject rules)
-        AgentLens/Services/Memory/MemoryRecallBudget.swift                   (recall budget math)
+        AgentLens/Services/Memory/Contracts/MemoryRecallBudget.swift                   (recall budget math)
         AgentLens/Services/Memory/MemoryExtractionParser.swift               (LLM response parse)
         AgentLens/Services/Memory/MemoryExtractionLLMClient.swift            (LLM seam)
         OpenBurnBarCore/.../Memory/MemorySecretPIIGate.swift                 (secret/PII gate)

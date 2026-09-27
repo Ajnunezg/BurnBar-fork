@@ -26,7 +26,7 @@ Tests: `windows/tests/memory-search/` (net10.0 xUnit, 157 tests).
 | --- | --- | --- |
 | `MemoryExtractionPromptBuilder.cs` | `Memory/MemoryExtractionPromptBuilder.swift` | exact prompt/contract literals + recent-first char-budgeted transcript render |
 | `MemoryExtractionPolicy.cs` | `Memory/MemoryExtractionPolicy.swift` | ceilings + clamps + kill switch + settings box |
-| `MemoryRecallBudget.cs` | `Memory/MemoryRecallBudget.swift` | high-recall limit/budget + prose token estimation + pinned wrapper overhead (202) |
+| `MemoryRecallBudget.cs` | `Memory/Contracts/MemoryRecallBudget.swift` | high-recall limit/budget + prose token estimation + pinned wrapper overhead (202) |
 | `MemoryExtractionParser.cs` | `Memory/MemoryExtractionParser.swift` | clean-JSON-first + brace-slice fallback, field-level leniency, kind fallback, confidence clamp |
 | `MemoryExtractionSettingsSnapshot.cs` | `Memory/MemoryExtractionSettingsSnapshot.swift` | local-first provider filter + clamp derivations |
 | `MemoryExtractionDeadline.cs` | `Memory/MemoryExtractionDeadline.swift` | the throwing wall-clock deadline race |

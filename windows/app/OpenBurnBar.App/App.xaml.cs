@@ -338,6 +338,10 @@ public partial class App : Application
     /// <summary>Live shell when the main window is open (flyout deep-links).</summary>
     public AppShell? MainWindowShell => _mainWindow?.Shell;
 
+    /// <summary>The open main window — pages that own a scene-gated resource (the swarm
+    /// backdrop's <c>SceneActive</c>) subscribe to its activation transitions.</summary>
+    internal MainWindow? MainWindow => _mainWindow;
+
     /// <summary>Process-owned local ingestion runtime, unavailable only during typed storage recovery.</summary>
     public IUsageRuntime? UsageRuntime => _usageRuntime;
 

@@ -3,9 +3,9 @@ using System;
 namespace OpenBurnBar.App.MemorySearch.Search;
 
 // PORTED (faithful subset) from
-//   AgentLens/Services/Search/RetrievalQueryTypes.swift  (HybridFusionStrategy, constants, RetrievalResult)
-//   AgentLens/Services/DataStore/DataStoreTypes.swift     (RetrievalHealthStatus)
-//   AgentLens/Services/Search/SearchTypes.swift           (RetrievalDegradedMode)
+//   AgentLens/Services/Search/Contracts/RetrievalQueryTypes.swift  (HybridFusionStrategy, constants, RetrievalResult)
+//   AgentLens/Services/DataStore/Contracts/DataStoreTypes.swift     (RetrievalHealthStatus)
+//   AgentLens/Services/Search/Contracts/SearchTypes.swift           (RetrievalDegradedMode)
 //
 // Only the fields the PORTABLE ranking / rerank / health math reads are ported; the wider
 // RetrievalResult (provider metadata, section paths, conversation record, etc.) is DataStore

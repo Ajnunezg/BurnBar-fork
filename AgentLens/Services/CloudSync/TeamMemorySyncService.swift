@@ -214,36 +214,13 @@ enum TeamMemorySyncService {
     /// lane and `validMemorySourceRefHmacs` in the rules.
     static let maxSourceRefHmacs = 50
 
-    /// The shape a `teamProjectId` may take, byte-for-byte the engine's
-    /// `REMOTE_WRITER_DEVICE_RE` (`^[A-Za-z0-9_.:-]{1,128}$`) and refused by
-    /// `REMOTE_PROJECT_ID_RE` on the far side of the daemon boundary.
-    ///
-    /// WHY THIS FIELD IS BOUNDED WHEN THE PERSONAL LANE'S IS NOT. On the
-    /// personal lane `projectID` is minted by the engine on the member's own
-    /// Mac, so there is no author to bound. On the TEAM lane it is
-    /// member-authored text read out of `.openburnbar/project.json` — a file
-    /// committed to a shared repository, so anyone with commit access supplies
-    /// it — and it lands in PLAINTEXT as `memories.project_id`, as part of an
-    /// `engine_meta` convergence key, and as an audit-event label on every
-    /// teammate's Mac, where the ungated timeline reports it to the calling
-    /// model. That is a prompt-injection channel and a disclosure channel in one
-    /// string, which is the same argument that bounds `teamID`, `authorUID`,
-    /// `writerDevice`, `memoryID`, `supersededBy` and `previousBodyHash` — and it
-    /// bites harder here, because this is the only one of them that comes from a
-    /// file rather than from a machine.
-    ///
-    /// The token shape is deliberately permissive about CONTENT (a team names
-    /// its own projects) and strict about FORM: one line, no whitespace, no
-    /// punctuation an instruction could be built from, and a hard length cap.
-    static let teamProjectIDPattern = "^[A-Za-z0-9_.:-]{1,128}$"
-
-    /// Whether a `teamProjectId` is inside `teamProjectIDPattern`. Enforced at
+    /// Whether a `teamProjectId` is inside `TeamMemoryIdentity.teamProjectIDPattern`. Enforced at
     /// BOTH ends of the lane: when the link file is read (a bad entry publishes
     /// nothing) and when a document is pulled (a bad one is refused), because
     /// the reader protects this Mac's uploads and the pull protects this Mac
     /// from a teammate whose reader was older.
     static func isWellFormedTeamProjectID(_ value: String) -> Bool {
-        value.range(of: teamProjectIDPattern, options: .regularExpression) != nil
+        value.range(of: TeamMemoryIdentity.teamProjectIDPattern, options: .regularExpression) != nil
     }
 
     /// The shape a `teamId` may take, byte-for-byte the engine's
@@ -290,41 +267,6 @@ enum TeamMemorySyncService {
         )
     }
 
-    /// The engine's own convergence identity, folded to 32 hex characters.
-    ///
-    /// BYTE-IDENTICAL to `memory_engine/_util.py::_convergence_key`:
-    /// `sha256_hex(f"{project_id}|{scope}|{body_hash}")[:32]`. Pipes, not
-    /// colons; SHA-256, not HMAC; 32 characters, not 64. Pinned from both sides
-    /// by `test_the_swift_convergence_key_matches_the_python_one` and its Python
-    /// twin, because a one-character drift here would silently give two members
-    /// two documents for one fact and no error anywhere.
-    static func convergenceKey(teamProjectId: String, engineScope: String, bodyHash: String) -> String {
-        String(CloudVaultCrypto.sha256Hex("\(teamProjectId)|\(engineScope)|\(bodyHash)").prefix(32))
-    }
-
-    /// The engine's OWN body hash, recomputed from a body this device holds.
-    ///
-    /// BYTE-IDENTICAL to `memory_engine/_util.py::canonical_body_hash`:
-    /// `sha256_hex(body.lower())`. Lowercased, and that is the whole difference
-    /// that matters — the daemon-mirror hash the app stores in
-    /// `agent_memory_bodies.body_hash` is `sha256_hex(body)` with NO lowering
-    /// (`server.py::_memory_mirror_updated`), which `_util.py:42` names as a
-    /// different hash in a different namespace that "must never be folded into
-    /// this helper". Reading that column and calling it the canonical hash is
-    /// therefore wrong for every body containing one capital letter.
-    ///
-    /// WHY THE APP RECOMPUTES RATHER THAN TRUSTS A FIELD. `_screen_remote_row`
-    /// sets `body_hash = canonical_body_hash(body)` from the GATED body with the
-    /// comment "the payload's `bodyHash` is the sender's advice about its own
-    /// store and is deliberately never trusted as the key". Anything deriving
-    /// the engine's row identity has to make the same move or it derives a
-    /// different identity the moment this device's secret/PII policy redacts the
-    /// body, or the sender's `bodyHash` is simply stale. Pinned across languages
-    /// beside `convergenceKey` for the same reason it is.
-    static func canonicalBodyHash(_ body: String) -> String {
-        CloudVaultCrypto.sha256Hex(body.lowercased())
-    }
-
     /// The opaque document id, HMAC'd under the NON-ROTATING slug key.
     ///
     /// Two members who learned the same fact independently derive the same id
@@ -348,7 +290,7 @@ enum TeamMemorySyncService {
     ) throws -> String {
         try deriveDocID(
             teamID: teamID,
-            convergenceKey: convergenceKey(
+            convergenceKey: TeamMemoryIdentity.convergenceKey(
                 teamProjectId: teamProjectId,
                 engineScope: engineScope,
                 bodyHash: bodyHash

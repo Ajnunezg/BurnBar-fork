@@ -112,6 +112,9 @@ budgets/xctskip-baseline.json
 # Exact-set matched both ways: new divergences AND stale entries fail CI.
 budgets/migrator-parity-baseline.json
 budgets/force-unwrap-baseline.json
+# services-layering: upward/cyclic reference keys between Services components;
+# shrink-only ratchet (scripts/debt/services_layering.py, wave 0 fitness gate).
+budgets/services-layering-baseline.json
 
 # --- Filename false positive: not a lint baseline ---
 # GitHub Actions workflow for the protected one-time P-25 Linux release-baseline

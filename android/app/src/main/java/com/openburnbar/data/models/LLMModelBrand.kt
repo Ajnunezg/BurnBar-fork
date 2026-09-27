@@ -143,4 +143,6 @@ val AgentProvider.logoRes: Int
             AgentProvider.MUSE -> R.drawable.logo_meta
             AgentProvider.TOGETHER -> R.drawable.logo_meta
             AgentProvider.FX -> R.drawable.logo_fx
+            AgentProvider.OPEN_BURN_BAR -> R.drawable.app_logo
+            AgentProvider.CURSOR_AGENT -> R.drawable.logo_cursor
         }
