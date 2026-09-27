@@ -31,6 +31,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `linear_integration_unconfigured` error on its first unconfigured filing. Clients (Mac, iOS, Android) decode
   `linearIssue` as optional and show "Filed as <reportId>" when no issue
   exists.
+- **User-facing copy no longer names the Signal library** — the Signal
+  at-rest/transport path is wired but not activated in production, so error
+  strings a user can read (thrown errors, alert descriptions, callable error
+  messages across Mac, iOS, Android, and Functions) now say "device identity"
+  / "sealed envelope" instead of internals jargon. Wire constants and
+  identifiers keep the accurate name; a fast-feedback ratchet
+  (`check-signal-jargon-user-copy.sh`) blocks unreviewed `Signal` literals in
+  shipped copy surfaces. SECURITY.md's activation gates now reflect the
+  landed state — the remaining blockers are external review, store/legal
+  approval, physical-device E2E, and the staged Remote Config ramp, not code.
 - **Cloud sync is now opt-in** — the master switch defaults to off and
   persists on-device; nothing leaves the Mac until it is turned on in
   Settings → Devices & Sync, where a real toggle now lives. Fresh installs

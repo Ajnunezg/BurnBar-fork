@@ -112,7 +112,7 @@ final class TextExpansionSyncServiceTests: XCTestCase {
     func testSignalSyncErrorsCarryOperatorReadableDescriptions() {
         XCTAssertEqual(
             TextExpansionSignalSyncError.vaultKeyMismatch.errorDescription,
-            "Signal identity and CloudVault resolved different vault keys. Re-verify this device before syncing snippets."
+            "Device identity and CloudVault resolved different vault keys. Re-verify this device before syncing snippets."
         )
         XCTAssertEqual(
             TextExpansionSignalSyncError.signalFirestoreUnavailable.errorDescription,

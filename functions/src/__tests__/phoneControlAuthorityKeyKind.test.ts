@@ -633,7 +633,7 @@ describe("publishRelaySenderKey trust binding", () => {
         ...relaySenderKeyPublishRequest(key),
         signalIdentityPublicKeyFingerprint: "sha256:client-forged",
       }),
-    ).rejects.toThrow(/published Signal identity/);
+    ).rejects.toThrow(/published device identity key/);
     expect(store.has(`users/${UID}/relay_sender_keys/${DEVICE}`)).toBe(false);
   });
 
