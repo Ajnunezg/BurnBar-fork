@@ -112,7 +112,7 @@ class SwarmBackgroundPolicyTest {
     fun `prominent resolves to prominent live with exact plan values`() {
         val plan = resolve()
         assertEquals(SwarmRenderMode.LIVE, plan.mode)
-        assertEquals(30.0, plan.maxFrameRate!!, 0.0)
+        assertEquals(30.0, plan.maxFrameRate ?: error("prominent plan must set maxFrameRate"), 0.0)
         assertEquals(1.0, plan.particleScale, 0.0)
         assertEquals(1.0, plan.motionSpeedMultiplierScale, 0.0)
         assertTrue(plan.allowsAutoCycling)
@@ -124,7 +124,7 @@ class SwarmBackgroundPolicyTest {
     fun `subtle resolves to subtle live with exact plan values`() {
         val plan = resolve(requestedVisibility = MobileBackgroundVisibility.SUBTLE)
         assertEquals(SwarmRenderMode.LIVE, plan.mode)
-        assertEquals(15.0, plan.maxFrameRate!!, 0.0)
+        assertEquals(15.0, plan.maxFrameRate ?: error("subtle plan must set maxFrameRate"), 0.0)
         assertEquals(0.45, plan.particleScale, 0.0)
         assertEquals(0.55, plan.motionSpeedMultiplierScale, 0.0)
         assertFalse(plan.allowsAutoCycling)
