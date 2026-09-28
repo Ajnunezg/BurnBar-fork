@@ -1,6 +1,7 @@
 import SwiftUI
 import OpenBurnBarInboxModels
 import OpenBurnBarKernel
+import OpenBurnBarLaunchServices
 import OpenBurnBarLogParsers
 import OpenBurnBarQuota
 import OpenBurnBarUI
@@ -11,9 +12,9 @@ import AppKit
 
 // MARK: - Popover Quota Bar
 
-/// Always-visible compact quota summary for the popover.
-/// Shows connected providers' 5h + weekly bars inline — no horizontal scroll.
-/// Clicking a row with routing detail expands the inline cockpit.
+/// Compact quota summary for the popover. Height is owned by the tray layout;
+/// this view fills its allocated slot. Clicking a row with routing detail
+/// expands the inline cockpit.
 struct QuotaPopoverBar: View {
     @Environment(\.colorScheme) private var colorScheme
     @Bindable var quotaService: ProviderQuotaService
@@ -29,6 +30,7 @@ struct QuotaPopoverBar: View {
     @State private var localFactoryTier: FactoryQuotaPlanTier = .unknown
     @State private var localXaiTier: XAIQuotaPlanTier = .unknown
     @State private var localXaiManagementKey = ""
+    @State private var grokCLIAuth: CLIAuthInfo?
     @State private var localZaiKey = ""
     @State private var localCursorCookie = ""
     @State private var localMimoRegion: ProviderEndpointRegion = .sgp
@@ -46,14 +48,6 @@ struct QuotaPopoverBar: View {
                 : Array(providers.prefix(maximumCollapsedProviderRows))
         }
         return Array(providers.prefix(maximumCollapsedProviderRows))
-    }
-
-    private var quotaRowsMaxHeight: CGFloat {
-        // A tray should feel like a glanceable control, not a dashboard.
-        // The collapsed rail fits six single-bar rows; anything beyond that
-        // scrolls inside the rail so connected accounts cannot stretch the
-        // whole MenuBarExtra down the screen.
-        expandedProvider == nil ? 340 : 440
     }
 
     private func hiddenProviderSummaryText(selectionHidden: Int, collapseHidden: Int) -> String {
@@ -189,7 +183,7 @@ struct QuotaPopoverBar: View {
                 }
                 .padding(.horizontal, DesignSystem.Spacing.sm)
             }
-            .frame(maxHeight: quotaRowsMaxHeight)
+            .frame(maxHeight: .infinity)
 
             if hiddenProviderCount > 0, expandedProvider == nil {
                 HStack(spacing: DesignSystem.Spacing.xs) {
@@ -207,6 +201,7 @@ struct QuotaPopoverBar: View {
         }
         .padding(.top, DesignSystem.Spacing.sm)
         .padding(.bottom, DesignSystem.Spacing.xs)
+        .frame(maxHeight: .infinity, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(colorScheme == .dark ? Color.white.opacity(0.022) : Color.black.opacity(0.014))
@@ -682,37 +677,94 @@ struct QuotaPopoverBar: View {
     @ViewBuilder
     private var xaiSetupPanel: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
-            Text("Plan tier")
-                .font(DesignSystem.Typography.tiny)
-                .foregroundStyle(DesignSystem.Colors.textMuted)
-
-            Picker("", selection: $localXaiTier) {
-                ForEach(XAIQuotaPlanTier.allCases) { tier in
-                    Text(tier.shortName).tag(tier)
+            xaiMeterLane(
+                title: "GrokBuild credits",
+                detail: "Exact prepaid balance. Paste an xAI Management Key — not the xai-… inference key used for routing."
+            ) {
+                SecureField("xai-mgmt-…", text: $localXaiManagementKey)
+                    .font(DesignSystem.Typography.monoSmall)
+                    .textFieldStyle(.plain)
+                    .padding(DesignSystem.Spacing.xs)
+                    .background(
+                        RoundedRectangle(cornerRadius: DesignSystem.Radius.sm, style: .continuous)
+                            .fill(DesignSystem.Colors.surfaceMuted)
+                    )
+                Button("Open xAI console") {
+                    #if canImport(AppKit)
+                    if let url = URL(string: "https://console.x.ai/team/api-keys") {
+                        NSWorkspace.shared.open(url)
+                    }
+                    #endif
                 }
-            }
-            .pickerStyle(.segmented)
-
-            Text("Management Key (optional — required for GrokBuild credit balance)")
+                .buttonStyle(.plain)
                 .font(DesignSystem.Typography.tiny)
-                .foregroundStyle(DesignSystem.Colors.textMuted)
+                .foregroundStyle(DesignSystem.Colors.textSecondary)
+            }
 
-            SecureField("xai-mgmt-…", text: $localXaiManagementKey)
-                .font(DesignSystem.Typography.monoSmall)
-                .textFieldStyle(.plain)
-                .padding(DesignSystem.Spacing.xs)
-                .background(
-                    RoundedRectangle(cornerRadius: DesignSystem.Radius.sm, style: .continuous)
-                        .fill(DesignSystem.Colors.surfaceMuted)
-                )
+            xaiMeterLane(
+                title: "SuperGrok (estimated)",
+                detail: "xAI does not publish a SuperGrok remaining-quota API. Pick a plan so BurnBar can estimate a 2-hour prompt window from routed Grok traffic. This is not a vendor login."
+            ) {
+                Picker("", selection: $localXaiTier) {
+                    ForEach(XAIQuotaPlanTier.allCases) { tier in
+                        Text(tier.shortName).tag(tier)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            xaiMeterLane(
+                title: "Grok CLI",
+                detail: grokCLILaneDetail
+            ) {
+                EmptyView()
+            }
 
             HStack(spacing: DesignSystem.Spacing.sm) {
-                Button("Save") { Task { await saveAndRefresh(for: .xAI) } }
+                Button("Save & refresh") { Task { await saveAndRefresh(for: .xAI) } }
                     .buttonStyle(GlassButtonStyle(prominent: true))
                     .disabled(isWorking)
                 Button("Cancel") { expandedProvider = nil }
             }
             .font(DesignSystem.Typography.caption)
+        }
+    }
+
+    @ViewBuilder
+    private func xaiMeterLane<Content: View>(
+        title: String,
+        detail: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+            Text(title)
+                .font(DesignSystem.Typography.tiny)
+                .fontWeight(.semibold)
+                .foregroundStyle(DesignSystem.Colors.textPrimary)
+            Text(detail)
+                .font(DesignSystem.Typography.tiny)
+                .foregroundStyle(DesignSystem.Colors.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            content()
+        }
+    }
+
+    private var grokCLILaneDetail: String {
+        guard let grokCLIAuth else {
+            return "No Grok CLI login on this Mac. Run grok login so ~/.grok/auth.json exists. That file is not a remaining-quota meter."
+        }
+        switch grokCLIAuth.authState {
+        case .authenticated:
+            if let account = grokCLIAuth.accountDescription, !account.isEmpty {
+                return "Grok CLI signed in as \(account). Historical tokens come from ~/.grok/sessions — this is not SuperGrok remaining quota."
+            }
+            return "Grok CLI signed in via ~/.grok/auth.json. Historical tokens come from ~/.grok/sessions — this is not SuperGrok remaining quota."
+        case .apiKeyPresent:
+            return "Grok CLI has an API key (\(grokCLIAuth.accountDescription ?? "XAI_API_KEY")). Routing still needs an xAI inference key; GrokBuild meters still need a management key."
+        case .notAuthenticated:
+            return "Grok CLI is installed but ~/.grok/auth.json is missing. Run grok login. A ~/.grok folder or sessions tree alone is not a login."
+        case .notInstalled:
+            return "Grok CLI is not installed. Install grok, run grok login, then return here. Connections → Grok Build still only routes the CLI."
         }
     }
 
@@ -772,7 +824,8 @@ struct QuotaPopoverBar: View {
             localFactoryTier = settingsManager.factoryQuotaPlanTier
         case .xAI:
             localXaiTier = settingsManager.xaiQuotaPlanTier
-            localXaiManagementKey = ks.apiKey(for: "xai_management_key") ?? ""
+            localXaiManagementKey = ks.xaiManagementKey() ?? ""
+            grokCLIAuth = CLIAuthDiscovery.discoverAuthState(for: .grok)
         case .mimo:
             localMimoRegion = settingsManager.mimoTokenPlanRegion
             localMimoTier = settingsManager.mimoTokenPlanTier ?? .standard
@@ -813,16 +866,11 @@ struct QuotaPopoverBar: View {
         case .factory:
             settingsManager.factoryQuotaPlanTier = localFactoryTier
         case .xAI:
+            settingsManager.xaiQuotaPlanTier = localXaiTier
             do {
-                let trimmed = localXaiManagementKey.trimmingCharacters(in: .whitespacesAndNewlines)
-                if trimmed.isEmpty {
-                    try ks.removeAPIKey(for: "xai_management_key")
-                } else {
-                    try ks.setAPIKey(trimmed, for: "xai_management_key")
-                }
-                settingsManager.xaiQuotaPlanTier = localXaiTier
+                try ks.setXAIManagementKey(localXaiManagementKey)
             } catch {
-                AppLogger.dataStore.silentFailure("saveAPIKey(xai_management_key)", error: error)
+                AppLogger.dataStore.silentFailure("saveAPIKey(\(ProviderAPIKeyStore.xaiManagementKeyAccount))", error: error)
             }
         case .mimo:
             settingsManager.mimoTokenPlanRegion = localMimoRegion

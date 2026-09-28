@@ -10,10 +10,18 @@ final class DashboardConsentCoordinator {
     var showCLIConsentSheet = false
     var showSessionLogCloudConsent = false
     var showMemoryConsent = false
+    var showUsageMemoryConsent = false
+    /// See `UsageMemoryRollout`; injectable so the consent chain stays testable.
+    let usageMemoryControlsEnabled: Bool
 
-    init(settingsManager: SettingsManager, accountManager: AccountManager) {
+    init(
+        settingsManager: SettingsManager,
+        accountManager: AccountManager,
+        usageMemoryControlsEnabled: Bool = UsageMemoryRollout.surfacesUserControls
+    ) {
         self.settingsManager = settingsManager
         self.accountManager = accountManager
+        self.usageMemoryControlsEnabled = usageMemoryControlsEnabled
     }
 
     var shouldShowIndexingConsent: Bool {
@@ -29,6 +37,17 @@ final class DashboardConsentCoordinator {
     /// site so it never stacks on top of the indexing prompt.
     var shouldShowMemoryConsent: Bool {
         !settingsManager.memoryConsentShown
+    }
+
+    /// First-run usage-memory consent is THIRD in the one-at-a-time chain: it is
+    /// eligible only after both the conversation-indexing prompt and the
+    /// chat-memory consent have been settled (shown, whatever the decision), so
+    /// the permission moments arrive one per visit instead of stacking.
+    var shouldShowUsageMemoryConsent: Bool {
+        usageMemoryControlsEnabled
+            && !settingsManager.usageMemoryConsentShown
+            && settingsManager.memoryConsentShown
+            && settingsManager.conversationIndexingConsentShown
     }
 
     func confirmIndexingConsent(enable: Bool, aggregator: UsageAggregator?) {
@@ -49,6 +68,16 @@ final class DashboardConsentCoordinator {
         }
     }
 
+    /// Records the first-run usage-memory consent decision. Granting flips
+    /// `usageMemoryConsentGranted` (whose setter also marks the prompt shown);
+    /// declining only marks it shown so the usage loop stays dormant.
+    func confirmUsageMemoryConsent(grant: Bool) {
+        settingsManager.usageMemoryConsentGranted = grant
+        if !grant {
+            settingsManager.usageMemoryConsentShown = true
+        }
+    }
+
     func onDashboardAppear(aggregator: UsageAggregator?) {
         if !settingsManager.conversationIndexingConsentShown {
             showIndexingConsent = true
@@ -56,6 +85,10 @@ final class DashboardConsentCoordinator {
             // Only surface memory consent once the indexing prompt is settled,
             // so the two first-run sheets never stack.
             showMemoryConsent = true
+        } else if shouldShowUsageMemoryConsent {
+            // Usage-memory consent is third: it waits for both prior prompts
+            // to settle, keeping the chain strictly one sheet at a time.
+            showUsageMemoryConsent = true
         }
     }
 

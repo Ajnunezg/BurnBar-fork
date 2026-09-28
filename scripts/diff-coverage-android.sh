@@ -79,6 +79,15 @@ ANDROID_DIFF_COVERAGE_ALLOWLIST_JSON="$(cat <<'JSON'
   "android/app/src/main/java/com/openburnbar/ui/media/ScreenShareViewerScreenMainSections.kt": "Compose effect wiring for the screen-share viewer; auto-type open/close transitions are JVM-covered in ScreenShareAutoTypeFollowPolicy, while LaunchedEffect scheduling and rememberSaveable state plumbing require instrumented coverage.",
   "android/app/src/main/java/com/openburnbar/ui/media/ScreenShareViewerScreenSections.kt": "Compose rendering/effect section for the screen-share viewer; keyboard dismissal decisions are JVM-covered in ScreenShareViewerScreenModels, while IME visibility, focus requests, and lifecycle-driven keyboard reopen are Android framework behavior exercised by the instrumented ScreenShareViewerDockTest.",
   "android/app/src/main/java/com/openburnbar/ui/navigation/BurnBarNavHost.kt": "Compose navigation host wiring; route graph rendering requires instrumented UI coverage, while route selection helpers are covered separately.",
+  "android/app/src/main/java/com/openburnbar/data/recap/FirestoreRecapSource.kt": "Firestore paging adapter for the monthly Recap: the FirestoreRecapSource query/await glue needs the Firebase SDK/emulator. The pagination policy it delegates to (RecapPagination: cursor-driven paging, first-page failure propagation, later-page partials, cancellation) is pure and JVM-covered by RecapPersistenceScopeTest; the RecapSource contract is driven end-to-end with a fake source in RecapScenarioTest.",
+  "android/app/src/main/java/com/openburnbar/data/recap/RecapConstants.kt": "Compile-time const vals only; Kotlin inlines them at every use site, so the object emits no executable lines for JaCoCo to attribute. Every constant is exercised through the Recap rules in RecapScenarioTest.",
+  "android/app/src/main/java/com/openburnbar/ui/insights/BifurcatedInsightsScreen.kt": "Compose Budget & Insights screen (header, segmented control, Recap entry banner); recomposition and layout require instrumented UI coverage, while the Recap data it routes to is JVM-covered by RecapScenarioTest.",
+  "android/app/src/main/java/com/openburnbar/ui/recap/MonthlyRecapScreen.kt": "Compose monthly Recap screen: month picker, phase rendering, and deck host require instrumented UI coverage; the RecapEnvironment phases it renders are JVM-covered by RecapScenarioTest.",
+  "android/app/src/main/java/com/openburnbar/ui/recap/RecapCardViews.kt": "Compose Recap card rendering (metrics, comparisons, visuals); layout requires screenshot or instrumented coverage, while card content comes from the JVM-covered rule engine and RecapMetric.format.",
+  "android/app/src/main/java/com/openburnbar/ui/recap/RecapDeckView.kt": "Compose paging deck for Recap cards; pager gestures and recomposition require instrumented UI coverage.",
+  "android/app/src/main/java/com/openburnbar/ui/recap/RecapEntryBanner.kt": "Compose entry banner for the Recap on the Insights tab; rendering and click routing require instrumented UI coverage.",
+  "android/app/src/main/java/com/openburnbar/ui/recap/RecapTheme.kt": "Compose color/typography tokens for the Recap surfaces; values are consumed only by Compose rendering, which requires screenshot coverage.",
+  "android/app/src/main/java/com/openburnbar/ui/recap/RecapVisualKit.kt": "Compose Canvas visuals for Recap cards (sparklines, bars, heatmaps) depend on DrawScope; pixel output requires screenshot or instrumented coverage, while the visual data is built by the JVM-covered rule engine.",
   "android/app/src/main/java/com/openburnbar/ui/navigation/BurnBarNavHostSections.kt": "Compose navigation section wiring; route graph rendering requires instrumented UI coverage, while route selection helpers are covered separately.",
   "android/app/src/main/java/com/openburnbar/ui/pulse/PulseViewSections.kt": "Compose rendering wrapper; local JVM coverage cannot prove recomposition/layout, while backing data and formatting helpers are tested.",
   "android/app/src/main/java/com/openburnbar/ui/pulse/atlas/AtlasSceneSections.kt": "Compose Trend Atlas card rendering; JVM unit coverage cannot prove recomposition/layout, while insight resolution is JVM-covered by AtlasInsightResolutionTest.",
@@ -340,9 +349,14 @@ def consume_annotation(source_line, start):
         end = index
     return end
 
+KOTLIN_DIRECTIVE = re.compile(
+    r"^\s*(?:package|import)\s+[A-Za-z_][\w`]*(?:\.[A-Za-z_`][\w`]*)*(?:\.\*)?(?:\s+as\s+[A-Za-z_]\w*)?\s*;?\s*(?://.*)?$"
+)
+
+
 def non_executable_lines(rel_path):
-    """Return source line numbers containing only whitespace, comments, and
-    standalone annotations.
+    """Return source line numbers containing only whitespace, comments,
+    standalone annotations, and `package` / `import` directives.
 
     JaCoCo intentionally emits no executable-line entry for KDoc, ordinary
     comments, or annotation lines (annotation arguments are compile-time
@@ -360,6 +374,12 @@ def non_executable_lines(rel_path):
     in_triple_string = False
 
     for line_number, source_line in enumerate(source_lines, start=1):
+        # `package`/`import` directives compile to no bytecode, so JaCoCo has
+        # no line for them. Only a whole line matching the directive grammar
+        # outside any comment or string is safe; anything else stays gated.
+        if block_depth == 0 and not in_triple_string and KOTLIN_DIRECTIVE.match(source_line):
+            result.add(line_number)
+            continue
         index = 0
         has_code = in_triple_string
 

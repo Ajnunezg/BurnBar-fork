@@ -159,6 +159,15 @@ final class SettingsManagerTests: XCTestCase {
         XCTAssertEqual(settings.refreshIntervalMinutes, 5)
     }
 
+    func test_markHasLaunchedBefore_flipsFirstLaunchFlag() {
+        let defaults = makeIsolatedDefaults()
+        defaults.removeObject(forKey: "hasLaunchedBefore")
+        let settings = makeSettingsManager(defaults: defaults)
+        XCTAssertTrue(settings.isFirstLaunch)
+        settings.markHasLaunchedBefore()
+        XCTAssertFalse(settings.isFirstLaunch)
+    }
+
     func test_showInMenuBar_defaultValue_isTrueOnFirstLaunch() {
         let defaults = makeIsolatedDefaults()
         defaults.removeObject(forKey: "hasLaunchedBefore")
@@ -172,6 +181,29 @@ final class SettingsManagerTests: XCTestCase {
         defaults.set(false, forKey: "showInMenuBar")
         let settings = makeSettingsManager(defaults: defaults)
         XCTAssertFalse(settings.showInMenuBar)
+    }
+
+    func test_markHasLaunchedBefore_seedsShowInMenuBarDefaultWhenAbsent() {
+        let defaults = makeIsolatedDefaults()
+        defaults.removeObject(forKey: "hasLaunchedBefore")
+        defaults.removeObject(forKey: "showInMenuBar")
+        let settings = makeSettingsManager(defaults: defaults)
+        XCTAssertTrue(settings.showInMenuBar)
+        settings.markHasLaunchedBefore()
+
+        let relaunched = makeSettingsManager(defaults: defaults)
+        XCTAssertTrue(relaunched.showInMenuBar)
+        XCTAssertEqual(defaults.object(forKey: "showInMenuBar") as? Bool, true)
+        XCTAssertTrue(defaults.bool(forKey: "hasLaunchedBefore"))
+    }
+
+    func test_showInMenuBar_defaultsTrueWhenLaunchMarkerExistsButKeyIsAbsent() {
+        let defaults = makeIsolatedDefaults()
+        defaults.set(true, forKey: "hasLaunchedBefore")
+        defaults.removeObject(forKey: "showInMenuBar")
+        let settings = makeSettingsManager(defaults: defaults)
+        XCTAssertTrue(settings.showInMenuBar)
+        XCTAssertEqual(defaults.object(forKey: "showInMenuBar") as? Bool, true)
     }
 
     func test_launchAtLogin_defaultValue_isFalse() {
@@ -828,13 +860,19 @@ final class SettingsManagerTests: XCTestCase {
         XCTAssertEqual(dict["port"] as? Int, 8317)
 
         settings.gatewayEnabled = true
-        settings.gatewayHost = "0.0.0.0"
+        settings.gatewayHost = "10.0.0.2"
         settings.gatewayPort = 9090
 
         let dict2 = settings.gatewayConfigurationDict
         XCTAssertEqual(dict2["enabled"] as? Bool, true)
-        XCTAssertEqual(dict2["host"] as? String, "0.0.0.0")
+        XCTAssertEqual(dict2["host"] as? String, "10.0.0.2")
         XCTAssertEqual(dict2["port"] as? Int, 9090)
+
+        // The local-service registry is loopback-only by construction: a
+        // wildcard bind address normalizes to 127.0.0.1 rather than exposing
+        // the gateway on every interface.
+        settings.gatewayHost = "0.0.0.0"
+        XCTAssertEqual(settings.gatewayConfigurationDict["host"] as? String, "127.0.0.1")
     }
 
     func test_gatewayConfigurationDict_usesDefaultsForEmptyHostAndZeroPort() {
@@ -1767,8 +1805,56 @@ final class SettingsManagerTests: XCTestCase {
     func test_isFirstLaunch_trueOnFreshInstall() {
         let defaults = makeIsolatedDefaults()
         defaults.removeObject(forKey: "hasLaunchedBefore")
+        defaults.removeObject(forKey: "analyticsConsentState")
         let settings = makeSettingsManager(defaults: defaults)
+        XCTAssertNotNil(defaults.object(forKey: "appearanceMode"))
+        XCTAssertNotNil(defaults.object(forKey: "databaseEncryptionEnabled"))
         XCTAssertTrue(settings.isFirstLaunch)
+    }
+
+    func test_isFirstLaunch_falseOnUpgradeWhenConsentAlreadyDecided() {
+        let defaults = makeIsolatedDefaults()
+        defaults.removeObject(forKey: "hasLaunchedBefore")
+        defaults.set("granted", forKey: "analyticsConsentState")
+        let settings = makeSettingsManager(defaults: defaults)
+        XCTAssertFalse(settings.isFirstLaunch)
+        XCTAssertTrue(defaults.bool(forKey: "hasLaunchedBefore"))
+    }
+
+    func test_isFirstLaunch_falseOnUpgradeWhenAppearanceModeAlreadyPersisted() {
+        let defaults = makeIsolatedDefaults()
+        defaults.removeObject(forKey: "hasLaunchedBefore")
+        defaults.removeObject(forKey: "analyticsConsentState")
+        defaults.set("system", forKey: "appearanceMode")
+        let settings = makeSettingsManager(defaults: defaults)
+        XCTAssertFalse(settings.isFirstLaunch)
+        XCTAssertTrue(defaults.bool(forKey: "hasLaunchedBefore"))
+    }
+
+    func test_showInMenuBar_staysTrueOnUpgradeWhenKeyWasNeverPersisted() {
+        let defaults = makeIsolatedDefaults()
+        defaults.removeObject(forKey: "hasLaunchedBefore")
+        defaults.removeObject(forKey: "showInMenuBar")
+        defaults.removeObject(forKey: "analyticsConsentState")
+        defaults.set("system", forKey: "appearanceMode")
+        let settings = makeSettingsManager(defaults: defaults)
+        XCTAssertFalse(settings.isFirstLaunch)
+        XCTAssertTrue(settings.showInMenuBar)
+        XCTAssertEqual(defaults.object(forKey: "showInMenuBar") as? Bool, true)
+
+        let relaunched = makeSettingsManager(defaults: defaults)
+        XCTAssertTrue(relaunched.showInMenuBar)
+        XCTAssertFalse(relaunched.isFirstLaunch)
+    }
+
+    func test_isFirstLaunch_falseOnUpgradeWhenOnboardingProvidersAlreadyPersisted() {
+        let defaults = makeIsolatedDefaults()
+        defaults.removeObject(forKey: "hasLaunchedBefore")
+        defaults.removeObject(forKey: "analyticsConsentState")
+        defaults.set("codex", forKey: "selectedOnboardingProvidersCSV")
+        let settings = makeSettingsManager(defaults: defaults)
+        XCTAssertFalse(settings.isFirstLaunch)
+        XCTAssertTrue(defaults.bool(forKey: "hasLaunchedBefore"))
     }
 
     func test_isFirstLaunch_falseAfterFirstLaunch() {

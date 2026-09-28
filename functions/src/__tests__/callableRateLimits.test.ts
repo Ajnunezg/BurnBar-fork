@@ -20,11 +20,41 @@ vi.mock("../../../packages/functions-shared/src/adminRuntime.js", () => ({ db: p
 
 import {
   checkAgentNotificationReplyRateLimit,
+  checkCallablePolicyRateLimit,
   checkKnowledgeSearchRateLimit,
   checkMissionCreateRateLimit,
+  checkPromoRedeemRateLimit,
   checkVoIPCallRateLimit,
   isPublicRateLimitExceeded,
 } from "../../../packages/functions-shared/src/callables/publicRateLimit.js";
+
+describe("checkPromoRedeemRateLimit", () => {
+  beforeEach(() => {
+    mocks.store.clear();
+  });
+
+  it("allows a short burst and rejects the 6th redemption attempt for a uid", async () => {
+    for (let i = 0; i < 5; i += 1) {
+      await expect(checkPromoRedeemRateLimit(ALICE_UID)).resolves.toBeUndefined();
+    }
+
+    try {
+      await checkPromoRedeemRateLimit(ALICE_UID);
+      expect.fail("expected promo redeem rate limit to reject");
+    } catch (error) {
+      expect(isPublicRateLimitExceeded(error)).toBe(true);
+      expect(error).toMatchObject({ code: "resource-exhausted" });
+    }
+  });
+
+  it("keys the limit per account so one claimant cannot throttle another", async () => {
+    for (let i = 0; i < 5; i += 1) {
+      await checkPromoRedeemRateLimit(ALICE_UID);
+    }
+    await expect(checkPromoRedeemRateLimit(ALICE_UID)).rejects.toMatchObject({ code: "resource-exhausted" });
+    await expect(checkPromoRedeemRateLimit("uid-second-claimant")).resolves.toBeUndefined();
+  });
+});
 
 describe("checkVoIPCallRateLimit", () => {
   beforeEach(() => {
@@ -150,5 +180,112 @@ describe("checkAgentNotificationReplyRateLimit", () => {
       expect(isPublicRateLimitExceeded(error)).toBe(true);
       expect(error).toMatchObject({ code: "resource-exhausted" });
     }
+  });
+});
+describe("checkCallablePolicyRateLimit", () => {
+  const WINDOWS = {
+    burst: { windowSeconds: 600, maxAttempts: 3 },
+    sustained: { windowSeconds: 86_400, maxAttempts: 10 },
+  };
+
+  beforeEach(() => {
+    mocks.store.clear();
+  });
+
+  it("allows the first burst-limit request", async () => {
+    await expect(
+      checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects the request that exceeds the burst window", async () => {
+    for (let i = 0; i < 3; i += 1) {
+      await checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS);
+    }
+    try {
+      await checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS);
+      expect.fail("expected callable policy burst limit to reject");
+    } catch (error) {
+      expect(isPublicRateLimitExceeded(error)).toBe(true);
+      expect(error).toMatchObject({ code: "resource-exhausted" });
+    }
+  });
+
+  it("enforces the sustained window across burst-window resets", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-02T00:00:00Z"));
+
+    for (let window = 0; window < 3; window += 1) {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS);
+      }
+      vi.advanceTimersByTime(601_000);
+    }
+    // 9 calls in; the 10th passes the daily cap but the 11th rejects even
+    // though the burst window has long reset.
+    await expect(
+      checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS),
+    ).resolves.toBeUndefined();
+    await expect(
+      checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS),
+    ).rejects.toMatchObject({ code: "resource-exhausted" });
+  });
+
+  it("does not let a sustained rejection half-advance the burst window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-03T00:00:00Z"));
+
+    for (let window = 0; window < 3; window += 1) {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS);
+      }
+      vi.advanceTimersByTime(601_000);
+    }
+    await checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS); // 10th — allowed
+    const burstEntry = [...mocks.store.entries()].find(([path]) =>
+      path.startsWith("public_rate_limits/callable:submitBugReport:burst_"),
+    );
+    if (!burstEntry) throw new Error("expected a burst-window rate-limit document");
+    const [burstPath, burstBefore] = burstEntry;
+
+    await expect(
+      checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS),
+    ).rejects.toMatchObject({ code: "resource-exhausted" });
+    expect(mocks.store.get(burstPath)).toEqual(burstBefore);
+  });
+
+  it("does not affect a different uid", async () => {
+    for (let i = 0; i < 3; i += 1) {
+      await checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS);
+    }
+    await expect(
+      checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS),
+    ).rejects.toMatchObject({ code: "resource-exhausted" });
+    await expect(
+      checkCallablePolicyRateLimit("submitBugReport", "bob-other-uid", WINDOWS),
+    ).resolves.toBeUndefined();
+  });
+
+  it("allows the caller again after the custom 600-second window expires", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-04T00:00:00Z"));
+
+    for (let i = 0; i < 3; i += 1) {
+      await checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS);
+    }
+    await expect(
+      checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS),
+    ).rejects.toMatchObject({ code: "resource-exhausted" });
+
+    vi.advanceTimersByTime(601_000);
+    await expect(
+      checkCallablePolicyRateLimit("submitBugReport", ALICE_UID, WINDOWS),
+    ).resolves.toBeUndefined();
+  });
+
+  it("fails closed on an empty uid rather than using an unkeyed bucket", async () => {
+    await expect(
+      checkCallablePolicyRateLimit("submitBugReport", "", WINDOWS),
+    ).rejects.toMatchObject({ code: "unauthenticated" });
   });
 });

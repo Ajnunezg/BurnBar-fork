@@ -18,7 +18,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cycle shrank from 37 to 34 components. See
   `docs/SERVICES_DECOMPOSITION_PROGRAM.md` for the remaining waves.
 
+### Added
+- **Menu-bar popover layout** — quotas are a tray section like every other
+  block, not a pinned 340pt bar that crowds the rest of the drop-down. Users
+  can show, hide, collapse, reorder, and size each section (relative weight,
+  min/max, or a drag-fixed height). Choices persist across launches. Hidden
+  sections leave no blank gap; collapsed sections show a labeled strip.
+  Settings → Appearance → Menu Bar, or the existing Quota Popover pane for
+  the quotas block's space. Drag handles and hover controls on the popover
+  itself still move and resize sections.
+
 ### Fixed
+- **Every callable now has a declared rate policy** — a central registry
+  (`CALLABLE_RATE_POLICIES` in `packages/functions-shared`) classifies each
+  of the 166 catalog callables as `limited` (central per-uid burst + sustained
+  windows enforced inside `wrapCallableHandler` before the handler runs),
+  `handler-enforced` (existing bespoke limiter), or `exempt` (read-only /
+  bulk-sync / per-object-bounded / admin-only). Mission event appends are now
+  capped at 20,000 per mission instead of being bounded per account. Missing policies fail closed at callable definition
+  time, so an undeclared endpoint can never deploy unbounded.
+  `submitBugReport` — which creates a Linear issue, posts to Slack, and queues
+  a privileged CLI agent mission — is limited to 3 reports per 10 minutes and
+  10 per day. Rate-limit rejections log a `callable_rate_limited` warning
+  rather than polluting Sentry.
+- **Bug reports no longer fabricate Linear issues** — `submitBugReport`
+  previously invented `BB-###` identifiers and URLs when Linear was
+  unconfigured or the create call failed, and surfaced them to the user, the
+  Slack triage post, and the CLI-agent mission prompt. `LinearClient` now
+  returns an explicit `created | unconfigured | failed` status; the report doc,
+  mission, and Slack post record `linearStatus` honestly (Slack says "Linear:
+  not filed"), reports still save and missions still queue when Linear is down,
+  and a production instance without `LINEAR_API_KEY` logs one
+  `linear_integration_unconfigured` error on its first unconfigured filing. Clients (Mac, iOS, Android) decode
+  `linearIssue` as optional and show "Filed as <reportId>" when no issue
+  exists.
+- **Local-service endpoints are no longer ~90 hardcoded literals** — a new
+  `LocalServiceRegistry` (OpenBurnBarPlatformSupport) owns the default port
+  and loopback rules for the BurnBar gateway, Hermes, Pi Agents, OpenClaw,
+  Ollama, MLX, and SmartHub; every settings default, URL fallback, placeholder,
+  and detection check now reads from it. Wired-client detection (`isWired`,
+  Droid/Factory config sync) now matches the *configured* gateway port plus
+  the shipped 8317 default, so rows no longer flip to "not wired" after the
+  user moves `gatewayPort`; VibeProxy's legacy 8317 stays pinned via
+  `LegacyLocalEndpoint.vibeProxyPort`. The MLX default is unified at 8080
+  (mlx_lm.server's port; the catalog's 8328 was drift). Bootstrap validates
+  endpoint overrides and surfaces collisions in Help & Support; the daemon
+  warns and falls back on an invalid `--gateway-port`; and a CI ratchet
+  (`check-local-service-literals.mjs`) blocks new literals.
+- **User-facing copy no longer names the Signal library** — the Signal
+  at-rest/transport path is wired but not activated in production, so error
+  strings a user can read (thrown errors, alert descriptions, callable error
+  messages across Mac, iOS, Android, and Functions) now say "device identity"
+  / "sealed envelope" instead of internals jargon. Wire constants and
+  identifiers keep the accurate name; a fast-feedback ratchet
+  (`check-signal-jargon-user-copy.sh`) blocks unreviewed `Signal` literals in
+  shipped copy surfaces. SECURITY.md's activation gates now reflect the
+  landed state — the remaining blockers are external review, store/legal
+  approval, physical-device E2E, and the staged Remote Config ramp, not code.
 - **Cloud sync is now opt-in** — the master switch defaults to off and
   persists on-device; nothing leaves the Mac until it is turned on in
   Settings → Devices & Sync, where a real toggle now lives. Fresh installs
@@ -418,6 +474,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Insights. You stays labeled You, not Store.
 
 ### Added
+- **Free Ultra beta claim at `/beta`.** Campaign codes now grant a real paid
+  tier with no payment instrument: a signed-in visitor redeems a code at
+  <https://burnbar.ai/beta> (or one-click via `/beta?code=…`) and receives an
+  ordinary `users/{uid}/entitlements/burnbar_ultra` document — dual-written to
+  the `burnbar_pro_max` mirror like any purchase — with a far-future expiry, no
+  Stripe charge, and no App Store auto-renewing trial. The grant reuses the
+  shipped Ultra SKU, so every existing gate (rules predicates, backend
+  assertions, Wand fan-out cap, Swift/Kotlin catalogs) accepts it unchanged and
+  records provenance in `source: "promo_campaign_grant"` instead. Promo grants
+  and real receipts rank by trust rather than expiry: a purchase always
+  supersedes a promo grant so the subscriber's own cancellation still lands, and
+  a promo grant never overwrites a live subscription (redeeming while subscribed
+  preserves it and does not consume the code). Codes reach Firestore only as
+  SHA-256 digests, so pausing, re-capping, and rotating a live campaign are
+  operator script runs rather than deploys — see
+  [`docs/runbooks/promo-campaigns.md`](docs/runbooks/promo-campaigns.md).
+  Guarded by auth + App Check + a single-use high-risk nonce, a wrong-code
+  lockout, per-uid rate limits, a one-per-uid ledger, and a campaign cap;
+  `promo_campaigns` / `promo_codes` / the redemption ledger are server-only.
+- **Google Gemini used-token meters.** The Providers wizard now treats Gemini
+  as a meter connection, not a routing key: Gemini CLI session logs on the Mac
+  report tokens used in the last 24 hours and 7 days. Remaining AI Studio
+  rate limits, Vertex spend, and Gemini app / Verizon Google AI Pro quota stay
+  explicitly unavailable — Google does not publish those to an API key.
+  Antigravity remains the estimated 5-hour coding-window adapter. Firebase
+  Google sign-in is unchanged and still does not read Gemini usage.
+- **Together remaining prepaid credits stay an explicit unsupported
+  meter.** Phase 2 re-checked Together after #2622: official OpenAPI
+  Billing is still only `GET /v1/billing/usage`. Live probes of
+  `/v1/billing/balance`, `/v1/credits`, and `/v1/account` 404 to the
+  console HTML app — not a Bearer wallet. BurnBar does not scrape
+  Together's Google/GitHub console or invent remaining % from spend.
+  Quotas now shows month-to-date spend as a used-only figure (no "Wide
+  Open" battery) plus a remaining-credits callout. 200/404/401 honesty
+  from the usage meter is unchanged.
+- **Together / Meta Llama usage meters.** Connections → Meta Llama now
+  pastes a Together API key and refreshes `GET /v1/billing/usage` for
+  month-to-date Together spend. Remaining prepaid credits stay on the
+  Together billing console (Google or GitHub sign-in — not Facebook, and
+  not Firebase IdP). A 404 from that beta endpoint is an explicit
+  unsupported remaining-credit state; routing still works. No WKWebView
+  session scrape. `TogetherQuotaAdapter` + `unlocksQuotaRefresh` on
+  `meta-together-key`.
+- **xAI / SuperGrok / Grok quota lanes are honest about what they can meter.**
+  GrokBuild still refreshes exact prepaid credits from an `xai-mgmt-…`
+  Management Key. SuperGrok no longer promises a vendor login — remaining
+  prompts stay estimated from OpenBurnBar-routed traffic because xAI has no
+  consumer remaining-quota API. Grok CLI login is detected from a real
+  `~/.grok/auth.json` (or `XAI_API_KEY`), not from an empty `~/.grok` folder.
+  The quota popover splits the three lanes; Connections → Grok Build stays
+  “route the CLI,” not “quota connected.” Account Switcher can run
+  `grok login`. Pinned by `GrokCLIAuthFileTests`, CLI discovery tests, and
+  updated xAI quota adapter / registry tests.
 - **app.burnbar.ai is now reachable from every surface.** The member Data &
   Privacy Control Center existed only as a bare URL — nothing linked to it.
   The website's header More menu, mobile nav, footer trust column, and the
@@ -446,6 +555,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Symbol owed VoiceOver. Pinned by `FluidAuroraKernelTests` (12 tests).
 
 ### Fixed
+- Grok Build CLI's Chat Completions probe no longer pings the first advertised
+  gateway model (usually default local Codex) and then show a missing-`codex`
+  503 on the Grok card. The probe now prefers an advertised `xai` model and
+  fail-closes with the "No route-ready xAI inference key" copy when none is
+  present. Routed-client probe failures also name the model and provider that
+  were actually pinged. Droid / Forge / OpenCode now skip local-CLI executors
+  (`codex`, `factory`) when any HTTP provider is advertised, instead of using
+  bare `.first` as a health oracle ([#2616](https://github.com/Imagine-That-Ai/BurnBar/issues/2616)).
 - Direct-download macOS updates no longer offer a same-build repair tag as an
   upgrade. The live feed advertises `1.0.40+repair.36` at build 82 while the
   installed app reports Apple marketing `1.0.40` at build 82; the checker used
@@ -542,6 +659,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Recovery now asks GoogleSignIn to clear its own store rather than manually
   deleting a legacy item that may belong to another app, and the lockfile gate
   rejects regressions below the Keychain-safe dependency floor.
+- First-party collector now rate-limits before buffering, rejects unreviewed
+  collector hosts (including non-default ports and credentials), drops events
+  that miss their per-event schema, remints a session spine after revoke,
+  finishes device-id creation before the browser transport marks itself
+  started, bounds client timestamps, and does not recapture campaign
+  attribution after decline. Website `app.opened` accepts page surfaces.
+  Funnel events require a surface. Allowlisted product events require
+  their taxonomy properties after sanitize (`arena.vote.recorded` needs
+  `choice`/`rubric`; `auth.sign_in.completed` needs `method`/`outcome`;
+  `download.cta.clicked` needs `placement`; `pricing.cta.clicked` needs
+  `plan`; `nav.external.clicked` needs `destination`;
+  `consent.analytics.granted` needs bounded `consent_version`). This
+  website collector rejects native funnel surfaces and `install.started`.
+  Per-event property sets drop cross-event dimensions and stamp the
+  registry category. The session marker is written only when the
+  collector can send. `email.captured` dedupes per hashed account, not
+  the whole browser. `error.handled` requires bounded `error_category`
+  plus `surface`. The collector stamps `platform: web` on every event.
+  Website collector drops `nav.route.changed`. Email-capture markers are
+  written only when the collector can send. Extension first-activation
+  ignores a synced opt-in setting. `app.session.started` requires
+  `is_first_launch` and `cold_start`; website `boot()` stamps both.
+  Pre-consent email captures keep a hashed pending signal on the
+  session store and flush it from that same store on grant. `screen.viewed` requires `is_first_view`. Every accepted website
+  event needs a website `surface`.   Foreign origins are rejected before
+  the collector rate limiter. `email.captured` `source` is the bounded
+  auth enum. Website events carry a per-tab UUID `session_id` from a
+  CSPRNG.
+  Production hosting may only pin `collect.burnbar.ai`; staging may only
+  pin `collect-staging.burnbar.ai`. Rejected campaign params clear the
+  stored bag. `email.captured` fires once per fresh account, never a
+  restored auth session. The collector reuses one isolate-local limiter
+  when the Wrangler binding is absent.
 - `openburnbar app install` (npm 0.2.2) no longer aborts a verified macOS DMG when the
   public feed advertises a SemVer tag with `+repair.N` (for example
   `1.0.40+repair.34` build 81) and the mounted app's
@@ -644,6 +794,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rows, example recall prompts, and export/forget/Panic controls stay on their
   pages. Content lives in `MemoryWalkthroughContent` and is pinned against the
   live endpoint and shim command by `MemoryMCPWalkthroughTests`.
+- **Opt-in Amplitude funnel contract** — shared CMO acquisition events
+  (`page.viewed`, `app.opened`, `cta.clicked`, `download.clicked`,
+  `install.started`, `email.captured`) in `services/analytics-collector/contract/funnel-contract.ts`,
+  wired through the existing default-off consent gate. The marketing site
+  now POSTs to a first-party collector (`services/analytics-collector/`) so
+  the browser never holds `AMPLITUDE_API_KEY`. Production project is
+  OpenBurnBar `830583`; Dev is `830581`. CubeLove `852537` and Hormiga
+  `703455` / `799824` are rejected. Native apps emit `app.opened` /
+  `install.started` only after the existing Settings opt-in (still off by
+  default). The VS Code extension emits `install.started` on first activation
+  after opt-in. Official `release.yml` injects optional native and extension
+  keys; unset keeps shipping binaries dark. The collector drops unbounded
+  / phone-shaped property values before Amplitude. `csp:check` stays on the committed dark CSP;
+  `deploy-hosting.yml` runs `csp:update` when `PUBLIC_ANALYTICS_COLLECTOR_URL`
+  is set. Docs: `README.md` § Opt-in analytics, `docs/analytics/`.
 - **Monthly Recap** (`docs/RECAP.md`) — a new destination that reads a calendar
   month of AI usage back as an editorial deck of cards: favourite model and
   model+harness pairing, weekday and late-night habits, streaks, project focus,
@@ -1015,6 +1180,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `plugin-fast` job. The editor extension remains source-only / load-unpacked
   (no VS Marketplace / Open VSX listing). Install + auth + sealed-field
   honesty: `docs/OPENBURNBAR_CURSOR_PLUGIN.md`.
+### Added - Per-account burn attribution
+
+- Usage rows now record *which* provider account produced them, so an install
+  with several seats of the same provider (three Cursor seats, three OpenAI
+  accounts) can see burn split per account instead of one merged provider
+  total. The `token_usage` account columns have existed since `v35`; nothing
+  filled them for locally parsed usage until now, so no migration is involved.
+- Local identity resolvers read each tool's own signed-in identity — Cursor
+  (`cursorAuth/cachedEmail`), Codex (`auth.json` account id + `id_token` email
+  claim), Claude Code (`.claude.json` `oauthAccount`) — and a device-local
+  identity timeline attributes each parsed session to the account signed in
+  during that session's window. Attribution is deliberately conservative:
+  sessions spanning an account switch, and history recorded before attribution
+  first ran, stay unattributed rather than being guessed onto a seat. Identity
+  values are stored as the existing anonymized `acct_sha256_…` partition token.
+- Daemon-routed traffic carries the router's credential slot through
+  `BurnBarUsageEvent` into `token_usage`, so gateway burn is attributed too.
+- Attributed rows retire their unattributed predecessor on upsert, so turning
+  attribution on re-keys existing history instead of double-counting it.
+- Surfaced in the dashboard Credential Ranking lane and a new per-provider
+  **Spend by Account** panel. See [`docs/PROVIDER_ACCOUNTS.md`](docs/PROVIDER_ACCOUNTS.md).
+
+### Fixed - Multiple OpenCode Go subscriptions
+
+- Connecting a second OpenCode Go subscription no longer overwrites the first.
+  OpenCode mirrored every credential into the shared `opencode_auth_json`
+  app-keychain account — a singleton — so the provider-level lane silently
+  pinned itself to whichever account was saved last. OpenCode now stores
+  per credential slot, matching Ollama and Anthropic. Existing installs keep
+  working: the legacy mirror is still read, just never written again.
+- OpenCode quota no longer renders one identical card per subscription.
+  OpenCode Go exposes no hosted per-account quota API, so `OpenCodeQuotaAdapter`
+  measures this machine (`opencode.db` spend + `opencode stats` history), which
+  covers every subscription signed in on the device. That estimate is now
+  reported once at provider level — labelled *This Mac · all subscriptions* —
+  instead of being fetched per account and triple-counting one machine in the
+  cumulative merge. Subscriptions remain separate accounts for routing,
+  failover, and per-account burn attribution.
 
 ### Fixed - iPhone mission-approval Deny now persists
 - Tapping **Deny** on an Approvals-waiting card now leaves `waiting_for_approval`

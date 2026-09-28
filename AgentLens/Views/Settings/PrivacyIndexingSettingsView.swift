@@ -39,19 +39,8 @@ struct PrivacyIndexingSettingsView: View {
     @State private var openAIKeySaved = false
     @State private var reembedStatusMessage: String?
     @State private var reembedErrorMessage: String?
-    /// Live Data Vault entitlement (Pro Max or Ultra), the same gate the
-    /// cloud-models section unlocks against. Feeds `memoryDeviceSyncEntitlementSatisfied`
-    /// so the device-sync row's presentation gate never needs its own Firebase
-    /// dependency.
-    @ObservedObject private var deviceSyncEntitlement = MacCloudEntitlementStore.shared
-    @State private var showDeviceSyncUnlockSheet = false
-    /// Collapsed by default: the sync-status row answers "why has nothing
-    /// arrived", which is a question a member only asks when something looks
-    /// wrong. Mirrors the Advanced disclosure in Connections.
-    @State private var isMemorySyncStatusExpanded = false
-    @State private var showTeamMemoryUnlockSheet = false
-    @State private var teamMemoryModel: TeamMemorySectionModel?
-    private static let deviceSyncGatedFeature = GatedFeature.gatedFeature(.dataVault)
+    @State private var showUsageMemoryConsentSheet = false
+    @State private var usageMemoryCloudUpgradePlacement: UsageMemoryModelPlacement?
 
     /// Opt-in analytics consent toggle. Reads/writes the shared tri-state consent
     /// store and notifies the recorder so the Amplitude SDK starts on grant and
@@ -61,6 +50,7 @@ struct PrivacyIndexingSettingsView: View {
             get: { AnalyticsConsentStore.shared.isGranted },
             set: { isOn in
                 Analytics.shared.setConsent(granted: isOn)
+                if isOn { Analytics.trackFunnelSessionStartIfConsented() }
             }
         )
     }
@@ -150,17 +140,9 @@ struct PrivacyIndexingSettingsView: View {
                         }
                     }
 
-                    SettingsToggle(
-                        title: "Back up approved memories",
-                        subtitle: "Off by default. When on, only memories you approve are replicated to your cloud vault, end-to-end sealed. Declining keeps every memory on this Mac.",
-                        isOn: $settingsManager.memoryApprovedCloudBackupOptIn
-                    )
-
-                    deviceSyncRow
-
                     MemoryCloudModelsSection(settingsManager: settingsManager)
 
-                    teamMemorySection
+                    memorySyncLinkRow
 
                     NavigationLink {
                         memoryReviewDestination
@@ -174,9 +156,10 @@ struct PrivacyIndexingSettingsView: View {
                     }
                     .buttonStyle(.plain)
 
-                    memoryHealthSection
-
-                    memorySyncStatusSection
+                    // MARK: Usage memory (U2: consent UI over the U1 gate lattice)
+                    if UsageMemoryRollout.surfacesUserControls {
+                        usageMemorySubsection
+                    }
                 }
                 .padding(.horizontal, DesignSystem.Spacing.lg)
                 // Deep-link target for the Memory walkthrough's "Show me" and
@@ -491,10 +474,6 @@ struct PrivacyIndexingSettingsView: View {
                 refreshHealth()
                 refreshEmbeddingLineage()
             }
-            refreshDeviceSyncEntitlement()
-        }
-        .onChange(of: deviceSyncEntitlement.cloudTier) { _, _ in
-            refreshDeviceSyncEntitlement()
         }
         .onChange(of: settingsManager.conversationIndexingEnabled) { _, newValue in
             Analytics.shared.track(.settingsChanged, [
@@ -587,6 +566,159 @@ struct PrivacyIndexingSettingsView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Removes learned preferences from the memory store. Chat transcripts and token usage are not affected.")
+        }
+        .sheet(isPresented: $showUsageMemoryConsentSheet) {
+            // Mirrors DashboardConsentCoordinator.confirmUsageMemoryConsent:
+            // granting flips the consent key (whose setter marks the prompt
+            // shown); declining only marks it shown so the loop stays dormant.
+            UsageMemoryConsentSheet(settings: settingsManager) { grant in
+                settingsManager.usageMemoryConsentGranted = grant
+                if !grant {
+                    settingsManager.usageMemoryConsentShown = true
+                }
+                showUsageMemoryConsentSheet = false
+            }
+            // U3: while this consent sheet is up, ITS presenter owns the
+            // setup wizard (stacked on top); the usage section's presenter
+            // below stands down (`isActive`) to avoid a queued double-present.
+            .usageMemoryLocalSetupPresenter(settings: settingsManager)
+            .presentationBackground(Material.ultraThinMaterial)
+        }
+        .sheet(item: $usageMemoryCloudUpgradePlacement) { placement in
+            // Cloud-consent-only step: the placement is applied by the flow
+            // model on affirmative consent; declining leaves it untouched.
+            UsageMemoryConsentSheet(
+                settings: settingsManager,
+                mode: .cloudUpgrade(placement)
+            ) { _ in
+                usageMemoryCloudUpgradePlacement = nil
+            }
+            .presentationBackground(Material.ultraThinMaterial)
+        }
+    }
+
+    // MARK: - Usage memory subsection (U2)
+
+    /// Primary toggle for usage memory. Turning it ON for the very first time
+    /// routes through the consent sheet instead of flipping the key directly
+    /// (mirroring how the chat Memory consent works); once the prompt has been
+    /// shown, turning it back ON simply re-grants. Turning it OFF revokes.
+    private var usageMemoryEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { settingsManager.usageMemoryConsentGranted },
+            set: { isOn in
+                if isOn {
+                    if settingsManager.usageMemoryConsentShown {
+                        settingsManager.usageMemoryConsentGranted = true
+                    } else {
+                        showUsageMemoryConsentSheet = true
+                    }
+                } else {
+                    settingsManager.usageMemoryConsentGranted = false
+                }
+            }
+        )
+    }
+
+    private var usageMemorySubsection: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+            SettingsToggle(
+                title: "Usage memory",
+                subtitle: "Propose durable memories from what you actually do — questions you ask in Safari and your recorded agent sessions. Everything is quarantined until you approve it in the review inbox; forget is permanent.",
+                isOn: usageMemoryEnabledBinding
+            )
+
+            if settingsManager.usageMemoryConsentGranted {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    Text("Where curation runs")
+                        .font(DesignSystem.Typography.caption)
+                        .foregroundStyle(DesignSystem.Colors.textSecondary)
+
+                    ForEach(UsageMemoryModelPlacement.allCases) { placement in
+                        usageMemoryPlacementRow(placement)
+                    }
+
+                    if settingsManager.usageMemoryModelPlacement == .local {
+                        // Same affordance (and notification) as the consent
+                        // sheet's placement step; the presenter attached to
+                        // this subsection shows the U3 wizard.
+                        Button {
+                            NotificationCenter.default.post(
+                                name: .usageMemoryLocalModelSetupRequested,
+                                object: nil
+                            )
+                        } label: {
+                            Label("Set up local model…", systemImage: "arrow.down.circle")
+                                .font(DesignSystem.Typography.caption)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    Divider().background(DesignSystem.Colors.border)
+
+                    SettingsToggle(
+                        title: "Safari asks",
+                        subtitle: "Derive usage memory from questions you ask in Safari.",
+                        isOn: $settingsManager.usageMemorySourceSafariAsksEnabled
+                    )
+
+                    SettingsToggle(
+                        title: "Agent sessions",
+                        subtitle: "Derive usage memory from your recorded agent session logs.",
+                        isOn: $settingsManager.usageMemorySourceAgentSessionsEnabled
+                    )
+                }
+                .padding(.leading, DesignSystem.Spacing.lg)
+            }
+
+            if !settingsManager.usageMemoryExtractionRemoteConfigEnabled
+                || !settingsManager.usageMemoryAuthorityWritesRemoteConfigEnabled {
+                HStack(alignment: .top, spacing: DesignSystem.Spacing.xs) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(DesignSystem.Colors.warning)
+                        .padding(.top, 2)
+                    Text("Usage memory is temporarily disabled by your admin. Your browsing and agent sessions are unaffected.")
+                        .font(DesignSystem.Typography.tiny)
+                        .foregroundStyle(DesignSystem.Colors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, DesignSystem.Spacing.sm)
+                .padding(.vertical, DesignSystem.Spacing.xs)
+                .background(DesignSystem.Colors.warning.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: DesignSystem.Radius.sm, style: .continuous))
+            }
+        }
+        // U3: presents the setup wizard for this section's own "Set up local
+        // model…" button. Stands down while the consent sheet is up — the
+        // presenter attached to that sheet's content owns those posts, and a
+        // second observer here would queue a stray duplicate sheet.
+        .usageMemoryLocalSetupPresenter(
+            settings: settingsManager,
+            isActive: !showUsageMemoryConsentSheet && usageMemoryCloudUpgradePlacement == nil
+        )
+    }
+
+    /// One selectable placement row. Selecting a cloud placement without the
+    /// separate cloud-curation consent presents the affirmative cloud-consent
+    /// step and only applies the placement when the user accepts it there.
+    private func usageMemoryPlacementRow(_ placement: UsageMemoryModelPlacement) -> some View {
+        Button {
+            selectUsageMemoryPlacement(placement)
+        } label: {
+            UsageMemoryPlacementRowLabel(
+                placement: placement,
+                isSelected: settingsManager.usageMemoryModelPlacement == placement
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func selectUsageMemoryPlacement(_ placement: UsageMemoryModelPlacement) {
+        if placement.isCloud && !settingsManager.usageMemoryCloudCurationConsentGranted {
+            usageMemoryCloudUpgradePlacement = placement
+        } else {
+            settingsManager.usageMemoryModelPlacement = placement
         }
     }
 
@@ -803,6 +935,313 @@ struct PrivacyIndexingSettingsView: View {
         )
     }
 
+    // MARK: - Helper Views
+
+    /// The signpost to the canonical Memory Sync pane.
+    ///
+    /// The sync switches themselves are NOT rendered here. Two independently
+    /// mounted copies of a consent toggle is how a member ends up looking at an
+    /// "On" in one place and an "Off" in another, so this page shows the
+    /// effective state and a way in, and `MemorySyncSettingsView` owns the
+    /// controls. The value below reads the same effective gate the pane's own
+    /// switch does (`memoryDeviceSyncEnabled`), not the raw sub-toggle.
+    private var memorySyncLinkRow: some View {
+        NavigationLink(value: SettingsPageRoute.memorySync) {
+            SettingsDrillRow(
+                icon: "arrow.triangle.2.circlepath",
+                iconTint: DesignSystem.Colors.teal,
+                title: MemorySyncCopy.title,
+                subtitle: MemorySyncCopy.rowSubtitle,
+                value: MemorySyncCopy.rowValue(settingsManager),
+                valueTint: settingsManager.memoryDeviceSyncEnabled
+                    ? DesignSystem.Colors.success
+                    : DesignSystem.Colors.textMuted
+            )
+        }
+        .buttonStyle(.plain)
+        .settingsAnchor(SettingsAnchor.indexingMemorySyncLink)
+    }
+
+    /// Destination for the "Review pending memories" link. Builds the inbox over
+    /// the shared `ControlPlaneStore` when the runtime context is wired; otherwise
+    /// shows a graceful unavailable state so the link never dead-ends.
+    @ViewBuilder
+    private var memoryReviewDestination: some View {
+        if let store = runtimeContext?.chatMemoryStore {
+            MemoryReviewInboxHost(
+                store: store,
+                scope: MemoryScope(appID: "openburnbar"),
+                userID: accountManager.userID
+            )
+            .id(ObjectIdentifier(store))
+            .navigationTitle("Memory")
+        } else {
+            ContentUnavailableView(
+                "Memory is unavailable",
+                systemImage: "brain.head.profile",
+                description: Text("The memory store is not ready yet. It activates once OpenBurnBar finishes starting up.")
+            )
+            .navigationTitle("Memory")
+        }
+    }
+
+    private func metricPill(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(DesignSystem.Typography.tiny)
+                .foregroundStyle(DesignSystem.Colors.textMuted)
+            Text(value)
+                .font(DesignSystem.Typography.monoSmall)
+                .foregroundStyle(DesignSystem.Colors.textPrimary)
+        }
+    }
+
+    private func indexingProgressRow(title: String, fraction: Double, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+            HStack {
+                Text(title)
+                    .font(DesignSystem.Typography.caption)
+                    .foregroundStyle(DesignSystem.Colors.textPrimary)
+                Spacer()
+                Text("\(Int((fraction * 100).rounded()))%")
+                    .font(DesignSystem.Typography.monoSmall)
+                    .foregroundStyle(DesignSystem.Colors.textSecondary)
+            }
+
+            ProgressView(value: max(0.0, min(1.0, fraction)))
+                .progressViewStyle(.linear)
+
+            Text(detail)
+                .font(DesignSystem.Typography.tiny)
+                .foregroundStyle(DesignSystem.Colors.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func formatBytes(_ n: Int64) -> String {
+        if n < 1024 { return "\(n) B" }
+        let kb = Double(n) / 1024
+        if kb < 1024 { return String(format: "%.1f KB", kb) }
+        return String(format: "%.1f MB", kb / 1024)
+    }
+}
+
+// MARK: - Memory Sync
+
+extension MemorySyncCopy {
+    /// The summary value both drill rows show. Reads the EFFECTIVE gate, not the
+    /// raw sub-toggle, so a row can never say "On" while the pull is closed by
+    /// the entitlement, the backup opt-in, or the fleet ceiling.
+    @MainActor
+    static func rowValue(_ settingsManager: SettingsManager) -> String {
+        settingsManager.memoryDeviceSyncEnabled ? "On" : "Off"
+    }
+}
+
+/// Canonical Memory Sync pane. Everything that decides whether a memory leaves
+/// this Mac, or arrives on it, is on this one screen: the backup opt-in, the
+/// device-sync sub-toggle it gates, team spaces, the health card, and the
+/// diagnostic status row.
+struct MemorySyncSettingsView: View {
+    @Bindable var settingsManager: SettingsManager
+    /// Live runtime context. Supplies the shared `ControlPlaneStore` the health
+    /// card and the status row read, and the sync domain the team section
+    /// invalidates on leave. Optional so callers without a runtime context still
+    /// compile; those surfaces then self-hide rather than dead-ending.
+    var runtimeContext: OpenBurnBarRuntimeContext?
+    var accountManager: AccountManager = .shared
+
+    /// Live Data Vault entitlement (Pro Max or Ultra), the same gate the
+    /// cloud-models section unlocks against.
+    @ObservedObject private var deviceSyncEntitlement = MacCloudEntitlementStore.shared
+    @State private var showDeviceSyncUnlockSheet = false
+    @State private var showTeamMemoryUnlockSheet = false
+    @State private var teamMemoryModel: TeamMemorySectionModel?
+    /// Collapsed by default: the sync-status row answers "why has nothing
+    /// arrived", which is a question a member only asks when something looks
+    /// wrong. Mirrors the Advanced disclosure in Connections.
+    @State private var isMemorySyncStatusExpanded = false
+
+    private static let deviceSyncGatedFeature = GatedFeature.gatedFeature(.dataVault)
+
+    var body: some View {
+        SettingsDeepLinkScrollContainer(route: .memorySync) { _ in
+            ScrollView {
+                GlassCard {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                        summaryHeader
+
+                        Divider().background(DesignSystem.Colors.border)
+
+                        SettingsToggle(
+                            title: "Back up approved memories",
+                            subtitle: "Off by default. When on, only memories you approve are replicated to your cloud vault, end-to-end sealed. Declining keeps every memory on this Mac.",
+                            isOn: $settingsManager.memoryApprovedCloudBackupOptIn
+                        )
+                        .settingsAnchor(SettingsAnchor.memorySyncBackup)
+
+                        deviceSyncRow
+
+                        gitBoundaryFootnote
+
+                        Divider().background(DesignSystem.Colors.border)
+
+                        teamMemorySection
+
+                        memoryHealthSection
+
+                        memorySyncStatusSection
+                    }
+                    .padding(DesignSystem.Spacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(DesignSystem.Spacing.lg)
+            }
+        }
+        .background(DesignSystem.Colors.background)
+        .navigationTitle(MemorySyncCopy.title)
+        .onAppear { refreshDeviceSyncEntitlement() }
+        .onChange(of: deviceSyncEntitlement.cloudTier) { _, _ in
+            refreshDeviceSyncEntitlement()
+        }
+    }
+
+    // MARK: - Header
+
+    private var summaryHeader: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(DesignSystem.Colors.teal)
+                Text(MemorySyncCopy.title)
+                    .font(DesignSystem.Typography.body)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(DesignSystem.Colors.textPrimary)
+            }
+            Text(MemorySyncCopy.summary)
+                .font(DesignSystem.Typography.tiny)
+                .foregroundStyle(DesignSystem.Colors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .settingsAnchor(SettingsAnchor.memorySyncOverview)
+    }
+
+    private var gitBoundaryFootnote: some View {
+        Text(MemorySyncCopy.gitBoundaryNote)
+            .font(DesignSystem.Typography.tiny)
+            .foregroundStyle(DesignSystem.Colors.textMuted)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // MARK: - Device sync
+
+    /// "Sync memories to my other devices". Below the Data Vault tier the row
+    /// sits behind `LockedFeatureVeil` with a real unlock path, mirroring
+    /// `MemoryCloudModelsSection` — a member who cannot use the feature is shown
+    /// what it is and how to get it, not a dead grey switch. The other two
+    /// levers (the backup opt-in and the fleet ceiling) keep the plain disabled
+    /// + explanatory-subtitle treatment, because those the member can resolve
+    /// on this same screen or not at all.
+    @ViewBuilder
+    private var deviceSyncRow: some View {
+        Group {
+            if deviceSyncIsUnlocked {
+                deviceSyncToggle
+            } else {
+                LockedFeatureVeil(
+                    headline: "Sync memories to my other devices",
+                    detail: "Pro. Approved memories your other signed-in devices backed up are pulled down onto this Mac, end-to-end sealed. BurnBar never sees them.",
+                    ctaLabel: "See Pro",
+                    icon: "arrow.triangle.2.circlepath",
+                    action: { showDeviceSyncUnlockSheet = true },
+                    background: { deviceSyncToggle.disabled(true) }
+                )
+            }
+        }
+        .settingsAnchor(SettingsAnchor.memorySyncDeviceToggle)
+        .sheet(isPresented: $showDeviceSyncUnlockSheet) {
+            FeatureUnlockSheet(feature: Self.deviceSyncGatedFeature)
+        }
+    }
+
+    /// The switch itself — off by default, and reading off whenever the
+    /// effective gate is closed (sub-toggle off, backup opt-in off, the fleet
+    /// ceiling closed, or no Data Vault entitlement) regardless of what the raw
+    /// sub-toggle is persisted as, so a greyed-out switch never appears to
+    /// silently be on.
+    private var deviceSyncToggle: some View {
+        SettingsToggle(
+            title: "Sync memories to my other devices",
+            subtitle: deviceSyncSubtitle,
+            isOn: deviceSyncBinding
+        )
+        .disabled(!settingsManager.memoryDeviceSyncRowUnlocked)
+    }
+
+    private var deviceSyncSubtitle: String {
+        // The fleet ceiling FIRST. `memoryApprovedCloudBackupEnabled` folds the
+        // Remote Config ceiling into the user opt-in, so a fleet kill switch
+        // used to render as "Turn on 'Back up approved memories' first" while
+        // that toggle visibly read ON — telling the member to do something they
+        // had already done and that would not have helped.
+        if !settingsManager.memoryExtractionRemoteConfigEnabled {
+            return "Temporarily unavailable — memory sync is paused for all OpenBurnBar users. Nothing you can change on this Mac affects it; it comes back on its own."
+        }
+        if !settingsManager.memoryApprovedCloudBackupEnabled {
+            return "Turn on \"Back up approved memories\" above first. Off by default — pulls your approved memories back down from your other signed-in devices too."
+        }
+        if !settingsManager.memoryDeviceSyncEntitlementSatisfied {
+            return "Requires the Data Vault plan (Pro Max or Ultra). Off by default — pulls your approved memories back down from your other signed-in devices too."
+        }
+        return "Off by default. When on, approved memories your other signed-in devices backed up are pulled down and merged into this Mac's memory too."
+    }
+
+    private var deviceSyncBinding: Binding<Bool> {
+        Binding(
+            get: { settingsManager.memoryDeviceSyncRowEnabled },
+            set: { isOn in
+                settingsManager.memoryDeviceSyncOptIn = isOn
+                enforceDeviceSyncInboxScope()
+            }
+        )
+    }
+
+    /// Applies the member's decision to the inbox at once, rather than on the
+    /// next sync tick. Turning device sync OFF withdraws consent for facts that
+    /// are already parked and not yet merged, so those go now and the daemon's
+    /// consent marker is withdrawn with them — a member who flips the switch off
+    /// and immediately runs an agent must not have a pending drain land anyway.
+    /// `MemoryCloudSyncDomain` enforces the same scope every cycle; this is the
+    /// immediacy the switch itself promises.
+    private func enforceDeviceSyncInboxScope() {
+        guard let store = runtimeContext?.chatMemoryStore else { return }
+        // Generation BEFORE scope — see `MemoryDeviceSyncInboxGuard.observeGeneration`.
+        let observedGeneration = MemoryDeviceSyncInboxGuard.observeGeneration(store: store)
+        // The SAME computation `MemoryCloudSyncDomain.gateSnapshot()` uses, by
+        // construction. Built here from `memoryDeviceSyncEnabled` alone, this
+        // path published a fresh daemon consent marker for a member whose
+        // ACCOUNT-wide cloud sync was off — pending remote facts could then
+        // drain into the engine until the next refresh tick withdrew it.
+        let scope = MemoryDeviceSyncScope.current(account: accountManager, settings: settingsManager)
+        Task {
+            do {
+                try await MemoryDeviceSyncInboxGuard.enforce(
+                    scope: scope,
+                    observedGeneration: observedGeneration,
+                    store: store
+                )
+            } catch {
+                // The next sync tick enforces the same scope, so a failure here
+                // delays the purge rather than losing it.
+                AppLogger.sync.error(
+                    "memory_device_sync_toggle_inbox_guard_failed",
+                    metadata: ["error_type": String(describing: type(of: error))]
+                )
+            }
+        }
+    }
+
     /// Pushes the live Data Vault tier into the settings coordinator's
     /// non-persisted entitlement snapshot. Idempotent — safe from `.onAppear`
     /// and every `.onChange(of: deviceSyncEntitlement.cloudTier)` firing.
@@ -818,6 +1257,8 @@ struct PrivacyIndexingSettingsView: View {
     private var deviceSyncIsUnlocked: Bool {
         deviceSyncEntitlement.cloudTier.satisfies(Self.deviceSyncGatedFeature.requiredTier)
     }
+
+    // MARK: - Team memory
 
     /// Team memory (memory program D16). Same entitlement and the same veil as
     /// the device-sync row, because it is the same lane: `TeamMemorySyncGate`
@@ -953,119 +1394,11 @@ struct PrivacyIndexingSettingsView: View {
         )
     }
 
-    /// "Sync memories to my other devices". Below the Data Vault tier the row
-    /// sits behind `LockedFeatureVeil` with a real unlock path, mirroring
-    /// `MemoryCloudModelsSection` — a member who cannot use the feature is shown
-    /// what it is and how to get it, not a dead grey switch. The other two
-    /// levers (the backup opt-in and the fleet ceiling) keep the plain disabled
-    /// + explanatory-subtitle treatment, because those the member can resolve
-    /// on this same screen or not at all.
-    @ViewBuilder
-    private var deviceSyncRow: some View {
-        Group {
-            if deviceSyncIsUnlocked {
-                deviceSyncToggle
-            } else {
-                LockedFeatureVeil(
-                    headline: "Sync memories to my other devices",
-                    detail: "Pro. Approved memories your other signed-in devices backed up are pulled down onto this Mac, end-to-end sealed. BurnBar never sees them.",
-                    ctaLabel: "See Pro",
-                    icon: "arrow.triangle.2.circlepath",
-                    action: { showDeviceSyncUnlockSheet = true },
-                    background: { deviceSyncToggle.disabled(true) }
-                )
-            }
-        }
-        .settingsAnchor(SettingsAnchor.indexingMemoryDeviceSync)
-        .sheet(isPresented: $showDeviceSyncUnlockSheet) {
-            FeatureUnlockSheet(feature: Self.deviceSyncGatedFeature)
-        }
-    }
+    // MARK: - Health and status
 
-    /// The switch itself — off by default, and reading off whenever the
-    /// effective gate is closed (sub-toggle off, backup opt-in off, the fleet
-    /// ceiling closed, or no Data Vault entitlement) regardless of what the raw
-    /// sub-toggle is persisted as, so a greyed-out switch never appears to
-    /// silently be on.
-    private var deviceSyncToggle: some View {
-        SettingsToggle(
-            title: "Sync memories to my other devices",
-            subtitle: deviceSyncSubtitle,
-            isOn: deviceSyncBinding
-        )
-        .disabled(!settingsManager.memoryDeviceSyncRowUnlocked)
-    }
-
-    private var deviceSyncSubtitle: String {
-        // The fleet ceiling FIRST. `memoryApprovedCloudBackupEnabled` folds the
-        // Remote Config ceiling into the user opt-in, so a fleet kill switch
-        // used to render as "Turn on 'Back up approved memories' first" while
-        // that toggle visibly read ON — telling the member to do something they
-        // had already done and that would not have helped.
-        if !settingsManager.memoryExtractionRemoteConfigEnabled {
-            return "Temporarily unavailable — memory sync is paused for all OpenBurnBar users. Nothing you can change on this Mac affects it; it comes back on its own."
-        }
-        if !settingsManager.memoryApprovedCloudBackupEnabled {
-            return "Turn on \"Back up approved memories\" first. Off by default — pulls your approved memories back down from your other signed-in devices too."
-        }
-        if !settingsManager.memoryDeviceSyncEntitlementSatisfied {
-            return "Requires the Data Vault plan (Pro Max or Ultra). Off by default — pulls your approved memories back down from your other signed-in devices too."
-        }
-        return "Off by default. When on, approved memories your other signed-in devices backed up are pulled down and merged into this Mac's memory too."
-    }
-
-    private var deviceSyncBinding: Binding<Bool> {
-        Binding(
-            get: { settingsManager.memoryDeviceSyncRowEnabled },
-            set: { isOn in
-                settingsManager.memoryDeviceSyncOptIn = isOn
-                enforceDeviceSyncInboxScope()
-            }
-        )
-    }
-
-    /// Applies the member's decision to the inbox at once, rather than on the
-    /// next sync tick. Turning device sync OFF withdraws consent for facts that
-    /// are already parked and not yet merged, so those go now and the daemon's
-    /// consent marker is withdrawn with them — a member who flips the switch off
-    /// and immediately runs an agent must not have a pending drain land anyway.
-    /// `MemoryCloudSyncDomain` enforces the same scope every cycle; this is the
-    /// immediacy the switch itself promises.
-    private func enforceDeviceSyncInboxScope() {
-        guard let store = runtimeContext?.chatMemoryStore else { return }
-        // Generation BEFORE scope — see `MemoryDeviceSyncInboxGuard.observeGeneration`.
-        let observedGeneration = MemoryDeviceSyncInboxGuard.observeGeneration(store: store)
-        // The SAME computation `MemoryCloudSyncDomain.gateSnapshot()` uses, by
-        // construction. Built here from `memoryDeviceSyncEnabled` alone, this
-        // path published a fresh daemon consent marker for a member whose
-        // ACCOUNT-wide cloud sync was off — pending remote facts could then
-        // drain into the engine until the next refresh tick withdrew it.
-        let scope = MemoryDeviceSyncScope.current(account: accountManager, settings: settingsManager)
-        Task {
-            do {
-                try await MemoryDeviceSyncInboxGuard.enforce(
-                    scope: scope,
-                    observedGeneration: observedGeneration,
-                    store: store
-                )
-            } catch {
-                // The next sync tick enforces the same scope, so a failure here
-                // delays the purge rather than losing it.
-                AppLogger.sync.error(
-                    "memory_device_sync_toggle_inbox_guard_failed",
-                    metadata: ["error_type": String(describing: type(of: error))]
-                )
-            }
-        }
-    }
-
-    // MARK: - Helper Views
-
-    /// Per-project memory health, beside the pending-review link because they
-    /// answer the same question from two sides: what is waiting for you, and
-    /// what is wrong. Counters come from the local daemon over the existing
-    /// `daemon.memory.analytics` RPC; every finding is one this Mac measured
-    /// itself, and the card says so.
+    /// Per-project memory health. Counters come from the local daemon over the
+    /// existing `daemon.memory.analytics` RPC; every finding is one this Mac
+    /// measured itself, and the card says so.
     ///
     /// The host picks its own subject from the projects the daemon has already
     /// recorded. Settings has no project scope of its own, and passing that
@@ -1079,7 +1412,7 @@ struct PrivacyIndexingSettingsView: View {
                 daemonManager: runtimeContext?.daemonManager,
                 accountUid: accountManager.userID
             )
-            .settingsAnchor(SettingsAnchor.indexingMemoryHealth)
+            .settingsAnchor(SettingsAnchor.memorySyncHealth)
         }
     }
 
@@ -1115,70 +1448,7 @@ struct PrivacyIndexingSettingsView: View {
                 RoundedRectangle(cornerRadius: DesignSystem.Radius.md, style: .continuous)
                     .fill(DesignSystem.Colors.surfaceElevated.opacity(0.22))
             )
-            .settingsAnchor(SettingsAnchor.indexingMemorySyncStatus)
+            .settingsAnchor(SettingsAnchor.memorySyncStatus)
         }
-    }
-
-    /// Destination for the "Review pending memories" link. Builds the inbox over
-    /// the shared `ControlPlaneStore` when the runtime context is wired; otherwise
-    /// shows a graceful unavailable state so the link never dead-ends.
-    @ViewBuilder
-    private var memoryReviewDestination: some View {
-        if let store = runtimeContext?.chatMemoryStore {
-            MemoryReviewInboxHost(
-                store: store,
-                scope: MemoryScope(appID: "openburnbar"),
-                userID: accountManager.userID
-            )
-            .id(ObjectIdentifier(store))
-            .navigationTitle("Memory")
-        } else {
-            ContentUnavailableView(
-                "Memory is unavailable",
-                systemImage: "brain.head.profile",
-                description: Text("The memory store is not ready yet. It activates once OpenBurnBar finishes starting up.")
-            )
-            .navigationTitle("Memory")
-        }
-    }
-
-    private func metricPill(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(DesignSystem.Typography.tiny)
-                .foregroundStyle(DesignSystem.Colors.textMuted)
-            Text(value)
-                .font(DesignSystem.Typography.monoSmall)
-                .foregroundStyle(DesignSystem.Colors.textPrimary)
-        }
-    }
-
-    private func indexingProgressRow(title: String, fraction: Double, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
-            HStack {
-                Text(title)
-                    .font(DesignSystem.Typography.caption)
-                    .foregroundStyle(DesignSystem.Colors.textPrimary)
-                Spacer()
-                Text("\(Int((fraction * 100).rounded()))%")
-                    .font(DesignSystem.Typography.monoSmall)
-                    .foregroundStyle(DesignSystem.Colors.textSecondary)
-            }
-
-            ProgressView(value: max(0.0, min(1.0, fraction)))
-                .progressViewStyle(.linear)
-
-            Text(detail)
-                .font(DesignSystem.Typography.tiny)
-                .foregroundStyle(DesignSystem.Colors.textMuted)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func formatBytes(_ n: Int64) -> String {
-        if n < 1024 { return "\(n) B" }
-        let kb = Double(n) / 1024
-        if kb < 1024 { return String(format: "%.1f KB", kb) }
-        return String(format: "%.1f MB", kb / 1024)
     }
 }

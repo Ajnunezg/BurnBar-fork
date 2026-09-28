@@ -3,6 +3,7 @@ import Foundation
 import FirebaseCore
 import FirebaseRemoteConfig
 import Observation
+import OpenBurnBarAnalytics
 import OpenBurnBarCore
 
 // MARK: - Settings Manager
@@ -114,6 +115,7 @@ final class SettingsManager {
     ) {
         let coordinator = SettingsPersistenceCoordinator(defaults: defaults, flushDelayNanoseconds: flushDelayNanoseconds)
         self.persistence = coordinator
+        Self.migrateHasLaunchedBeforeIfNeeded(persistence: coordinator)
 
         let controllerSecretPersistence = SettingsSecretPersistence(
             defaults: defaults,
@@ -175,72 +177,25 @@ final class SettingsManager {
         // re-render when the underlying AppearanceSettings value changes.
         // @Observable only auto-tracks stored properties; computed bridges
         // need this forwarding to guarantee SwiftUI refreshes.
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appearanceSubStoreDidChange),
-            name: .appearanceModeDidChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appearanceSubStoreDidChange),
-            name: .appearanceSkinDidChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appearanceSubStoreDidChange),
-            name: .dashboardLayoutDidChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appearanceSubStoreDidChange),
-            name: .useWebsiteBackgroundDidChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appearanceSubStoreDidChange),
-            name: .useConstellationBackgroundDidChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appearanceSubStoreDidChange),
-            name: .enableDesktopWallpaperDidChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appearanceSubStoreDidChange),
-            name: .desktopWallpaperBackgroundDidChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appearanceSubStoreDidChange),
-            name: .desktopWallpaperSpeedDidChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appearanceSubStoreDidChange),
-            name: .desktopWallpaperProviderGlyphsDidChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appearanceSubStoreDidChange),
-            name: .enableSwarmSparklesDidChange,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appearanceSubStoreDidChange),
-            name: .excludeBrandShapesFromSwarmDidChange,
-            object: nil
-        )
+        let appearanceNotifications: [Notification.Name] = [
+            .appearanceModeDidChange,
+            .appearanceSkinDidChange,
+            .dashboardLayoutDidChange,
+            .useWebsiteBackgroundDidChange,
+            .useConstellationBackgroundDidChange,
+            .enableDesktopWallpaperDidChange,
+            .desktopWallpaperBackgroundDidChange,
+            .desktopWallpaperSpeedDidChange,
+            .desktopWallpaperProviderGlyphsDidChange,
+            .enableSwarmSparklesDidChange,
+            .excludeBrandShapesFromSwarmDidChange,
+            .popoverTrayLayoutDidChange
+        ]
+        for name in appearanceNotifications {
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(appearanceSubStoreDidChange), name: name, object: nil
+            )
+        }
         startComputerUseRemoteConfigPolling()
     }
 
@@ -534,6 +489,11 @@ final class SettingsManager {
         set { appearance.showInMenuBar = newValue }
     }
 
+    var popoverTrayLayout: PopoverTrayLayout {
+        get { _ = appearanceMutationVersion; return appearance.popoverTrayLayout }
+        set { appearance.popoverTrayLayout = newValue }
+    }
+
     var colorfulMenuBarIcon: Bool {
         get { _ = appearanceMutationVersion; return appearance.colorfulMenuBarIcon }
         set { appearance.colorfulMenuBarIcon = newValue }
@@ -743,8 +703,8 @@ final class SettingsManager {
     var gatewayConfigurationDict: [String: Any] {
         [
             "enabled": gatewayEnabled,
-            "host": gatewayHost.isEmpty ? "127.0.0.1" : gatewayHost,
-            "port": gatewayPort > 0 ? gatewayPort : 8317
+            "host": LocalService.openBurnBarGateway.resolvedHost(gatewayHost),
+            "port": LocalService.openBurnBarGateway.resolvedPort(gatewayPort)
         ]
     }
 
@@ -1322,9 +1282,28 @@ final class SettingsManager {
         providerPath.resolvedPath(for: provider, restrictedLogAccess: index.restrictedLogAccess)
     }
 
-    // MARK: First Launch
+    // MARK: First Launch (`hasLaunchedBefore` drives the opt-in funnel's `install.started`)
     var isFirstLaunch: Bool {
-        !persistence.bool(forKey: "hasLaunchedBefore")
+        if !persistence.objectExists(forKey: "hasLaunchedBefore"),
+           persistence.objectExists(forKey: AnalyticsConsentStorage.key) { markHasLaunchedBefore() }
+        return !persistence.bool(forKey: "hasLaunchedBefore")
+    }
+    func markHasLaunchedBefore() { Self.markHasLaunchedBefore(persistence: persistence) }
+    /// Prior builds never wrote `hasLaunchedBefore`; prior-install evidence (read at init,
+    /// before stores write defaults) means an upgrade, which must not emit `install.started`.
+    static func migrateHasLaunchedBeforeIfNeeded(persistence: SettingsPersistenceCoordinator) {
+        let evidence = [AnalyticsConsentStorage.key, "appearanceMode", "preferLightAppearance",
+                        "databaseEncryptionEnabled", "refreshInterval", "selectedOnboardingProvidersCSV",
+                        "chatBackendOnboardingCompleted", "conversationIndexingConsentShown"]
+        guard !persistence.objectExists(forKey: "hasLaunchedBefore"),
+              evidence.contains(where: { persistence.objectExists(forKey: $0) }) else { return }
+        markHasLaunchedBefore(persistence: persistence)
+    }
+    /// Seeds `showInMenuBar` first: absent must stay `true`, not UserDefaults' missing-key false.
+    private static func markHasLaunchedBefore(persistence: SettingsPersistenceCoordinator) {
+        if !persistence.objectExists(forKey: "showInMenuBar") { persistence.set(true, forKey: "showInMenuBar") }
+        persistence.set(true, forKey: "hasLaunchedBefore")
+        persistence.flush()
     }
 
     // MARK: Usage Formatting

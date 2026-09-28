@@ -4,91 +4,6 @@ import OpenBurnBarKernel
 import OpenBurnBarLogParsers
 import OpenBurnBarUI
 
-enum DesktopWallpaperBackground: String, CaseIterable, Codable, Hashable, Identifiable {
-    case macOSDesktop
-    case midnight
-    case amoledBlack
-    case graphite
-    case warmEmber
-    case deepIndigo
-    case auroraTeal
-    case sunsetCrimson
-    case cyberpunkViolet
-    case forestMoss
-    case solarFlare
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .macOSDesktop: return "BurnBar Desktop"
-        case .midnight: return "Midnight"
-        case .amoledBlack: return "AMOLED Black"
-        case .graphite: return "Graphite"
-        case .warmEmber: return "Warm Ember"
-        case .deepIndigo: return "Deep Indigo"
-        case .auroraTeal: return "Aurora Teal"
-        case .sunsetCrimson: return "Sunset Crimson"
-        case .cyberpunkViolet: return "Cyberpunk Violet"
-        case .forestMoss: return "Forest Moss"
-        case .solarFlare: return "Solar Flare"
-        }
-    }
-
-    var detailText: String {
-        switch self {
-        case .macOSDesktop: return "Use a BurnBar-owned macOS-style gradient under the live swarm."
-        case .midnight: return "A quiet near-black surface with a soft blue cast."
-        case .amoledBlack: return "Pitch black for OLED and maximum particle contrast."
-        case .graphite: return "Neutral dark gray for less contrast than black."
-        case .warmEmber: return "Dark warm brown tuned for BurnBar embers."
-        case .deepIndigo: return "A deep violet-blue stage for provider colors."
-        case .auroraTeal: return "An ethereal deep teal wash inspired by northern lights."
-        case .sunsetCrimson: return "A premium dark velvet burgundy-red sunset mood."
-        case .cyberpunkViolet: return "A futuristic dark indigo-magenta cybernetic grid backdrop."
-        case .forestMoss: return "A quiet dark pine green inspired by ancient foggy forests."
-        case .solarFlare: return "A stellar dark solar corona backdrop with rich golden accents."
-        }
-    }
-
-    var iconName: String {
-        switch self {
-        case .macOSDesktop: return "desktopcomputer"
-        case .midnight: return "moon.stars.fill"
-        case .amoledBlack: return "circle.fill"
-        case .graphite: return "square.fill"
-        case .warmEmber: return "flame.fill"
-        case .deepIndigo: return "sparkles"
-        case .auroraTeal: return "leaf.fill"
-        case .sunsetCrimson: return "sunset.fill"
-        case .cyberpunkViolet: return "bolt.horizontal.fill"
-        case .forestMoss: return "tree.fill"
-        case .solarFlare: return "sun.max.fill"
-        }
-    }
-
-    var isTransparent: Bool {
-        false
-    }
-
-    var swarmPalette: SwarmColorPalette {
-        switch self {
-        case .macOSDesktop, .midnight, .amoledBlack, .graphite, .warmEmber, .deepIndigo:
-            return .defaultEmber
-        case .auroraTeal:
-            return .auroraTeal
-        case .sunsetCrimson:
-            return .sunsetCrimson
-        case .cyberpunkViolet:
-            return .cyberpunkViolet
-        case .forestMoss:
-            return .forestMoss
-        case .solarFlare:
-            return .solarFlare
-        }
-    }
-}
-
 // MARK: - Appearance Settings
 
 @Observable
@@ -147,6 +62,18 @@ final class AppearanceSettings {
 
     var showInMenuBar: Bool = true {
         didSet { persistence.set(showInMenuBar, forKey: "showInMenuBar") }
+    }
+
+    /// Menu-bar popover body layout: section order, hide/collapse, relative
+    /// weight, min/max, and drag-pinned heights. Canonical JSON plus the older
+    /// order/heights keys so a rollback still sees order and sizes.
+    var popoverTrayLayout: PopoverTrayLayout = .default() {
+        didSet {
+            persistence.set(popoverTrayLayout.encodeJSON(), forKey: PopoverTrayLayout.storageKey)
+            persistence.set(popoverTrayLayout.legacyOrderCSV(), forKey: PopoverTrayLayout.legacyOrderKey)
+            persistence.set(popoverTrayLayout.legacyHeightsJSON(), forKey: PopoverTrayLayout.legacyHeightsKey)
+            NotificationCenter.default.post(name: .popoverTrayLayoutDidChange, object: nil)
+        }
     }
 
     /// When `true`, the menu bar icon renders in full color instead of the
@@ -277,8 +204,33 @@ final class AppearanceSettings {
         // coordinator so a fresh suite stays consistent. Defaults to `.aurora`.
         self.dashboardLayout = DashboardLayout.current
         self.dashboardLaunchSurface = DashboardLaunchSurface.current
-        let hasLaunched = persistence.bool(forKey: "hasLaunchedBefore")
-        self.showInMenuBar = hasLaunched ? persistence.bool(forKey: "showInMenuBar") : true
+        self.popoverTrayLayout = PopoverTrayLayoutStore.load(
+            json: persistence.optionalString(forKey: PopoverTrayLayout.storageKey),
+            legacyOrder: persistence.optionalString(forKey: PopoverTrayLayout.legacyOrderKey),
+            legacyHeightsJSON: persistence.optionalString(forKey: PopoverTrayLayout.legacyHeightsKey)
+        )
+        // Init does not fire didSet. Write the canonical JSON (and the legacy
+        // mirrors) so a migrated layout survives the next launch even if the
+        // user never touches a control.
+        persistence.set(self.popoverTrayLayout.encodeJSON(), forKey: PopoverTrayLayout.storageKey)
+        persistence.set(self.popoverTrayLayout.legacyOrderCSV(), forKey: PopoverTrayLayout.legacyOrderKey)
+        persistence.set(self.popoverTrayLayout.legacyHeightsJSON(), forKey: PopoverTrayLayout.legacyHeightsKey)
+        // First-launch default: menu bar visible. After first launch, honor the
+        // stored value (false if the user hid it).
+        //
+        // Do not use `hasLaunchedBefore` as a proxy for this key. Swift `didSet`
+        // does not run during `init`, so a fresh install that leaves the toggle
+        // untouched never persists `showInMenuBar`. The first-party funnel then
+        // writes `hasLaunchedBefore` during startup; the next process would take
+        // the "already launched" branch and `bool(forKey:)` would treat the
+        // absent key as `false` — hiding the menu-bar extra in an LSUIElement
+        // app with no default Dock icon.
+        if persistence.objectExists(forKey: "showInMenuBar") {
+            self.showInMenuBar = persistence.bool(forKey: "showInMenuBar")
+        } else {
+            self.showInMenuBar = true
+            persistence.set(true, forKey: "showInMenuBar")
+        }
         self.colorfulMenuBarIcon = persistence.bool(forKey: "colorfulMenuBarIcon")
         self.usePremiumSOTAUX = persistence.bool(forKey: "usePremiumSOTAUX")
         // Opt new installs into the live provider-glyph swarm backdrop so the
@@ -352,4 +304,5 @@ extension Notification.Name {
     static let clickDesktopToCycleSwarmDidChange = Notification.Name("com.openburnbar.appearance.clickDesktopToCycleSwarmDidChange")
     static let desktopWallpaperSpeedDidChange = Notification.Name("com.openburnbar.appearance.desktopWallpaperSpeedDidChange")
     static let desktopWallpaperProviderGlyphsDidChange = Notification.Name("com.openburnbar.appearance.desktopWallpaperProviderGlyphsDidChange")
+    static let popoverTrayLayoutDidChange = Notification.Name("com.openburnbar.appearance.popoverTrayLayoutDidChange")
 }

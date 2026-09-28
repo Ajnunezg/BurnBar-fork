@@ -61,7 +61,7 @@ jobs:
       STAGING_ENABLED: ${{ vars.STAGING_ENABLED }}
     steps:
       - name: Check out trusted deployment instructions from main
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           path: trusted
@@ -113,18 +113,18 @@ jobs:
             echo "::error::The staging WIF environment secrets are not provisioned."; exit 1;
           }
 
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ inputs.rules_artifact }}
           path: ${{ runner.temp }}/candidate-rules
 
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         if: ${{ inputs.deploy_functions }}
         with:
           name: ${{ inputs.functions_artifact }}
           path: ${{ runner.temp }}/candidate-functions
 
-      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         if: ${{ inputs.deploy_hosting }}
         with:
           name: ${{ inputs.hosting_artifact }}
@@ -144,9 +144,10 @@ jobs:
             hosting="$RUNNER_TEMP/candidate-hosting"
             test "$(cat "$hosting/CANDIDATE_SHA")" = "$CANDIDATE_SHA"
             test "$(du -sk "$hosting" | cut -f1)" -le 131072
-            test "$(find "$hosting" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')" = "2"
+            test "$(find "$hosting" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')" = "3"
             test "$(find "$hosting" -mindepth 1 -maxdepth 1 -type d -name website | wc -l | tr -d ' ')" = "1"
-            test "$(find "$hosting" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "3"
+            test "$(find "$hosting" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')" = "4"
+            test -f "$hosting/firebase.json"
             test -f "$hosting/website/dist/index.html"
             test -f "$hosting/website/dist/subscribe/index.html"
             test "$(find "$hosting/website/dist" -type f | wc -l | tr -d ' ')" -le 10000
@@ -161,7 +162,7 @@ jobs:
               --candidate-sha "$CANDIDATE_SHA"
           fi
 
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
 
@@ -186,6 +187,7 @@ jobs:
             cp -R "$RUNNER_TEMP/candidate-hosting/website" "$deploy_root/website"
             node scripts/ci/write-firebase-hosting-ci-config.mjs \
               --mode staging-hosting \
+              --source "$RUNNER_TEMP/candidate-hosting/firebase.json" \
               --output "$deploy_root/firebase-hosting.json" \
               --manifest "$deploy_root/firebase-hosting.manifest.json" \
               --check

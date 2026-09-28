@@ -137,4 +137,94 @@ struct MemoryExtractionLLMClient: Sendable {
         }
         return (text, false)
     }
+
+    // MARK: - Ollama (vision)
+
+    /// Calls a local Ollama `/api/generate` endpoint with image attachments
+    /// (the native `images` base64 array — for vision-language models like
+    /// qwen3-vl) and returns the raw response text plus a cooldown hint, or
+    /// `(nil, shouldCooldown)` on failure. Mirrors `callOllama`: JSON format
+    /// mode, same error posture, cooldown bookkeeping stays in the caller.
+    func callOllamaWithImages(
+        prompt: String,
+        imagesBase64: [String],
+        model: String,
+        baseURL: String,
+        timeout: Double
+    ) async -> (text: String?, shouldCooldown: Bool) {
+        let base = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let endpoint = URL(string: base)?.appendingPathComponent("api/generate"),
+              model.isEmpty == false,
+              imagesBase64.isEmpty == false
+        else {
+            return (nil, false)
+        }
+
+        var request = URLRequest(url: endpoint)
+        request.timeoutInterval = timeout
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let payload = OllamaVisionGenerateRequest(
+            model: model,
+            prompt: prompt,
+            images: imagesBase64,
+            stream: false,
+            format: "json",
+            options: .init(temperature: 0.1, numPredict: MemoryExtractionPolicy.maxOutputTokens)
+        )
+        do {
+            request.httpBody = try JSONEncoder().encode(payload)
+        } catch {
+            return (nil, false)
+        }
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            let nsError = error as NSError
+            let cooldown = nsError.domain == NSURLErrorDomain
+            return (nil, cooldown)
+        }
+
+        guard let http = response as? HTTPURLResponse else { return (nil, false) }
+        guard (200 ..< 300).contains(http.statusCode) else {
+            let cooldown = http.statusCode == 404 || http.statusCode == 408
+                || http.statusCode == 429 || http.statusCode >= 500
+            return (nil, cooldown)
+        }
+
+        do {
+            return (try JSONDecoder().decode(OllamaGenerateResponse.self, from: data).response, false)
+        } catch {
+            return (nil, false)
+        }
+    }
+}
+
+/// Ollama `/api/generate` body with native base64 `images` (vision models).
+private struct OllamaVisionGenerateRequest: Encodable {
+    struct Options: Encodable {
+        var temperature: Double
+        var numPredict: Int
+
+        private enum CodingKeys: String, CodingKey {
+            case temperature
+            case numPredict = "num_predict"
+        }
+    }
+
+    var model: String
+    var prompt: String
+    var images: [String]
+    var stream: Bool
+    var format: String
+    var options: Options
+}
+
+/// The one field read from a non-streaming Ollama `/api/generate` reply.
+private struct OllamaGenerateResponse: Decodable {
+    var response: String
 }

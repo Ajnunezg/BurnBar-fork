@@ -192,6 +192,10 @@ var packageProductsBase: [Product] = [
         targets: ["OpenBurnBarLogParsers"]
     ),
     .library(
+        name: "OpenBurnBarAccountIdentity",
+        targets: ["OpenBurnBarAccountIdentity"]
+    ),
+    .library(
         name: "OpenBurnBarQuota",
         targets: ["OpenBurnBarQuota"]
     ),
@@ -861,7 +865,17 @@ let openBurnBarCoreOffAppleTestSources: [String]? = [
     "AiderQuotaCacheTests.swift",
     "FactoryQuotaCacheTests.swift",
     "ThreadSafeISO8601DateFormatterStaticParseTests.swift",
-    "PackageDiffCoverageQuotaAndCLITests.swift"
+    "PackageDiffCoverageQuotaAndCLITests.swift",
+    "LocalServiceRegistryTests.swift",
+    "PopoverTrayLayoutTests.swift",
+    "GeminiCLIQuotaAdapterTests.swift",
+    "BurnBarProviderAuthRegistryTests.swift",
+    "ProviderQuotaAdapterRegistryTests.swift",
+    "TogetherQuotaAdapterTests.swift",
+    "OpenBurnBarCatalogTests.swift",
+    "ProviderIngestionContractTests.swift",
+    "GrokCLIAuthFileTests.swift",
+    "XAIQuotaAdapterHonestyTests.swift"
 ]
 let openBurnBarCorePlaceholderExcludes = ["LinuxEmptyTests.swift"]
 let computerUseCoreOffAppleTestSources: [String]? = [
@@ -891,7 +905,17 @@ let openBurnBarCoreOffAppleTestSources: [String]? = [
     "AiderQuotaCacheTests.swift",
     "FactoryQuotaCacheTests.swift",
     "ThreadSafeISO8601DateFormatterStaticParseTests.swift",
-    "PackageDiffCoverageQuotaAndCLITests.swift"
+    "PackageDiffCoverageQuotaAndCLITests.swift",
+    "LocalServiceRegistryTests.swift",
+    "PopoverTrayLayoutTests.swift",
+    "GeminiCLIQuotaAdapterTests.swift",
+    "BurnBarProviderAuthRegistryTests.swift",
+    "ProviderQuotaAdapterRegistryTests.swift",
+    "TogetherQuotaAdapterTests.swift",
+    "OpenBurnBarCatalogTests.swift",
+    "ProviderIngestionContractTests.swift",
+    "GrokCLIAuthFileTests.swift",
+    "XAIQuotaAdapterHonestyTests.swift"
 ]
 let openBurnBarCorePlaceholderExcludes: [String] = []
 let computerUseCoreOffAppleTestSources: [String]? = ["LinuxComputerUseCoreBehaviorTests.swift"]
@@ -936,6 +960,17 @@ func legacyLinuxTestExcludes(targetPath: String) -> [String] {
             "AiderQuotaCacheTests.swift",
             "FactoryQuotaCacheTests.swift",
             "ThreadSafeISO8601DateFormatterStaticParseTests.swift",
+            "LocalServiceRegistryTests.swift",
+            "PopoverTrayLayoutTests.swift",
+            "PackageDiffCoverageQuotaAndCLITests.swift",
+            "GeminiCLIQuotaAdapterTests.swift",
+            "BurnBarProviderAuthRegistryTests.swift",
+            "ProviderQuotaAdapterRegistryTests.swift",
+            "TogetherQuotaAdapterTests.swift",
+            "OpenBurnBarCatalogTests.swift",
+            "ProviderIngestionContractTests.swift",
+            "GrokCLIAuthFileTests.swift",
+            "XAIQuotaAdapterHonestyTests.swift",
             "LinuxSecretStorageTests.swift",
             "LinuxRemoteUnlockCapabilitySigningKeyStoreTests.swift"
         ].contains(relativePath)
@@ -1039,6 +1074,9 @@ let sqliteReaderSQLiteDependencies: [Target.Dependency] = coreSQLiteDependencies
 let coreDecompositionDependencies: [Target.Dependency] = [
     "OpenBurnBarSQLiteReader",
     "OpenBurnBarLogParsers",
+    // Not added to OpenBurnBarEngine: usage attribution runs in the Mac app's
+    // refresh pipeline, and Engine's leaves are what the daemon consumes.
+    "OpenBurnBarAccountIdentity",
     "OpenBurnBarQuota",
     "OpenBurnBarVectorKit",
     "OpenBurnBarHermes",
@@ -1292,6 +1330,17 @@ let firstPartyTargetsBaseC: [Target] = [
             dependencies: ["OpenBurnBarKernel", "OpenBurnBarSQLiteReader", "OpenBurnBarParserSupport"]
                 + domainCoreDependencies,
             exclude: openBurnBarLogParsersExcludes
+        ),
+        // Which provider account produced a usage row (docs/PROVIDER_ACCOUNTS.md
+        // § Usage Attribution). Its own sibling rather than a folder inside
+        // OpenBurnBarLogParsers: reading a tool's signed-in identity is not log
+        // parsing, it shares no code with the parsers, and LogParsers is a
+        // decomposition destination already at its planned file ceiling. Leaf
+        // target — Kernel for the models, SQLiteReader for Cursor's
+        // `state.vscdb`; no edge to LogParsers in either direction.
+        .target(
+            name: "OpenBurnBarAccountIdentity",
+            dependencies: ["OpenBurnBarKernel", "OpenBurnBarSQLiteReader"]
         ),
         .target(
             name: "OpenBurnBarQuota",
@@ -1562,6 +1611,7 @@ var openBurnBarCoreTestsDependencies: [Target.Dependency] = [
     "OpenBurnBarDomainCoreRuntime",
     "OpenBurnBarKernel",
     "OpenBurnBarLogParsers",
+    "OpenBurnBarAccountIdentity",
     "OpenBurnBarSQLiteReader",
     "OpenBurnBarFirestoreModels",
     "OpenBurnBarLinuxSecurity",

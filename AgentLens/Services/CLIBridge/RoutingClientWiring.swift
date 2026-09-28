@@ -105,6 +105,22 @@ enum RoutingClientWiringTarget: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Empty-state copy when this row has no route-ready account. Shared by
+    /// the Connections card and the Grok probe's fail-closed path so a
+    /// Codex-only catalog cannot surface a missing-`codex` 503 on Grok.
+    var missingRouteReadyAccountMessage: String {
+        switch self {
+        case .claudeCode:
+            return "No route-ready OpenBurnBar model is enabled for /v1/messages. Add or enable a provider account first."
+        case .codex, .opencode, .forge, .droid, .cursorAgent:
+            return "No route-ready OpenBurnBar account is enabled for this gateway endpoint. Add or enable a provider account first."
+        case .antigravity:
+            return "No route-ready Antigravity profile is enabled. Add or enable an Antigravity account first."
+        case .grok:
+            return "No route-ready xAI inference key. That key routes Grok CLI traffic; it is not a GrokBuild or SuperGrok quota meter."
+        }
+    }
+
     /// Compact badge label for the endpoint shape badge in the routing
     /// cockpit row. Shorter than `endpointDescription` since it sits inside
     /// a capsule next to the client name.
@@ -337,7 +353,25 @@ struct RoutingClientWiringChange: Sendable {
 enum RoutingClientWiringProbe: Sendable, Equatable {
     case skipped(reason: String)
     case ok(modelID: String)
-    case failed(status: Int, message: String)
+    /// `modelID` / `providerID` are the advertised row the ping actually
+    /// used. Both are nil when the probe fails closed before HTTP (no
+    /// eligible model for this target).
+    case failed(status: Int, message: String, modelID: String?, providerID: String?)
+
+    /// Connections-row detail for a failed probe; nil when the probe passed
+    /// or was skipped.
+    func userVisibleFailure(for target: RoutingClientWiringTarget) -> String? {
+        guard case .failed(let status, let message, let modelID, let providerID) = self else {
+            return nil
+        }
+        return RoutingClientWiring.userVisibleProbeFailure(
+            status: status,
+            upstreamMessage: message,
+            modelID: modelID,
+            providerID: providerID,
+            target: target
+        )
+    }
 }
 
 enum RoutingClientModelSyncStatus: Sendable, Equatable {
@@ -399,15 +433,30 @@ struct RoutingClientWiring {
     let fileManager: FileManager
     let home: URL
     let now: () -> Date
+    /// The user's configured BurnBar gateway port (`GatewaySettings.gatewayPort`
+    /// at the call site that has settings access). Detection accepts both this
+    /// port and the registry default so configs written before a port change
+    /// still read as wired.
+    var gatewayPort: Int
+
+    /// Ports that count as "this config points at the BurnBar gateway":
+    /// the configured port plus the shipped default (configs written before a
+    /// port change still point at it). An out-of-range stored port degrades
+    /// to the default rather than widening detection.
+    var acceptedGatewayPorts: [Int] {
+        LocalService.openBurnBarGateway.acceptedPorts(configured: gatewayPort)
+    }
 
     init(
         fileManager: FileManager = .default,
         home: URL = FileManager.default.homeDirectoryForCurrentUser,
-        now: @escaping () -> Date = { Date() }
+        now: @escaping () -> Date = { Date() },
+        gatewayPort: Int = LocalService.openBurnBarGateway.defaultPort
     ) {
         self.fileManager = fileManager
         self.home = home
         self.now = now
+        self.gatewayPort = gatewayPort
     }
 
     // MARK: - File-mode wiring

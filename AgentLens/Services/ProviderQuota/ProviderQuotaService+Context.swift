@@ -26,6 +26,12 @@ extension ProviderQuotaService {
         for identifier in ["factory_cookie_header", "factory_cookie", "ollama_cookie_header", "ollama_cookie", "kimi_auth_token"] {
             resolvedKeys[identifier] = keyStore.apiKey(for: identifier)
         }
+        // The xAI adapter reads its Management Key from `xai_management_key`. The
+        // generic xAI identifiers above can resolve the inference key there, and the
+        // canonical account is not one of them, so the stored management key wins.
+        if let managementKey = keyStore.xaiManagementKey() {
+            resolvedKeys[ProviderAPIKeyStore.legacyXAIManagementKeyAccount] = managementKey
+        }
 
         return ProviderQuotaAdapterContext(
             appPaths: appPaths,
@@ -139,6 +145,8 @@ extension ProviderQuotaService {
             return "anthropic"
         case .mimo:
             return "mimo"
+        case .together:
+            return "meta"
         default:
             return nil
         }
@@ -165,6 +173,17 @@ extension ProviderQuotaService {
             identifiers.append(contentsOf: ["deepseek", "deep_seek"])
         case .mimo:
             identifiers.append(contentsOf: ["mimo", "xiaomimimo", "xiaomi", "provider.mimo.apiKey"])
+        case .together:
+            identifiers.append(contentsOf: [
+                "together",
+                "meta",
+                "llama",
+                "meta-together-key",
+                "together_api_key",
+                "together-api-key",
+                "provider.together.apiKey",
+                "provider.meta.apiKey"
+            ])
         default:
             break
         }
@@ -188,6 +207,9 @@ extension ProviderQuotaService {
             return .ollama
         case "kimi_auth_token":
             return .kimi
+        case "meta-together-key", "together_api_key", "together-api-key",
+             "provider.together.apiKey", "provider.meta.apiKey", "meta", "llama":
+            return .together
         default:
             return nil
         }
