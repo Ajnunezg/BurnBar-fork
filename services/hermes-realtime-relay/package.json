@@ -16,7 +16,7 @@
   "dependencies": {
     "@openburnbar/entitlements": "file:../../packages/entitlements",
     "@openburnbar/signal-envelope-contracts": "file:../../packages/signal-envelope-contracts",
-    "firebase-admin": "14.4.0",
+    "firebase-admin": "14.5.0",
     "ioredis": "^6.0.0",
     "protobufjs": "8.8.0",
     "ws": "8.21.3"
