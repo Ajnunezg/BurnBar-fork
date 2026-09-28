@@ -12,7 +12,7 @@
 // PROVENANCE (AGPL re-point — DONE):
 //   The in-repo AGPL wrapper `packages/libsignal-bridge/` (published as
 //   `@openburnbar/libsignal-bridge`) is the single place allowed to import the
-//   upstream `@signalapp/libsignal-client@0.94.4` directly. This package imports
+//   upstream `@signalapp/libsignal-client@0.103.0` directly. This package imports
 //   the same Signal-protocol symbols from the bridge, so the AGPL boundary stays
 //   intact (enforced by scripts/ci/check_burnbar_license_posture.py's
 //   "Signal bridge boundary" check).
@@ -98,7 +98,7 @@ export interface GeneratedIdentity {
 
 /**
  * One-time + signed + Kyber prekeys generated for a single registration.
- * In 0.94.4 the Kyber prekey is MANDATORY (PreKeyBundle.new requires a
+ * In 0.103.0 the Kyber prekey is MANDATORY (PreKeyBundle.new requires a
  * non-nullable kyber prekey id/key/signature), so we always generate one.
  */
 export interface GeneratedPreKeys {
@@ -158,7 +158,7 @@ export class InMemoryIdentityKeyStore extends IdentityKeyStore {
     this.localRegistrationId = localRegistrationId;
   }
 
-  // NOTE (0.94.4): the abstract member is getIdentityKey() returning the
+  // NOTE (0.103.0): the abstract member is getIdentityKey() returning the
   // *PrivateKey*, while getIdentityKeyPair() is a concrete helper on the base
   // class. We satisfy the abstract member here.
   override async getIdentityKey(): Promise<PrivateKey> {
@@ -335,7 +335,7 @@ export class InMemoryKyberPreKeyStore extends KyberPreKeyStore {
     return record;
   }
 
-  // NOTE (0.94.4): signature is (kyberPreKeyId, signedPreKeyId, baseKey).
+  // NOTE (0.103.0): signature is (kyberPreKeyId, signedPreKeyId, baseKey).
   override async markKyberPreKeyUsed(
     kyberPreKeyId: number,
     _signedPreKeyId: number,
@@ -407,7 +407,7 @@ export function generateIdentity(): GeneratedIdentity {
  *   - a signed EC prekey (signed by the identity key),
  *   - a signed Kyber (PQXDH) prekey (signed by the identity key).
  *
- * The Kyber prekey is MANDATORY in 0.94.4: PreKeyBundle.new requires non-null
+ * The Kyber prekey is MANDATORY in 0.103.0: PreKeyBundle.new requires non-null
  * kyber id/key/signature, and signalDecryptPreKey routes through the Kyber
  * prekey store.
  *
@@ -474,7 +474,7 @@ export function buildPreKeyBundle(
     prekeys.signedPreKey.publicKey(),
     prekeys.signedPreKey.signature(),
     identity.identityKeyPair.publicKey,
-    // Kyber (mandatory, non-nullable in 0.94.4):
+    // Kyber (mandatory, non-nullable in 0.103.0):
     prekeys.kyberPreKey.id(),
     prekeys.kyberPreKey.publicKey(),
     prekeys.kyberPreKey.signature(),

@@ -45,9 +45,9 @@ REQUIRED_GATE_IDS: tuple[str, ...] = (
 # manifest.json and packages/libsignal-bridge — drift here means the readiness
 # evidence no longer describes the library we actually vendor.
 EXPECTED_PIN = {
-    "tag": "v0.94.4",
-    "tagObject": "03c449017b57eccbda715b8b018dce5dff603ac6",
-    "commit": "46d867c986f66201e34e7ae20ce423eec742bf3f",
+    "tag": "v0.103.0",
+    "tagObject": "6c573a122a5e1055408d7de00388ac9d6e7dfdf4",
+    "commit": "ba133bd3457f556fbf56db0a5ab985de0af79da6",
 }
 
 VALID_STATUSES = ("ready", "not_ready")

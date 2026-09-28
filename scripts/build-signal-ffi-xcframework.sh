@@ -195,7 +195,7 @@ write_build_metadata() {
   } > "${xcframework}/${METADATA_FILE_NAME}"
 }
 
-[[ -d "${LIBSIGNAL_DIR}" ]] || abort "missing ${LIBSIGNAL_DIR}; clone libsignal v0.94.4 first"
+[[ -d "${LIBSIGNAL_DIR}" ]] || abort "missing ${LIBSIGNAL_DIR}; clone libsignal v0.103.0 first"
 [[ -x "/usr/bin/xcodebuild" ]] || abort "xcodebuild is required"
 [[ -x "/usr/bin/lipo" ]] || abort "lipo is required"
 

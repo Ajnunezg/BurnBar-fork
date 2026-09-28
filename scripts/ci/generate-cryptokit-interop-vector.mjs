@@ -159,7 +159,7 @@ if (process.argv.includes("--emit")) {
     cases: [
       {
         id: CASE_LIBSIGNAL_SEALS,
-        sealer: "official libsignal v0.94.4 (@signalapp/libsignal-client PublicKey.seal)",
+        sealer: "official libsignal v0.103.0 (@signalapp/libsignal-client PublicKey.seal)",
         opener: "Apple CryptoKit HPKE.Recipient (CryptoKitAtRestInteropTests.swift) + libsignal (this script)",
         plaintextB64: plaintextA.toString("base64"),
         sealedB64: Buffer.from(sealedA).toString("base64")
