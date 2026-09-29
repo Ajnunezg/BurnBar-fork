@@ -179,7 +179,7 @@ final class DaemonLedgerUsageImportTests: XCTestCase {
         cost: Double,
         second: Int,
         confidence: String = "exact"
-    ) -> String {
+    ) throws -> String {
         var event: [String: Any] = [
             "providerID": "zai",
             "modelID": "glm-5",
@@ -193,7 +193,7 @@ final class DaemonLedgerUsageImportTests: XCTestCase {
             "confidence": confidence
         ]
         if let session { event["sessionID"] = session }
-        let data = try! JSONSerialization.data(withJSONObject: ["idempotencyKey": key, "event": event], options: [.sortedKeys])
+        let data = try JSONSerialization.data(withJSONObject: ["idempotencyKey": key, "event": event], options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
     }
 

@@ -39,7 +39,7 @@ vi.mock("../../../packages/functions-shared/src/auth.js", () => ({
 }));
 
 import { fakeSecretManager } from "./fakeSecretManager.js";
-import { callableRequest, callableRunner, pathKeyedFirestore, seedDoc } from "./bola/callableBolaHarness.js";
+import { callableRequest, callableRunner, pathKeyedFirestore, quotaFirestore, seedDoc } from "./bola/callableBolaHarness.js";
 import {
   CredentialErasureIncompleteError,
   destroyCredentialSecret,
@@ -58,7 +58,6 @@ import { eraseUserCloudData } from "../../../packages/functions-shared/src/accou
 import {
   providerAccountSecretRefPath,
   refreshUserProviderAccountQuota,
-  type QuotaFirestoreLike,
 } from "../../../packages/functions-shared/src/quota.js";
 import {
   applyHostedQuotaConnect,
@@ -143,12 +142,12 @@ function pendingDocs(): PendingProviderSecretErasureDoc[] {
     }));
 }
 
-async function expectUnavailable(promise: Promise<unknown>): Promise<Record<string, unknown>> {
+async function expectUnavailable(promise: Promise<unknown>): Promise<unknown> {
   try {
     await promise;
   } catch (error) {
     expect(error).toMatchObject({ code: "unavailable" });
-    return (error as { details?: Record<string, unknown> }).details ?? {};
+    return error instanceof Object && "details" in error ? error.details : undefined;
   }
   throw new Error("expected the call to fail with unavailable");
 }
@@ -375,7 +374,7 @@ describe("provider account deletion", () => {
 
     const details = await expectUnavailable(applyProviderAccountDelete(UID, ACCOUNT_ID));
 
-    expect(details.errorCode).toBe("malformed_secret_ref");
+    expect(details).toMatchObject({ errorCode: "malformed_secret_ref" });
     expect(requireRef()).toMatchObject({ erasureScope: "all_versions", erasureLastErrorCode: "malformed_secret_ref" });
   });
 
@@ -483,7 +482,7 @@ describe("credential serving", () => {
     const refPath = providerAccountSecretRefPath(UID, "openai_default");
     seedDoc(env.store, refPath, { ...requireRef(refPath), erasureScope: "all_versions" });
     const accessSpy = vi.spyOn(fakeSecretManager.projects.secrets.versions, "access");
-    const db = pathKeyedFirestore(env.store) as unknown as QuotaFirestoreLike;
+    const db = quotaFirestore(env.store);
 
     await expect(refreshUserProviderAccountQuota(db, UID, "openai_default")).rejects.toThrow(
       /Credential erasure is pending/u,

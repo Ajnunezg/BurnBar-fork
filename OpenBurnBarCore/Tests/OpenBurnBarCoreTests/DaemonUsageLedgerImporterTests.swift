@@ -46,7 +46,7 @@ final class DaemonUsageLedgerImporterTests: XCTestCase {
 
     func testEveryEventIsImportedNotOnlyTheNewestTwenty() throws {
         try appendLedger((1...45).map {
-            line(key: "k\($0)", session: "s\($0)", input: 10, output: 1, cost: 0.01, second: $0)
+            try line(key: "k\($0)", session: "s\($0)", input: 10, output: 1, cost: 0.01, second: $0)
         })
         var importer = DaemonUsageLedgerImporter()
 
@@ -95,7 +95,7 @@ final class DaemonUsageLedgerImporterTests: XCTestCase {
     }
 
     func testAnIdempotencyKeyCountsOnce() throws {
-        let duplicated = line(key: "same-key", session: "chat-1", input: 100, output: 10, cost: 0.10, second: 1)
+        let duplicated = try line(key: "same-key", session: "chat-1", input: 100, output: 10, cost: 0.10, second: 1)
         try appendLedger([duplicated, duplicated])
         var importer = DaemonUsageLedgerImporter()
 
@@ -133,8 +133,8 @@ final class DaemonUsageLedgerImporterTests: XCTestCase {
     }
 
     func testHalfWrittenTrailingLineWaitsForItsNewline() throws {
-        let complete = line(key: "k1", session: "chat-1", input: 100, output: 10, cost: 0.10, second: 1)
-        let partial = line(key: "k2", session: "chat-1", input: 5, output: 5, cost: 0.05, second: 2)
+        let complete = try line(key: "k1", session: "chat-1", input: 100, output: 10, cost: 0.10, second: 1)
+        let partial = try line(key: "k2", session: "chat-1", input: 5, output: 5, cost: 0.05, second: 2)
         try Data((complete + "\n" + partial.prefix(40)).utf8).write(to: ledgerURL)
         var importer = DaemonUsageLedgerImporter()
 
@@ -179,7 +179,7 @@ final class DaemonUsageLedgerImporterTests: XCTestCase {
 
     func testRecentRecordsAreTheNewestByRecordedAt() throws {
         try appendLedger((1...8).map {
-            line(key: "k\($0)", session: "s\($0)", input: 1, output: 1, cost: 0, second: $0)
+            try line(key: "k\($0)", session: "s\($0)", input: 1, output: 1, cost: 0, second: $0)
         })
         var importer = DaemonUsageLedgerImporter()
 
@@ -223,7 +223,7 @@ final class DaemonUsageLedgerImporterTests: XCTestCase {
         second: Int,
         confidence: String = "exact",
         model: String = "glm-5"
-    ) -> String {
+    ) throws -> String {
         var event: [String: Any] = [
             "providerID": "zai",
             "modelID": model,
@@ -237,7 +237,7 @@ final class DaemonUsageLedgerImporterTests: XCTestCase {
             "confidence": confidence
         ]
         if let session { event["sessionID"] = session }
-        let data = try! JSONSerialization.data(withJSONObject: ["idempotencyKey": key, "event": event], options: [.sortedKeys])
+        let data = try JSONSerialization.data(withJSONObject: ["idempotencyKey": key, "event": event], options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
     }
 

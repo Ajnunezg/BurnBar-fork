@@ -2,6 +2,7 @@ import { expect } from "vitest";
 
 import { runFakeFirestoreTransaction } from "../fakeFirestoreTransaction.js";
 import type { BolaExpectedCode } from "../../security/bolaCoverageTypes.js";
+import type { QuotaFirestoreLike } from "../../../../packages/functions-shared/src/quota.js";
 
 import { seedBolaVictimTenant } from "./bolaVictimSeeds.generated.js";
 import { BOLA_EXPECTED_CODES } from "./bolaExpectedCodes.generated.js";
@@ -276,6 +277,39 @@ function applyFirestoreWrite(
     }
   }
   return next;
+}
+
+/** A typed in-memory Firestore covering exactly what the quota refresh path calls. */
+export function quotaFirestore(store: Map<string, Record<string, unknown>>): QuotaFirestoreLike {
+  const writeDoc = (path: string, data: object, merge = false) => {
+    const next = Object.fromEntries(Object.entries(data));
+    store.set(path, merge ? { ...store.get(path), ...next } : next);
+  };
+  const doc = (path: string) => ({
+    get: async () => {
+      const data = store.get(path);
+      return {
+        exists: data !== undefined,
+        data: () => data,
+        get: (field: string) => data?.[field],
+      };
+    },
+    set: async (data: object, options?: { merge: boolean }) => {
+      writeDoc(path, data, options?.merge === true);
+    },
+    update: async (data: object) => {
+      writeDoc(path, data, true);
+    },
+  });
+  return {
+    doc,
+    runTransaction: async (fn) =>
+      fn({
+        get: (ref) => ref.get(),
+        set: (ref, data, options) => ref.set(data, options),
+        update: (ref, data) => ref.update(data),
+      }),
+  };
 }
 
 export function pathKeyedFirestore(store: Map<string, Record<string, unknown>>) {
