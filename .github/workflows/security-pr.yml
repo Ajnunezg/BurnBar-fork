@@ -183,7 +183,12 @@ jobs:
           # LicenseRef-bad-* string. Owner (Alberto) approved it on 2026-09-28
           # for Sentry 11. It is exempted by PURL, not license, so no other
           # FSL-licensed package can land without its own review.
-          allow-dependencies-licenses: pkg:nuget/Microsoft.Graphics.Win2D, pkg:cargo/brotli-decompressor, pkg:cargo/dbus, pkg:cargo/libdbus-sys, pkg:cargo/mac-notification-sys, pkg:cargo/rustc-demangle, pkg:npm/sentry
+          # pkg:npm/%40signalapp/libsignal-client is the official Signal library
+          # pinned in third_party/libsignal/manifest.json. It is AGPL-3.0-only,
+          # the product's own license, and its version moves only with the
+          # repo-wide libsignal pin gates. It is exempted by PURL so AGPL stays
+          # off the general allow-list.
+          allow-dependencies-licenses: pkg:nuget/Microsoft.Graphics.Win2D, pkg:cargo/brotli-decompressor, pkg:cargo/dbus, pkg:cargo/libdbus-sys, pkg:cargo/mac-notification-sys, pkg:cargo/rustc-demangle, pkg:npm/sentry, pkg:npm/%40signalapp/libsignal-client
           # Deny packages that have been deprecated or yanked
           deny-packages: ""
           comment-summary-in-pr: always
