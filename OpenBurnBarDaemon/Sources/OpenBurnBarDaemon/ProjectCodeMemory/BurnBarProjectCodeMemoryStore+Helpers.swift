@@ -601,12 +601,11 @@ extension BurnBarProjectCodeMemoryStore {
 
     static func gitOutput(root: URL, arguments: [String]) -> String? {
         let process = hardenedGitProcess(root: root, arguments: arguments)
-        let input = Pipe()
         let output = Pipe()
-        process.standardInput = input
+        process.standardInput = FileHandle.nullDevice
         process.standardOutput = output
         process.standardError = Pipe()
-        guard runHelperProcess(process, input: input, payload: Data()) else { return nil }
+        guard runHelperProcess(process) else { return nil }
         guard process.terminationStatus == 0 else { return nil }
         let outputData = output.fileHandleForReading.readDataToEndOfFile()
         guard outputData.count <= codeHelperMaxOutputBytes(),
@@ -642,14 +641,20 @@ extension BurnBarProjectCodeMemoryStore {
         return environment
     }
 
-    static func runHelperProcess(_ process: Process, input: Pipe, payload: Data) -> Bool {
+    /// Runs a helper to completion (bounded by `codeHelperTimeoutSeconds`).
+    /// Callers read `terminationStatus` and drain output afterwards. When
+    /// `input` is set, `payload` plus a trailing newline goes to the helper's
+    /// stdin; a helper that exits without reading it must not take the host
+    /// down with SIGPIPE, so the write end refuses the signal and a failed
+    /// write is left for the exit status to judge.
+    static func runHelperProcess(_ process: Process, input: Pipe? = nil, payload: Data = Data()) -> Bool {
         do {
             try process.run()
-            input.fileHandleForWriting.write(payload)
-            input.fileHandleForWriting.write(Data("\n".utf8))
-            try? input.fileHandleForWriting.close()
         } catch {
             return false
+        }
+        if let input {
+            writeHelperInput(payload + Data("\n".utf8), to: input.fileHandleForWriting)
         }
         let deadline = Date().addingTimeInterval(codeHelperTimeoutSeconds())
         while process.isRunning, Date() < deadline {
@@ -665,6 +670,42 @@ extension BurnBarProjectCodeMemoryStore {
         }
         return true
     }
+
+    /// Writes to a helper's stdin pipe without ever raising SIGPIPE. EPIPE
+    /// (the helper closed stdin or already exited) surfaces as a thrown error
+    /// from `write(contentsOf:)` and is dropped: the helper's exit status is
+    /// the verdict, not whether it consumed its input.
+    private static func writeHelperInput(_ data: Data, to handle: FileHandle) {
+        defer { try? handle.close() }
+        #if canImport(Darwin)
+        _ = fcntl(handle.fileDescriptor, F_SETNOSIGPIPE, 1)
+        try? handle.write(contentsOf: data)
+        #else
+        // Linux has no per-descriptor SIGPIPE opt-out. A broken-pipe SIGPIPE
+        // is delivered to the writing thread, so block it here, then consume
+        // any instance this write raised before restoring the old mask.
+        var pipeSignal = sigset_t()
+        var previousMask = sigset_t()
+        sigemptyset(&pipeSignal)
+        sigaddset(&pipeSignal, SIGPIPE)
+        pthread_sigmask(SIG_BLOCK, &pipeSignal, &previousMask)
+        let wasAlreadyPending = isSignalPending(SIGPIPE)
+        try? handle.write(contentsOf: data)
+        if wasAlreadyPending == false, isSignalPending(SIGPIPE) {
+            var immediately = timespec(tv_sec: 0, tv_nsec: 0)
+            _ = sigtimedwait(&pipeSignal, nil, &immediately)
+        }
+        pthread_sigmask(SIG_SETMASK, &previousMask, nil)
+        #endif
+    }
+
+    #if !canImport(Darwin)
+    private static func isSignalPending(_ signal: Int32) -> Bool {
+        var pending = sigset_t()
+        sigpending(&pending)
+        return sigismember(&pending, signal) == 1
+    }
+    #endif
 
     static func tierEvidenceJSON(_ evidence: BurnBarProjectCodeTierEvidence) -> String? {
         guard let data = try? JSONEncoder().encode(evidence) else { return nil }
@@ -849,12 +890,11 @@ extension BurnBarProjectCodeMemoryStore {
             root: root,
             arguments: ["status", "--ignored", "--porcelain=v1", "-z", "--untracked-files=all"]
         )
-        let input = Pipe()
         let output = Pipe()
-        process.standardInput = input
+        process.standardInput = FileHandle.nullDevice
         process.standardOutput = output
         process.standardError = Pipe()
-        guard runHelperProcess(process, input: input, payload: Data()) else { return [] }
+        guard runHelperProcess(process) else { return [] }
         guard process.terminationStatus == 0 else { return [] }
         let data = output.fileHandleForReading.readDataToEndOfFile()
         return Set(data.split(separator: 0).compactMap { raw -> String? in
