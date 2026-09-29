@@ -370,12 +370,16 @@ public final class PrimeAgentParser: LogParser, Sendable {
         // models.json has no `cost` and therefore records 0). Truly free cached
         // turns remain 0 only when the catalog also prices them at 0.
         let cost: Double
+        let pricingSource: UsagePricingSource
         if costWasExplicit, totalCost != 0 {
             cost = totalCost
+            pricingSource = .reported
         } else if costWasExplicit, totalCost == 0, totalInput == 0, totalOutput == 0, totalCacheRead == 0, totalCacheWrite == 0 {
             cost = 0
+            pricingSource = .reported
         } else {
             let pricing = ModelPricing.lookup(model: model, providerID: "prime-agent")
+            pricingSource = pricing.source
             let fallback = (try? pricing.cost(inputTokens: totalInput, outputTokens: totalOutput, cacheCreationTokens: totalCacheWrite, cacheReadTokens: totalCacheRead)) ?? 0
             // If explicit 0 was a true free turn, fallback will also be ~0 (cached pricing); keep the more precise fallback.
             // Otherwise, use fallback to avoid showing $0 for large-token sessions whose cost wasn't computed.
@@ -396,6 +400,7 @@ public final class PrimeAgentParser: LogParser, Sendable {
             cacheCreationTokens: totalCacheWrite,
             cacheReadTokens: totalCacheRead,
             costUSD: cost,
+            pricingSource: pricingSource,
             startTime: resolvedStart,
             endTime: resolvedEnd,
             provenanceMethod: .providerLog,

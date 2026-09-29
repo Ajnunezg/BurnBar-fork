@@ -299,7 +299,18 @@ public struct TokenUsage: Codable, Identifiable, Hashable, Sendable {
     public let eventKind: String?
     public let idempotencyKey: String?
     public let provenanceMethod: UsageProvenanceMethod
+    /// The row's overall confidence — what dashboards and exports show. It
+    /// equals `tokenConfidence` except that a fallback-priced row
+    /// (`pricingSource == .fallback`) never claims better than
+    /// `.lowConfidenceEstimate`: its dollars are a default-rate guess.
     public let provenanceConfidence: UsageProvenanceConfidence
+    /// Confidence in the token counts alone; the store's precedence ladder
+    /// compares this, so a pricing estimate never lets a lower-quality token
+    /// source overwrite exact counts (or blocks an exact row's refresh).
+    public let tokenConfidence: UsageProvenanceConfidence
+    /// Where `cost` came from: a listed catalog rate, the fallback rate
+    /// table, a figure the source reported, or unknown (legacy rows).
+    public let pricingSource: UsagePricingSource
     public let estimatorVersion: String
 
     /// The Elder Wand fusion run this row belongs to (`elderwand-<UUID>`), or
@@ -337,6 +348,7 @@ public struct TokenUsage: Codable, Identifiable, Hashable, Sendable {
         cacheReadTokens: Int = 0,
         reasoningTokens: Int = 0,
         costUSD: Double = 0,
+        pricingSource: UsagePricingSource = .unknown,
         startTime: Date,
         endTime: Date,
         createdAt: Date = Date(),
@@ -416,7 +428,11 @@ public struct TokenUsage: Codable, Identifiable, Hashable, Sendable {
         self.eventKind = eventKind
         self.idempotencyKey = idempotencyKey
         self.provenanceMethod = provenanceMethod
-        self.provenanceConfidence = provenanceConfidence
+        // `provenanceConfidence` arrives as the confidence of the token
+        // counts; the row's confidence also answers for its dollars.
+        self.tokenConfidence = provenanceConfidence
+        self.pricingSource = pricingSource
+        self.provenanceConfidence = pricingSource.rowConfidence(tokenConfidence: provenanceConfidence)
         self.estimatorVersion = estimatorVersion
         self.parentRequestID = parentRequestID
         self.billingKind = billingKind
@@ -508,6 +524,7 @@ public struct TokenUsage: Codable, Identifiable, Hashable, Sendable {
         case providerID, providerAccountID, providerAccountLabel, providerAccountSource
         case currency, recordedAt, eventKind, idempotencyKey
         case provenanceMethod, provenanceConfidence, estimatorVersion
+        case tokenConfidence, pricingSource
         case parentRequestID
         case billingKind
     }
@@ -568,7 +585,13 @@ public struct TokenUsage: Codable, Identifiable, Hashable, Sendable {
         eventKind = try c.decodeIfPresent(String.self, forKey: .eventKind)
         idempotencyKey = try c.decodeIfPresent(String.self, forKey: .idempotencyKey)
         provenanceMethod = try c.decodeIfPresent(UsageProvenanceMethod.self, forKey: .provenanceMethod) ?? .unknown
-        provenanceConfidence = try c.decodeIfPresent(UsageProvenanceConfidence.self, forKey: .provenanceConfidence) ?? .unknown
+        let rowConfidence = try c.decodeIfPresent(UsageProvenanceConfidence.self, forKey: .provenanceConfidence) ?? .unknown
+        // Rows encoded before pricing provenance carry neither key; an
+        // unrecognised source from a newer writer degrades to `.unknown`.
+        pricingSource = try c.decodeIfPresent(String.self, forKey: .pricingSource)
+            .flatMap(UsagePricingSource.init(rawValue:)) ?? .unknown
+        tokenConfidence = try c.decodeIfPresent(UsageProvenanceConfidence.self, forKey: .tokenConfidence) ?? rowConfidence
+        provenanceConfidence = pricingSource.rowConfidence(tokenConfidence: tokenConfidence)
         estimatorVersion = try c.decodeIfPresent(String.self, forKey: .estimatorVersion) ?? ""
         parentRequestID = try c.decodeIfPresent(String.self, forKey: .parentRequestID)
         billingKind = try c.decodeIfPresent(BurnBarBillingKind.self, forKey: .billingKind) ?? .unknown
@@ -613,6 +636,8 @@ public struct TokenUsage: Codable, Identifiable, Hashable, Sendable {
         try c.encodeIfPresent(idempotencyKey, forKey: .idempotencyKey)
         try c.encode(provenanceMethod, forKey: .provenanceMethod)
         try c.encode(provenanceConfidence, forKey: .provenanceConfidence)
+        try c.encode(tokenConfidence, forKey: .tokenConfidence)
+        try c.encode(pricingSource, forKey: .pricingSource)
         try c.encode(estimatorVersion, forKey: .estimatorVersion)
         try c.encodeIfPresent(parentRequestID, forKey: .parentRequestID)
         try c.encode(billingKind, forKey: .billingKind)

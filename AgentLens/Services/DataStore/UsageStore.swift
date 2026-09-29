@@ -36,24 +36,7 @@ final class UsageStore: Sendable {
     // MARK: - Insert
 
     func insert(_ usage: TokenUsage) async throws {
-        let changedRows = try await dbQueue.write { db -> Int in
-            let before = db.totalChangesCount
-            try self.deleteKimiRequestIDModelRows(replacedBy: usage, in: db)
-            try self.deletePlaceholderModelRows(replacedBy: usage, in: db)
-            if try self.shouldSkipPlaceholderModelRow(usage, in: db) {
-                return db.totalChangesCount - before
-            }
-            if try self.shouldSuppressFactoryRoutedMirror(usage, in: db) {
-                return db.totalChangesCount - before
-            }
-            try self.deleteFactoryRoutedMirrorRows(replacedBy: usage, in: db)
-            try self.deleteStaleLowerConfidenceModelRows(replacedBy: usage, in: db)
-            try self.deleteUnattributedPredecessorRows(replacedBy: usage, in: db)
-            try self.upsertUsage(usage, in: db)
-            return db.totalChangesCount - before
-        }
-        noteUsageWrite(changedRows: changedRows)
-        SearchQueryCache.shared.clear()
+        try await insert([usage])
     }
 
     func insert(_ newUsages: [TokenUsage]) async throws {
@@ -61,23 +44,25 @@ final class UsageStore: Sendable {
         let changedRows = try await dbQueue.write { db -> Int in
             let before = db.totalChangesCount
             for usage in newUsages {
-                try self.deleteKimiRequestIDModelRows(replacedBy: usage, in: db)
-                try self.deletePlaceholderModelRows(replacedBy: usage, in: db)
-                if try self.shouldSkipPlaceholderModelRow(usage, in: db) {
-                    continue
-                }
-                if try self.shouldSuppressFactoryRoutedMirror(usage, in: db) {
-                    continue
-                }
-                try self.deleteFactoryRoutedMirrorRows(replacedBy: usage, in: db)
-                try self.deleteStaleLowerConfidenceModelRows(replacedBy: usage, in: db)
-                try self.deleteUnattributedPredecessorRows(replacedBy: usage, in: db)
-                try self.upsertUsage(usage, in: db)
+                try self.writeUsageRow(usage, in: db)
             }
             return db.totalChangesCount - before
         }
         noteUsageWrite(changedRows: changedRows)
         SearchQueryCache.shared.clear()
+    }
+
+    /// One row through the insert pipeline: retire the rows it supersedes,
+    /// then upsert it on the precedence ladder.
+    func writeUsageRow(_ usage: TokenUsage, in db: Database) throws {
+        try deleteKimiRequestIDModelRows(replacedBy: usage, in: db)
+        try deletePlaceholderModelRows(replacedBy: usage, in: db)
+        if try shouldSkipPlaceholderModelRow(usage, in: db) { return }
+        if try shouldSuppressFactoryRoutedMirror(usage, in: db) { return }
+        try deleteFactoryRoutedMirrorRows(replacedBy: usage, in: db)
+        try deleteStaleLowerConfidenceModelRows(replacedBy: usage, in: db)
+        try deleteUnattributedPredecessorRows(replacedBy: usage, in: db)
+        try upsertUsage(usage, in: db)
     }
 
     /// Inserts `newUsages` in fixed-size chunks, each in its own transaction.
@@ -158,6 +143,8 @@ final class UsageStore: Sendable {
             hasher.combine(usage.executionSourceConfidence)
             hasher.combine(usage.provenanceMethod)
             hasher.combine(usage.provenanceConfidence)
+            hasher.combine(usage.tokenConfidence)
+            hasher.combine(usage.pricingSource)
             hasher.combine(usage.providerAccountID)
             hasher.combine(usage.providerAccountLabel)
             hasher.combine(usage.providerAccountSource)

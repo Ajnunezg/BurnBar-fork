@@ -67,7 +67,9 @@ public sealed partial class WindowsSqlCipherProvisioner
             parentRequestID TEXT,
             billingKind TEXT NOT NULL DEFAULT 'unknown',
             originatorKind TEXT,
-            originatorRef TEXT
+            originatorRef TEXT,
+            pricingSource TEXT NOT NULL DEFAULT 'unknown',
+            tokenConfidence TEXT
         )
         """,
         "CREATE UNIQUE INDEX IF NOT EXISTS token_usage_unique_session_model_idx ON token_usage(provider, sessionId, model, COALESCE(sourceDeviceId, ''), COALESCE(providerAccountID, ''))",

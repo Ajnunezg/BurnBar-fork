@@ -484,6 +484,7 @@ public final class AntigravityParser: LogParser, Sendable {
             cacheCreationTokens: cacheCreationTokens,
             cacheReadTokens: cacheReadTokens,
             costUSD: cost,
+            pricingSource: pricing.source,
             startTime: finalStartTime,
             endTime: finalEndTime,
             provenanceMethod: .heuristicEstimate,

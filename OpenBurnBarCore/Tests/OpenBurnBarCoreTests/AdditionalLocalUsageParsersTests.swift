@@ -412,7 +412,10 @@ final class AdditionalLocalUsageParsersTests: XCTestCase {
         let result = try await OllamaParser(logsOverride: root).parse()
         XCTAssertEqual(result.usages.first?.inputTokens, 44)
         XCTAssertEqual(result.usages.first?.outputTokens, 9)
-        XCTAssertEqual(result.usages.first?.provenanceConfidence, .exact)
+        XCTAssertEqual(result.usages.first?.tokenConfidence, .exact)
+        // `llama3.2` has no listed rate: the dollars are a fallback estimate.
+        XCTAssertEqual(result.usages.first?.pricingSource, .fallback)
+        XCTAssertEqual(result.usages.first?.provenanceConfidence, .lowConfidenceEstimate)
     }
 
     func testCursorSQLiteAggregatesCodeHashesWithExplicitLowConfidenceMarker() async throws {

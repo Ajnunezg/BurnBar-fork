@@ -129,7 +129,7 @@ final class FusionImpactLedgerTests: XCTestCase {
     // MARK: - Idempotency-key fallback parsing
 
     func test_fusionParentRequestID_parsesElderwandPrefixFromKey() {
-        let parsed = OpenBurnBarDaemonUsageSyncService.fusionParentRequestID(
+        let parsed = DaemonUsageLedgerImporter.fusionParentRequestID(
             fromIdempotencyKey: "elderwand-1234|panel|claude-4-sonnet|0"
         )
         XCTAssertEqual(parsed, "elderwand-1234")
@@ -137,12 +137,12 @@ final class FusionImpactLedgerTests: XCTestCase {
 
     func test_fusionParentRequestID_returnsNilForNonFusionKey() {
         XCTAssertNil(
-            OpenBurnBarDaemonUsageSyncService.fusionParentRequestID(
+            DaemonUsageLedgerImporter.fusionParentRequestID(
                 fromIdempotencyKey: "normal-session|model|0"
             )
         )
         XCTAssertNil(
-            OpenBurnBarDaemonUsageSyncService.fusionParentRequestID(
+            DaemonUsageLedgerImporter.fusionParentRequestID(
                 fromIdempotencyKey: "elderwand"
             ),
             "Bare 'elderwand' (no -prefix) is not a fusion parent"

@@ -22,6 +22,11 @@ import OpenBurnBarKernel
 ///    aborts on the process memory ceiling;
 ///  * conversation bodies are never written to the on-disk parser cache
 ///    (privacy-transient, PR #1808) — the cache stores usage + scan state.
+///
+/// Model attribution: every assistant line carries the model that served it,
+/// so a transcript yields one usage row per (session, model), each priced at
+/// its own model's rate. A session that switches Opus → Haiku mid-way is two
+/// rows, never one row priced at whichever model sorts first.
 public final class ClaudeCodeParser: LogParser, Sendable {
     public let provider: AgentProvider
     private let fileManager: FileManager
@@ -68,7 +73,7 @@ public final class ClaudeCodeParser: LogParser, Sendable {
         self.cacheStore = ParserDiskCacheStore(
             cacheURL: cacheURL,
             fileManager: fileManager,
-            schemaVersion: 4,
+            schemaVersion: 5,
             logLabel: "ClaudeCodeParser"
         )
         _ = try? OpenBurnBarMigration.prepareSupportDirectory(fileManager: fileManager, paths: appPaths) // try?-ok(best-effort dir prep)
@@ -222,7 +227,7 @@ public final class ClaudeCodeParser: LogParser, Sendable {
         if options.minimumFileModificationDate != nil, signature == nil {
             governor?.recordDeferredFile()
             options.metrics?.recordDeferred(.metadataUnavailable)
-            if let usage = cached?.usage { usages.append(usage) }
+            usages.append(contentsOf: cached?.usages ?? [])
             return
         }
 
@@ -233,16 +238,15 @@ public final class ClaudeCodeParser: LogParser, Sendable {
                signature: signature,
                minimumFileModificationDate: options.minimumFileModificationDate
            ) {
-            if let signature, let cached, cached.signature == signature,
-               let usage = cached.usage {
-                usages.append(usage)
+            if let signature, let cached, cached.signature == signature {
+                usages.append(contentsOf: cached.usages)
             }
             return
         }
 
         let isUnchanged = !isNewlyDiscovered && signature != nil && cached?.signature == signature
         if isUnchanged, !includeConversation || options.fileDiscoveryTracker != nil {
-            if let usage = cached?.usage { usages.append(usage) }
+            usages.append(contentsOf: cached?.usages ?? [])
             return
         }
 
@@ -262,7 +266,7 @@ public final class ClaudeCodeParser: LogParser, Sendable {
 
         guard governor?.admitFile(estimatedBytes: estimatedNewBytes) ?? true else {
             options.metrics?.recordDeferred(.byteBudget)
-            if let usage = cached?.usage { usages.append(usage) }
+            usages.append(contentsOf: cached?.usages ?? [])
             return
         }
         options.fileDiscoveryTracker?.recordAdmitted(discoveredFile)
@@ -279,11 +283,11 @@ public final class ClaudeCodeParser: LogParser, Sendable {
             governor?.recordDeferredFile()
             options.fileDiscoveryTracker?.recordDeferred(discoveredFile)
             options.metrics?.recordDeferred(.contentReadFailed)
-            if let usage = cached?.usage { usages.append(usage) }
+            usages.append(contentsOf: cached?.usages ?? [])
             return
         }
 
-        if let usage = outcome.usage { usages.append(usage) }
+        usages.append(contentsOf: outcome.usages)
         if includeConversation, let conversation = outcome.conversation {
             conversations.append(conversation)
         }
@@ -292,7 +296,7 @@ public final class ClaudeCodeParser: LogParser, Sendable {
             let persistedState = fileSize >= Self.incrementalScanThresholdBytes ? outcome.scanState : nil
             parseCache.fileEntries[cacheKey] = ClaudeCodeCacheEntry(
                 signature: signature,
-                usage: outcome.usage,
+                usages: outcome.usages,
                 scanState: persistedState
             )
             cacheMutated = true
@@ -305,7 +309,8 @@ public final class ClaudeCodeParser: LogParser, Sendable {
     // MARK: - Session Scanning
 
     private struct SessionScanOutcome {
-        let usage: TokenUsage?
+        /// One row per model that served this session, sorted by model id.
+        let usages: [TokenUsage]
         let conversation: ConversationRecord?
         let scanState: ClaudeTokenScanState
     }
@@ -313,12 +318,24 @@ public final class ClaudeCodeParser: LogParser, Sendable {
     /// Accumulated token reduction over transcript lines. The reduction is a
     /// deterministic function of (state, line), which is what makes saved
     /// state resumable across passes.
+    ///
+    /// Tokens are bucketed by the model that served each line. The session
+    /// totals are kept alongside because they seed the input/output split
+    /// hint for total-only usage payloads — the same hint the single-row
+    /// reduction used, so per-model buckets always sum to those totals.
     struct ClaudeTokenAccumulator {
         var inputTokens = 0
         var outputTokens = 0
         var cacheCreationTokens = 0
         var cacheReadTokens = 0
-        var models: Set<String> = []
+        var tokensByModel: [String: ClaudeModelTokens] = [:]
+        /// Usage seen before the transcript named any real model. It joins
+        /// the first model that appears; a transcript that never names one
+        /// keeps it under the legacy `claude` id.
+        var unattributed = ClaudeModelTokens()
+        /// The most recent real model. A usage line without its own model
+        /// (or with a `<synthetic>` placeholder) was served by it.
+        var lastModel: String?
         var startTime: Date?
         var endTime: Date?
         var seenUsageKeyHashes: Set<UInt64> = []
@@ -330,11 +347,25 @@ public final class ClaudeCodeParser: LogParser, Sendable {
             outputTokens = state.outputTokens
             cacheCreationTokens = state.cacheCreationTokens
             cacheReadTokens = state.cacheReadTokens
-            models = Set(state.models)
+            tokensByModel = state.tokensByModel
+            unattributed = state.unattributed
+            lastModel = state.lastModel
             startTime = state.startTime
             endTime = state.endTime
             seenUsageKeyHashes = Set(state.seenUsageKeyHashes.map { UInt64(bitPattern: $0) })
         }
+
+        /// Per-model buckets that carry tokens, with never-attributed usage
+        /// under the legacy `claude` id.
+        var attributedTokens: [(model: String, tokens: ClaudeModelTokens)] {
+            var buckets = tokensByModel.filter { $0.value.hasTokens }
+            if unattributed.hasTokens {
+                buckets[Self.unattributedModelID, default: ClaudeModelTokens()].absorb(unattributed)
+            }
+            return buckets.sorted { $0.key < $1.key }.map { (model: $0.key, tokens: $0.value) }
+        }
+
+        static let unattributedModelID = "claude"
     }
 
     private func scanClaudeSession(
@@ -420,7 +451,9 @@ public final class ClaudeCodeParser: LogParser, Sendable {
             outputTokens: accumulator.outputTokens,
             cacheCreationTokens: accumulator.cacheCreationTokens,
             cacheReadTokens: accumulator.cacheReadTokens,
-            models: accumulator.models.sorted(),
+            tokensByModel: accumulator.tokensByModel,
+            unattributed: accumulator.unattributed,
+            lastModel: accumulator.lastModel,
             startTime: accumulator.startTime,
             endTime: accumulator.endTime,
             seenUsageKeyHashes: accumulator.seenUsageKeyHashes.map { Int64(bitPattern: $0) }.sorted()
@@ -428,42 +461,40 @@ public final class ClaudeCodeParser: LogParser, Sendable {
 
         conversationAccumulator?.finalizeArrays()
 
-        guard effective.inputTokens > 0
-            || effective.outputTokens > 0
-            || effective.cacheCreationTokens > 0
-            || effective.cacheReadTokens > 0 else {
-            return SessionScanOutcome(usage: nil, conversation: nil, scanState: scanState)
+        let attributed = effective.attributedTokens
+        guard !attributed.isEmpty else {
+            return SessionScanOutcome(usages: [], conversation: nil, scanState: scanState)
         }
 
-        // `models` only holds real ids (placeholders such as `<synthetic>` are
-        // rejected on insert); `min()` keeps the pick deterministic.
-        let model = effective.models.min() ?? "claude"
-        let pricing = ModelPricing.lookup(model: model)
-        let totalCost = try pricing.cost(
-            inputTokens: effective.inputTokens,
-            outputTokens: effective.outputTokens,
-            cacheCreationTokens: effective.cacheCreationTokens,
-            cacheReadTokens: effective.cacheReadTokens
-        )
+        let sessionStartTime = effective.startTime ?? conversationAccumulator?.startTime ?? mtime ?? Date()
+        let sessionEndTime = effective.endTime ?? conversationAccumulator?.endTime ?? mtime ?? sessionStartTime
 
-        let usageStartTime = effective.startTime ?? conversationAccumulator?.startTime ?? mtime ?? Date()
-        let usageEndTime = effective.endTime ?? conversationAccumulator?.endTime ?? mtime ?? usageStartTime
-
-        let usage = TokenUsage(
-            provider: provider,
-            sessionId: sessionId,
-            projectName: projectName,
-            model: model,
-            inputTokens: effective.inputTokens,
-            outputTokens: effective.outputTokens,
-            cacheCreationTokens: effective.cacheCreationTokens,
-            cacheReadTokens: effective.cacheReadTokens,
-            costUSD: totalCost,
-            startTime: usageStartTime,
-            endTime: usageEndTime,
-            provenanceMethod: .providerLog,
-            provenanceConfidence: .exact
-        )
+        let usages = try attributed.map { model, tokens in
+            let pricing = ModelPricing.lookup(model: model)
+            let cost = try pricing.cost(
+                inputTokens: tokens.inputTokens,
+                outputTokens: tokens.outputTokens,
+                cacheCreationTokens: tokens.cacheCreationTokens,
+                cacheReadTokens: tokens.cacheReadTokens
+            )
+            let startTime = tokens.startTime ?? sessionStartTime
+            return TokenUsage(
+                provider: provider,
+                sessionId: sessionId,
+                projectName: projectName,
+                model: model,
+                inputTokens: tokens.inputTokens,
+                outputTokens: tokens.outputTokens,
+                cacheCreationTokens: tokens.cacheCreationTokens,
+                cacheReadTokens: tokens.cacheReadTokens,
+                costUSD: cost,
+                pricingSource: pricing.source,
+                startTime: startTime,
+                endTime: tokens.endTime ?? max(sessionEndTime, startTime),
+                provenanceMethod: .providerLog,
+                provenanceConfidence: .exact
+            )
+        }
 
         var conversation: ConversationRecord?
         if let conv = conversationAccumulator {
@@ -472,8 +503,8 @@ public final class ClaudeCodeParser: LogParser, Sendable {
                 provider: provider,
                 sessionId: sessionId,
                 projectName: projectName,
-                startTime: conv.startTime ?? usage.startTime,
-                endTime: conv.endTime ?? usage.endTime,
+                startTime: conv.startTime ?? sessionStartTime,
+                endTime: conv.endTime ?? sessionEndTime,
                 messageCount: conv.messageCount,
                 userWordCount: conv.userWordCount,
                 assistantWordCount: conv.assistantWordCount,
@@ -490,10 +521,10 @@ public final class ClaudeCodeParser: LogParser, Sendable {
             )
         }
 
-        return SessionScanOutcome(usage: usage, conversation: conversation, scanState: scanState)
+        return SessionScanOutcome(usages: usages, conversation: conversation, scanState: scanState)
     }
 
-    /// One line of the token reduction, verbatim from the original loop.
+    /// One line of the token reduction.
     static func reduceLine(
         _ text: String,
         tokenAccumulator accumulator: inout ClaudeTokenAccumulator,
@@ -518,9 +549,10 @@ public final class ClaudeCodeParser: LogParser, Sendable {
             guard accumulator.seenUsageKeyHashes.insert(keyHash).inserted else { return }
         }
 
-        if let date = Self.parseTimestamp(json["timestamp"]) {
-            if accumulator.startTime == nil { accumulator.startTime = date }
-            accumulator.endTime = date
+        let timestamp = Self.parseTimestamp(json["timestamp"])
+        if let timestamp {
+            if accumulator.startTime == nil { accumulator.startTime = timestamp }
+            accumulator.endTime = timestamp
         }
 
         let extracted = TokenExtractionUtility.extractUsageTokens(
@@ -535,8 +567,19 @@ public final class ClaudeCodeParser: LogParser, Sendable {
 
         if let model = message["model"] as? String,
            !TokenExtractionUtility.isPlaceholderModelName(model) {
-            accumulator.models.insert(model)
+            accumulator.lastModel = model
         }
+        guard let model = accumulator.lastModel else {
+            accumulator.unattributed.add(extracted, at: timestamp)
+            return
+        }
+        var bucket = accumulator.tokensByModel[model] ?? ClaudeModelTokens()
+        if accumulator.unattributed.hasActivity {
+            bucket.absorb(accumulator.unattributed)
+            accumulator.unattributed = ClaudeModelTokens()
+        }
+        bucket.add(extracted, at: timestamp)
+        accumulator.tokensByModel[model] = bucket
     }
 
     public func decodeProjectName(_ encoded: String) -> String {
@@ -618,12 +661,55 @@ public final class ClaudeCodeParser: LogParser, Sendable {
     }
 }
 
+/// Token totals and activity window for one model inside one transcript.
+public struct ClaudeModelTokens: Codable, Equatable, Sendable {
+    public var inputTokens = 0
+    public var outputTokens = 0
+    public var cacheCreationTokens = 0
+    public var cacheReadTokens = 0
+    public var startTime: Date?
+    public var endTime: Date?
+
+    public init() {}
+
+    var hasTokens: Bool {
+        inputTokens > 0 || outputTokens > 0 || cacheCreationTokens > 0 || cacheReadTokens > 0
+    }
+
+    /// Tokens or a timestamp: anything a later model bucket must inherit.
+    var hasActivity: Bool {
+        hasTokens || startTime != nil
+    }
+
+    mutating func add(_ extracted: ExtractedTokenUsage, at timestamp: Date?) {
+        inputTokens += extracted.input
+        outputTokens += extracted.output
+        cacheCreationTokens += extracted.cacheCreation
+        cacheReadTokens += extracted.cacheRead
+        if let timestamp {
+            if startTime == nil { startTime = timestamp }
+            endTime = timestamp
+        }
+    }
+
+    mutating func absorb(_ other: ClaudeModelTokens) {
+        inputTokens += other.inputTokens
+        outputTokens += other.outputTokens
+        cacheCreationTokens += other.cacheCreationTokens
+        cacheReadTokens += other.cacheReadTokens
+        startTime = [startTime, other.startTime].compactMap { $0 }.min()
+        endTime = [endTime, other.endTime].compactMap { $0 }.max()
+    }
+}
+
 /// Persistable per-file scan state for incremental usage extraction from
 /// append-only Claude Code transcripts. `byteOffset` always points just past
 /// the last *terminated* line consumed. `seenUsageKeyHashes` stores FNV-1a 64
 /// bit patterns of `messageID:requestID` dedupe keys (as `Int64` for property
 /// list encoding); it exists only for files above the incremental threshold,
-/// bounding cache growth.
+/// bounding cache growth. `tokensByModel` partitions the session totals by the
+/// model that served each line; together with `unattributed` it always sums
+/// to them.
 public struct ClaudeTokenScanState: Codable, Equatable, Sendable {
     public var byteOffset: Int64
     public var headDigest: String
@@ -632,7 +718,9 @@ public struct ClaudeTokenScanState: Codable, Equatable, Sendable {
     public var outputTokens: Int
     public var cacheCreationTokens: Int
     public var cacheReadTokens: Int
-    public var models: [String]
+    public var tokensByModel: [String: ClaudeModelTokens]
+    public var unattributed: ClaudeModelTokens
+    public var lastModel: String?
     public var startTime: Date?
     public var endTime: Date?
     public var seenUsageKeyHashes: [Int64]
@@ -645,7 +733,9 @@ public struct ClaudeTokenScanState: Codable, Equatable, Sendable {
         outputTokens: Int,
         cacheCreationTokens: Int,
         cacheReadTokens: Int,
-        models: [String],
+        tokensByModel: [String: ClaudeModelTokens],
+        unattributed: ClaudeModelTokens,
+        lastModel: String?,
         startTime: Date?,
         endTime: Date?,
         seenUsageKeyHashes: [Int64]
@@ -657,20 +747,23 @@ public struct ClaudeTokenScanState: Codable, Equatable, Sendable {
         self.outputTokens = outputTokens
         self.cacheCreationTokens = cacheCreationTokens
         self.cacheReadTokens = cacheReadTokens
-        self.models = models
+        self.tokensByModel = tokensByModel
+        self.unattributed = unattributed
+        self.lastModel = lastModel
         self.startTime = startTime
         self.endTime = endTime
         self.seenUsageKeyHashes = seenUsageKeyHashes
     }
 }
 
-/// v4 (schemaVersion 4): carries the incremental `scanState` and, by
-/// construction, can no longer hold conversation bodies — parser caches are
-/// privacy-transient for conversation text (PR #1808). v4 additionally drops
-/// v3 rows whose model resolved to a harness placeholder (`<synthetic>`)
-/// so affected sessions re-parse against the exact model that did the work.
+/// v5 (schemaVersion 5): one usage row per (session, model). v4 entries held a
+/// single row that priced every model in the session at `models.min()`; the
+/// version bump drops them so every transcript re-parses into per-model rows.
+/// Like v4 it carries the incremental `scanState` and, by construction, can
+/// never hold conversation bodies — parser caches are privacy-transient for
+/// conversation text (PR #1808).
 struct ClaudeCodeCacheEntry: Codable, Equatable {
     let signature: FileSignature
-    let usage: TokenUsage?
+    let usages: [TokenUsage]
     let scanState: ClaudeTokenScanState?
 }

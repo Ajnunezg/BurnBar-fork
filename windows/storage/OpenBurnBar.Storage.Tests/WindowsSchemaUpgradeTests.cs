@@ -34,8 +34,8 @@ public sealed class WindowsSchemaUpgradeTests
 {
     private const string PreviousEndpoint = "v59_founder_lens";
     private const long PreviousMigrationCount = 60;
-    private const string CurrentEndpoint = "v70_agent_memories_index_backfill";
-    private const long CurrentMigrationCount = 71;
+    private const string CurrentEndpoint = "v71_token_usage_pricing_provenance";
+    private const long CurrentMigrationCount = 72;
 
     private const string Passphrase = "OBB-WinPort-SchemaUpgrade-Test-Key-0000000=";
     private const string KeyProvenance = "test-static:schema-upgrade";
@@ -65,6 +65,8 @@ public sealed class WindowsSchemaUpgradeTests
         Assert.Equal(CurrentMigrationCount, SqlCipherConnection.ReadMigrationCount(connection));
         Assert.True(ColumnExists(connection, "token_usage", "billingKind"));
         Assert.True(IndexExists(connection, "token_usage_billing_kind_time_idx"));
+        Assert.True(ColumnExists(connection, "token_usage", "pricingSource"));
+        Assert.True(ColumnExists(connection, "token_usage", "tokenConfidence"));
         Assert.True(ColumnExists(connection, "memory_quarantine_bodies", "body"));
         Assert.True(IndexExists(connection, "memory_quarantine_bodies_project_idx"));
 
@@ -166,7 +168,7 @@ public sealed class WindowsSchemaUpgradeTests
         // history must stay a strict PREFIX for the upgrade path to engage.
         Execute(
             profile.DatabasePath,
-            "DELETE FROM grdb_migrations WHERE identifier IN ('v60_billing_kind', 'v61_usage_memory', 'v62_war_room_originator', 'v63_standing_orders', 'v64_token_usage_start_time_index', 'v65_memory_quarantine_bodies', 'v66_agent_memory_bodies', 'v67_agent_memory_inbox', 'v68_agent_memories_review_default_repair', 'v69_token_usage_end_time_index', 'v70_agent_memories_index_backfill')");
+            "DELETE FROM grdb_migrations WHERE identifier IN ('v60_billing_kind', 'v61_usage_memory', 'v62_war_room_originator', 'v63_standing_orders', 'v64_token_usage_start_time_index', 'v65_memory_quarantine_bodies', 'v66_agent_memory_bodies', 'v67_agent_memory_inbox', 'v68_agent_memories_review_default_repair', 'v69_token_usage_end_time_index', 'v70_agent_memories_index_backfill', 'v71_token_usage_pricing_provenance')");
 
         WindowsStorageProvisioningReport report =
             provisioner.EnsureReady(profile.DatabasePath, Passphrase, KeyProvenance);
@@ -348,6 +350,8 @@ public sealed class WindowsSchemaUpgradeTests
             DROP INDEX IF EXISTS token_usage_end_time_idx;
             ALTER TABLE token_usage DROP COLUMN originatorKind;
             ALTER TABLE token_usage DROP COLUMN originatorRef;
+            ALTER TABLE token_usage DROP COLUMN pricingSource;
+            ALTER TABLE token_usage DROP COLUMN tokenConfidence;
             DROP INDEX IF EXISTS standing_orders_enabled_fired_idx;
             DROP TABLE IF EXISTS standing_orders;
             DROP INDEX IF EXISTS memory_quarantine_bodies_project_idx;
@@ -356,7 +360,7 @@ public sealed class WindowsSchemaUpgradeTests
             DROP TABLE IF EXISTS agent_memory_bodies;
             DROP INDEX IF EXISTS agent_memory_inbox_user_applied_idx;
             DROP TABLE IF EXISTS agent_memory_inbox;
-            DELETE FROM grdb_migrations WHERE identifier IN ('v60_billing_kind', 'v61_usage_memory', 'v62_war_room_originator', 'v63_standing_orders', 'v64_token_usage_start_time_index', 'v65_memory_quarantine_bodies', 'v66_agent_memory_bodies', 'v67_agent_memory_inbox', 'v68_agent_memories_review_default_repair', 'v69_token_usage_end_time_index', 'v70_agent_memories_index_backfill');
+            DELETE FROM grdb_migrations WHERE identifier IN ('v60_billing_kind', 'v61_usage_memory', 'v62_war_room_originator', 'v63_standing_orders', 'v64_token_usage_start_time_index', 'v65_memory_quarantine_bodies', 'v66_agent_memory_bodies', 'v67_agent_memory_inbox', 'v68_agent_memories_review_default_repair', 'v69_token_usage_end_time_index', 'v70_agent_memories_index_backfill', 'v71_token_usage_pricing_provenance');
             """);
     }
 
@@ -368,6 +372,7 @@ public sealed class WindowsSchemaUpgradeTests
         Assert.False(ColumnExists(connection, "token_usage", "billingKind"));
         Assert.False(IndexExists(connection, "token_usage_billing_kind_time_idx"));
         Assert.False(ColumnExists(connection, "token_usage", "originatorKind"));
+        Assert.False(ColumnExists(connection, "token_usage", "pricingSource"));
         Assert.False(IndexExists(connection, "token_usage_start_time_idx"));
     }
 

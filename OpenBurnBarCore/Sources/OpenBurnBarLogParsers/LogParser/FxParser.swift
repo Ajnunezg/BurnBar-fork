@@ -352,6 +352,7 @@ public final class FxParser: LogParser, Sendable {
                     cacheReadTokens: modelUsage.cacheReadTokens,
                     reasoningTokens: modelUsage.reasoningTokens,
                     costUSD: modelUsage.costUSD,
+                    pricingSource: .reported,
                     startTime: start,
                     endTime: end,
                     provenanceMethod: .providerLog,
@@ -362,10 +363,13 @@ public final class FxParser: LogParser, Sendable {
         } else if hasAggregateUsage {
             let resolvedModel = fallbackModel ?? "unknown"
             let cost: Double
+            let pricingSource: UsagePricingSource
             if costWasExplicit {
                 cost = totalCost
+                pricingSource = .reported
             } else {
                 let pricing = ModelPricing.lookup(model: resolvedModel, providerID: "fx")
+                pricingSource = pricing.source
                 cost = (try? pricing.cost(
                     inputTokens: totalInput,
                     outputTokens: totalOutput,
@@ -385,6 +389,7 @@ public final class FxParser: LogParser, Sendable {
                     cacheReadTokens: totalCacheRead,
                     reasoningTokens: totalReasoning,
                     costUSD: cost,
+                    pricingSource: pricingSource,
                     startTime: start,
                     endTime: end,
                     provenanceMethod: .providerLog,

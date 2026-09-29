@@ -309,7 +309,8 @@ public final class JunieParser: LogParser, Sendable {
         let mtime = LocalUsageParserSupport.modificationDate(events) ?? Date()
         let startTime = start ?? mtime
         let endTime = end ?? startTime
-        let cost = (try? ModelPricing.lookup(model: model, providerID: "junie").cost(
+        let pricing = ModelPricing.lookup(model: model, providerID: "junie")
+        let cost = (try? pricing.cost(
             inputTokens: input,
             outputTokens: output,
             cacheCreationTokens: cacheCreation,
@@ -329,6 +330,7 @@ public final class JunieParser: LogParser, Sendable {
             cacheRead: cacheRead,
             reasoning: reasoning,
             cost: cost,
+            pricingSource: pricing.source,
             start: startTime,
             end: endTime,
             method: method,
@@ -366,10 +368,11 @@ public final class JunieParser: LogParser, Sendable {
             cacheReadTokens: usage.cacheReadTokens,
             reasoningTokens: usage.reasoningTokens,
             costUSD: usage.costUSD,
+            pricingSource: usage.pricingSource,
             startTime: usage.startTime,
             endTime: usage.endTime,
             provenanceMethod: usage.provenanceMethod,
-            provenanceConfidence: usage.provenanceConfidence,
+            provenanceConfidence: usage.tokenConfidence,
             estimatorVersion: usage.estimatorVersion
         )
     }

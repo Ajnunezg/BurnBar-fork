@@ -41,7 +41,9 @@ extension UsageStore {
         "provenanceConfidence",
         "estimatorVersion",
         "parentRequestID",
-        "billingKind"
+        "billingKind",
+        "pricingSource",
+        "tokenConfidence"
     ]
 
     /// SELECT-order indexes for `usageDecodeSelectColumns`. GRDB named lookup is
@@ -78,6 +80,8 @@ extension UsageStore {
         case estimatorVersion
         case parentRequestID
         case billingKind
+        case pricingSource
+        case tokenConfidence
     }
 
     static let chartFactSelectColumns = [
@@ -96,7 +100,8 @@ extension UsageStore {
         "cacheReadTokens",
         "reasoningTokens",
         "provenanceConfidence",
-        "isRemote"
+        "isRemote",
+        "pricingSource"
     ]
 
     enum ChartFactCol: Int {
@@ -116,6 +121,7 @@ extension UsageStore {
         case reasoningTokens
         case provenanceConfidence
         case isRemote
+        case pricingSource
     }
 
     static let chartSessionSelectColumns = [

@@ -222,14 +222,14 @@ final class ChartFactRowSQLTests: XCTestCase {
         struct Grain: Hashable {
             let slot: Int, project: String, model: String, provider: AgentProvider
             let billing: BurnBarBillingKind, source: UsageSource, provenance: UsageProvenanceConfidence
-            let isRemote: Bool, inRecent: Bool
+            let isRemote: Bool, pricing: UsagePricingSource, inRecent: Bool
         }
         let grains = Set(perRow.map {
             Grain(
                 slot: Int(($0.startTime.timeIntervalSince1970 / Double(UsageStore.chartAggregateSlotSeconds)).rounded(.down)),
                 project: $0.projectName, model: $0.model, provider: $0.provider,
                 billing: $0.billingKind, source: $0.usageSource, provenance: $0.provenanceConfidence,
-                isRemote: $0.isRemote, inRecent: $0.intersects(dateRange: recent)
+                isRemote: $0.isRemote, pricing: $0.pricingSource, inRecent: $0.intersects(dateRange: recent)
             )
         })
         XCTAssertEqual(aggregates.facts.count, grains.count)
@@ -315,8 +315,16 @@ final class ChartFactRowSQLTests: XCTestCase {
             "isRemote"
         )
         XCTAssertEqual(
+            UsageStore.chartFactSelectColumns[UsageStore.ChartFactCol.pricingSource.rawValue],
+            "pricingSource"
+        )
+        XCTAssertEqual(
             UsageStore.chartFactSelectColumns.count,
-            UsageStore.ChartFactCol.isRemote.rawValue + 1
+            UsageStore.ChartFactCol.pricingSource.rawValue + 1
+        )
+        XCTAssertEqual(
+            UsageStore.chartAggregateSelectColumns[UsageStore.ChartFactCol.pricingSource.rawValue],
+            "pricingSource"
         )
         XCTAssertEqual(
             UsageStore.chartSessionSelectColumns[UsageStore.ChartSessionCol.provider.rawValue],
@@ -535,7 +543,9 @@ final class ChartFactRowSQLTests: XCTestCase {
             ),
             provenanceConfidence: (row["provenanceConfidence"] as? String)
                 .flatMap(UsageProvenanceConfidence.init(rawValue:)) ?? .unknown,
-            isRemote: UsageStore.intValue(row["isRemote"]) != 0
+            isRemote: UsageStore.intValue(row["isRemote"]) != 0,
+            pricingSource: (row["pricingSource"] as? String)
+                .flatMap(UsagePricingSource.init(rawValue:)) ?? .unknown
         )
     }
 
@@ -654,6 +664,7 @@ final class ChartFactRowSQLTests: XCTestCase {
                 cacheReadTokens: (index % 9) * 20,
                 reasoningTokens: index % 6 == 0 ? 40 : 0,
                 costUSD: topCosts[index] ?? (tiedForFifth.contains(index) ? 200 : Double((index * 7) % 29 + 1) / 8),
+                pricingSource: flip(43) == 1 ? .fallback : .catalog,
                 startTime: start,
                 endTime: end,
                 usageSource: flip(41) == 1 ? .billingAPI : .providerLog,

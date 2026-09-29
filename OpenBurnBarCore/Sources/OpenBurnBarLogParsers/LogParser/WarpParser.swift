@@ -431,7 +431,8 @@ public final class WarpParser: LogParser, Sendable {
             String(extracted.cacheRead)
         ].joined(separator: "|"))
         let confidence: UsageProvenanceConfidence = extracted.hasExplicitPrimaryBucket ? .exact : .derivedExact
-        let cost = try ModelPricing.lookup(model: model).cost(
+        let pricing = ModelPricing.lookup(model: model)
+        let cost = try pricing.cost(
             inputTokens: extracted.input,
             outputTokens: extracted.output,
             cacheCreationTokens: extracted.cacheCreation,
@@ -449,6 +450,7 @@ public final class WarpParser: LogParser, Sendable {
             cacheReadTokens: extracted.cacheRead,
             reasoningTokens: extracted.reasoningTokens,
             costUSD: cost,
+            pricingSource: pricing.source,
             startTime: timestamp,
             endTime: timestamp,
             provenanceMethod: .providerLog,
@@ -472,7 +474,8 @@ public final class WarpParser: LogParser, Sendable {
             context.userText,
             context.assistantText
         ].joined(separator: "|"))
-        let cost = try ModelPricing.lookup(model: model).cost(inputTokens: inputTokens, outputTokens: outputTokens)
+        let pricing = ModelPricing.lookup(model: model)
+        let cost = try pricing.cost(inputTokens: inputTokens, outputTokens: outputTokens)
 
         return TokenUsage(
             provider: .warp,
@@ -482,6 +485,7 @@ public final class WarpParser: LogParser, Sendable {
             inputTokens: inputTokens,
             outputTokens: outputTokens,
             costUSD: cost,
+            pricingSource: pricing.source,
             startTime: timestamp,
             endTime: timestamp,
             provenanceMethod: .heuristicEstimate,

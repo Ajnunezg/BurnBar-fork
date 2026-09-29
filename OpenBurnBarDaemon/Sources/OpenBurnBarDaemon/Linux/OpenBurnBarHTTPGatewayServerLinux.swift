@@ -1246,10 +1246,18 @@ public actor BurnBarHTTPGatewayServer {
             providerAccountID: route.credentialSlotID,
             providerAccountLabel: route.credentialSlotLabel
         )
-        do {
-            _ = try await usageRecorder.record(event, idempotencyKey: idempotencyKey)
-        } catch {
-            logger.silentFailure("gateway_usage_record", error: error)
+        // Never fails the proxied request: a failed ledger write is deferred
+        // to the recorder's retry spool and counted on `GET /metrics`.
+        let outcome = await usageRecorder.recordDurably(event, idempotencyKey: idempotencyKey)
+        if !outcome.isRecorded {
+            logger.warning(
+                "gateway_linux_usage_record_not_recorded",
+                metadata: [
+                    "outcome": "\(outcome)",
+                    "provider": route.providerID,
+                    "model": route.resolvedModelID
+                ]
+            )
         }
     }
 

@@ -25,6 +25,16 @@ public enum BurnBarDaemonMetricsCounters {
     // guarded by `lock`
     private nonisolated(unsafe) static var gatewayListenerErrorMessage: String?
 
+    // Usage-ledger write health (`BurnBarUsageRecorder.recordDurably`), all
+    // guarded by `lock`. Spend whose ledger append failed is deferred, not
+    // dropped; these make every non-clean write visible on `GET /metrics`.
+    private nonisolated(unsafe) static var usageLedgerDeferredTotal = 0
+    private nonisolated(unsafe) static var usageLedgerReplayedTotal = 0
+    private nonisolated(unsafe) static var usageLedgerRejectedTotal = 0
+    private nonisolated(unsafe) static var usageLedgerDroppedTotal = 0
+    private nonisolated(unsafe) static var usageLedgerSpoolWriteFailuresTotal = 0
+    private nonisolated(unsafe) static var usageLedgerPending = 0
+
     /// Records that the gateway TCP listener reached the `.ready` state.
     public static func recordGatewayListenerReady() {
         lock.lock()
@@ -59,6 +69,44 @@ public enum BurnBarDaemonMetricsCounters {
         return gatewayListenerBound ? 1 : 0
     }
 
+    /// An event whose ledger append failed went to the retry spool;
+    /// `dropped` counts spool-overflow evictions of the oldest events.
+    public static func recordUsageLedgerDeferred(pending: Int, dropped: Int) {
+        lock.lock()
+        usageLedgerDeferredTotal &+= 1
+        usageLedgerDroppedTotal &+= max(0, dropped)
+        usageLedgerPending = max(0, pending)
+        lock.unlock()
+    }
+
+    public static func recordUsageLedgerReplay(replayed: Int, rejected: Int, pending: Int) {
+        lock.lock()
+        usageLedgerReplayedTotal &+= max(0, replayed)
+        usageLedgerRejectedTotal &+= max(0, rejected)
+        usageLedgerPending = max(0, pending)
+        lock.unlock()
+    }
+
+    /// An event that can never be recorded (invalid, or its idempotency key
+    /// belongs to a different event).
+    public static func recordUsageLedgerRejected() {
+        lock.lock()
+        usageLedgerRejectedTotal &+= 1
+        lock.unlock()
+    }
+
+    public static func recordUsageLedgerSpoolWriteFailure() {
+        lock.lock()
+        usageLedgerSpoolWriteFailuresTotal &+= 1
+        lock.unlock()
+    }
+
+    public static func setUsageLedgerPending(_ pending: Int) {
+        lock.lock()
+        usageLedgerPending = max(0, pending)
+        lock.unlock()
+    }
+
     public static func recordRPCRequest() {
         lock.lock()
         rpcRequestsTotal &+= 1
@@ -87,7 +135,13 @@ public enum BurnBarDaemonMetricsCounters {
         defer { lock.unlock() }
         var counters = [
             "rpc_requests_total": rpcRequestsTotal,
-            "rpc_errors_total": rpcErrorsTotal
+            "rpc_errors_total": rpcErrorsTotal,
+            "usage_ledger_deferred_total": usageLedgerDeferredTotal,
+            "usage_ledger_replayed_total": usageLedgerReplayedTotal,
+            "usage_ledger_rejected_total": usageLedgerRejectedTotal,
+            "usage_ledger_dropped_total": usageLedgerDroppedTotal,
+            "usage_ledger_spool_write_failures_total": usageLedgerSpoolWriteFailuresTotal,
+            "usage_ledger_pending": usageLedgerPending
         ]
         if let p95 = percentile(rpcLatencyMsSamples, p: 0.95) {
             counters["rpc_latency_ms_p95"] = p95
@@ -115,6 +169,12 @@ public enum BurnBarDaemonMetricsCounters {
         rpcLatencyMsSamples = []
         gatewayListenerBound = nil
         gatewayListenerErrorMessage = nil
+        usageLedgerDeferredTotal = 0
+        usageLedgerReplayedTotal = 0
+        usageLedgerRejectedTotal = 0
+        usageLedgerDroppedTotal = 0
+        usageLedgerSpoolWriteFailuresTotal = 0
+        usageLedgerPending = 0
         lock.unlock()
     }
     #endif
@@ -126,6 +186,14 @@ public enum BurnBarDaemonMetricsCounters {
 /// - `gateway_enabled` — `1` when the gateway is configured on; `0` when disabled.
 /// - `daemon_heartbeat_present` — `1` when the on-disk heartbeat file decodes; else `0`.
 /// - `heartbeat_stale` — `1` when heartbeat age exceeds `BurnBarDaemonHeartbeat.defaultStaleThreshold` (20s).
+/// - `usage_ledger_pending` — spend events waiting in the retry spool; `> 0`
+///   means the usage ledger is failing writes and the meter is behind.
+/// - `usage_ledger_deferred_total` / `_replayed_total` — ledger appends that
+///   failed and were spooled, and spooled events later recorded.
+/// - `usage_ledger_rejected_total` — events that can never be recorded.
+/// - `usage_ledger_dropped_total` — spooled events evicted by the spool cap.
+/// - `usage_ledger_spool_write_failures_total` — spool rewrites that failed
+///   (pending events then live only in memory until the next success).
 ///
 /// Counters are intentionally minimal in Phase 5; expand as `metrics.jsonl` lands.
 public struct BurnBarGatewayMetricsSnapshot: Codable, Sendable, Equatable {

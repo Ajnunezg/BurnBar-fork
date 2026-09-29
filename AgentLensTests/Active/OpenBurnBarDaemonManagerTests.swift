@@ -938,8 +938,8 @@ final class OpenBurnBarDaemonManagerTests: XCTestCase {
         XCTAssertTrue(refreshed)
     }
 
-    func test_usageSync_runtimeSnapshotPreservesExecutionSourceAttribution() throws {
-        let harness = try makeRuntimePathsHarness(name: "runtime-execution-source")
+    func test_usageSync_ledgerImportPreservesExecutionSourceAttribution() throws {
+        let harness = try makeRuntimePathsHarness(name: "ledger-execution-source")
         defer { harness.cleanup() }
 
         let event = BurnBarUsageEvent(
@@ -957,12 +957,12 @@ final class OpenBurnBarDaemonManagerTests: XCTestCase {
             executionSourceKind: .ide,
             executionSourceConfidence: .derivedExact
         )
+        try encodedUsageRecordLine(idempotencyKey: "source-1", event: event, encoder: JSONEncoder())
+            .appending("\n")
+            .write(to: harness.paths.usageLedgerURL, atomically: true, encoding: .utf8)
         let service = OpenBurnBarDaemonUsageSyncService(paths: harness.paths, fileManager: .default)
 
-        let snapshot = service.runtimeSnapshot(
-            from: BurnBarProviderConfigurationSnapshot(providers: []),
-            usageEvents: [event]
-        )
+        let snapshot = service.refreshState()
         let usage = try XCTUnwrap(snapshot.importedUsages.first)
 
         XCTAssertEqual(usage.executionSourceID, "cursor")
@@ -971,48 +971,38 @@ final class OpenBurnBarDaemonManagerTests: XCTestCase {
         XCTAssertEqual(usage.executionSourceConfidence, .derivedExact)
     }
 
-    /// A daemon event that explicitly says `.subscription` must reach the store
-    /// saying `.subscription`. Dropping the stamp here let the write-time
-    /// fallback re-derive `.api` from `usageSource == .daemon`, so plan-covered
-    /// work was billed as real wallet spend in Spend Lens.
-    func test_usageSync_runtimeSnapshotPreservesStampedBillingKind() throws {
-        let harness = try makeRuntimePathsHarness(name: "runtime-billing-kind")
+    /// The `daemon.usage.recent` RPC returns only the newest 20 events and
+    /// keyed them on session/run id; importing them beside the ledger file
+    /// collapsed same-session requests and double counted. RPC events now feed
+    /// the recent-usage list only; spend is the ledger's.
+    func test_usageSync_runtimeSnapshotListsRPCEventsWithoutImportingThem() throws {
+        let harness = try makeRuntimePathsHarness(name: "runtime-recent-only")
         defer { harness.cleanup() }
 
-        func event(sessionID: String, billingKind: BurnBarBillingKind?) -> BurnBarUsageEvent {
-            BurnBarUsageEvent(
-                providerID: "codex",
-                modelID: "gpt-5.6-codex",
-                inputTokens: 100,
-                outputTokens: 20,
-                cacheReadTokens: 10,
-                cost: 1,
-                recordedAt: Date(timeIntervalSince1970: 1_784_592_000),
-                sessionID: sessionID,
-                projectName: "OpenBurnBar",
-                billingKind: billingKind
-            )
-        }
+        let event = BurnBarUsageEvent(
+            providerID: "codex",
+            modelID: "gpt-5.6-codex",
+            inputTokens: 100,
+            outputTokens: 20,
+            cacheReadTokens: 10,
+            cost: 1,
+            recordedAt: Date(timeIntervalSince1970: 1_784_592_000),
+            sessionID: "rpc-session",
+            projectName: "OpenBurnBar"
+        )
+        var inserted: [TokenUsage] = []
         let service = OpenBurnBarDaemonUsageSyncService(paths: harness.paths, fileManager: .default)
 
         let snapshot = service.runtimeSnapshot(
             from: BurnBarProviderConfigurationSnapshot(providers: []),
-            usageEvents: [
-                event(sessionID: "sub-route", billingKind: .subscription),
-                event(sessionID: "api-route", billingKind: .api),
-                event(sessionID: "legacy-route", billingKind: nil)
-            ]
+            usageEvents: [event],
+            insertUsages: { inserted.append(contentsOf: $0) }
         )
 
-        let imported = Dictionary(
-            uniqueKeysWithValues: snapshot.importedUsages.map { ($0.sessionId, $0.billingKind) }
-        )
-        XCTAssertEqual(imported["sub-route"], .subscription)
-        XCTAssertEqual(imported["api-route"], .api)
-        // Unstamped legacy rows keep resolving through the provider classifier;
-        // "codex" is not an API-key daemon slot, so it stays honestly unknown
-        // and the store's `.daemon` fallback classifies it exactly as before.
-        XCTAssertEqual(imported["legacy-route"], .unknown)
+        XCTAssertEqual(snapshot.recentUsage.map(\.model), ["gpt-5.6-codex"])
+        XCTAssertTrue(snapshot.importedUsages.isEmpty)
+        XCTAssertTrue(inserted.isEmpty)
+        XCTAssertEqual(snapshot.ledgerRecordCount, 0)
     }
 
     /// Same guarantee on the on-disk ledger path (`refreshState`), which is the
@@ -1112,17 +1102,18 @@ final class OpenBurnBarDaemonManagerTests: XCTestCase {
         let service = OpenBurnBarDaemonUsageSyncService(paths: harness.paths, fileManager: .default)
         _ = service.refreshState(insertUsages: { inserted.append(contentsOf: $0) })
 
-        XCTAssertEqual(inserted.count, 2)
-        let exact = try XCTUnwrap(inserted.first { $0.sessionId == "hermes-mobile-session" && $0.provenanceConfidence == .exact })
-        XCTAssertEqual(exact.provider, .hermes)
-        XCTAssertEqual(exact.projectName, "Hermes (proxy)")
-        XCTAssertEqual(exact.reasoningTokens, 24)
-        XCTAssertEqual(exact.provenanceMethod, .providerLog)
-
-        let estimateRow = try XCTUnwrap(inserted.first { $0.provenanceConfidence == .lowConfidenceEstimate })
-        XCTAssertEqual(estimateRow.provider, .hermes)
-        XCTAssertEqual(estimateRow.projectName, "Hermes (proxy)")
-        XCTAssertEqual(estimateRow.provenanceMethod, .heuristicEstimate)
+        // Both events are one session and model: one row carrying both, only
+        // as certain as its estimated event.
+        XCTAssertEqual(inserted.count, 1)
+        let row = try XCTUnwrap(inserted.first)
+        XCTAssertEqual(row.provider, .hermes)
+        XCTAssertEqual(row.sessionId, "hermes-mobile-session")
+        XCTAssertEqual(row.projectName, "Hermes (proxy)")
+        XCTAssertEqual(row.inputTokens, 380)
+        XCTAssertEqual(row.outputTokens, 134)
+        XCTAssertEqual(row.reasoningTokens, 24)
+        XCTAssertEqual(row.tokenConfidence, .lowConfidenceEstimate)
+        XCTAssertEqual(row.provenanceMethod, .heuristicEstimate)
     }
 
     @MainActor

@@ -10,14 +10,23 @@ import Network
 
 extension BurnBarHTTPGatewayServer {
 
+    /// Response header a buffered completion carries when its spend did not
+    /// reach the usage ledger cleanly (`deferred` or `rejected`).
+    static let usageLedgerHeader = "X-OpenBurnBar-Usage-Ledger"
+
+    /// Records the attempt's spend. Never fails the proxied request: a ledger
+    /// write that fails is deferred to the recorder's durable retry spool and
+    /// counted on `GET /metrics` (`usage_ledger_*`), never silently dropped.
+    /// Returns `nil` when there was no usage (or no recorder) to record.
+    @discardableResult
     func recordUsageIfAvailable(
         _ usage: BurnBarProviderProxyUsage?,
         route: BurnBarProviderRoute,
         idempotencyKey: String,
         parentRequestID: String? = nil,
         executionSource: UsageExecutionSource = .unknown
-    ) async {
-        guard let usage, let usageRecorder else { return }
+    ) async -> BurnBarUsageDurableRecordOutcome? {
+        guard let usage, let usageRecorder else { return nil }
         let event = BurnBarUsageEvent(
             providerID: route.providerID,
             modelID: route.resolvedModelID,
@@ -43,16 +52,19 @@ extension BurnBarHTTPGatewayServer {
             providerAccountID: route.credentialSlotID,
             providerAccountLabel: route.credentialSlotLabel
         )
-        do {
-            // A stable, content-derived key means a client that retries the
-            // same completion (or our own retry on the same route) records the
-            // usage exactly once instead of double-billing the local ledger.
-            _ = try await usageRecorder.record(
-                event,
-                idempotencyKey: idempotencyKey
+        // A stable, content-derived key means a client that retries the
+        // same completion (or our own retry on the same route) records the
+        // usage exactly once instead of double-billing the local ledger.
+        let outcome = await usageRecorder.recordDurably(event, idempotencyKey: idempotencyKey)
+        if !outcome.isRecorded {
+            logger.warning(
+                "gateway_usage_record_not_recorded",
+                metadata: [
+                    "outcome": "\(outcome)",
+                    "provider": route.providerID,
+                    "model": route.resolvedModelID
+                ]
             )
-        } catch {
-            logger.silentFailure("gateway_usage_record", error: error)
         }
 
         if route.providerID.caseInsensitiveCompare("xai") == .orderedSame {
@@ -60,6 +72,16 @@ extension BurnBarHTTPGatewayServer {
                 model: route.resolvedModelID,
                 source: "http-gateway"
             )
+        }
+        return outcome
+    }
+
+    /// `[usageLedgerHeader: outcome]` when spend was not cleanly recorded.
+    static func usageLedgerHeaders(for outcome: BurnBarUsageDurableRecordOutcome?) -> [String: String] {
+        switch outcome {
+        case .deferred: return [usageLedgerHeader: "deferred"]
+        case .rejected: return [usageLedgerHeader: "rejected"]
+        case .recorded, .none: return [:]
         }
     }
 

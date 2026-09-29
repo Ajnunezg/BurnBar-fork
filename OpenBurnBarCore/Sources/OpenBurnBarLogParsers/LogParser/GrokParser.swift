@@ -288,9 +288,12 @@ public final class GrokParser: LogParser, Sendable {
 
         let pricing = ModelPricing.lookup(model: model, providerID: "xai")
         let cost: Double
+        let pricingSource: UsagePricingSource
         if let exactCost = tokenBreakdown.exactCostUSD, exactCost > 0 {
             cost = exactCost
+            pricingSource = .reported
         } else {
+            pricingSource = pricing.source
             cost = try pricing.cost(
                 inputTokens: tokenBreakdown.inputTokens,
                 outputTokens: tokenBreakdown.outputTokens + tokenBreakdown.reasoningTokens,
@@ -315,6 +318,7 @@ public final class GrokParser: LogParser, Sendable {
             cacheReadTokens: tokenBreakdown.cacheReadTokens,
             reasoningTokens: tokenBreakdown.reasoningTokens,
             costUSD: cost,
+            pricingSource: pricingSource,
             startTime: startTime ?? Date(),
             endTime: endTime ?? startTime ?? Date(),
             executionSourceID: "grok-build",

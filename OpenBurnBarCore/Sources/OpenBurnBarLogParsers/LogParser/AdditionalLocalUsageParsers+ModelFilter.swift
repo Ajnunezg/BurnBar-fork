@@ -173,7 +173,8 @@ public final class ModelFilterParser: LogParser, Sendable {
             let startTime = start ?? mtime
             let endTime = end ?? startTime
             let project = file.deletingLastPathComponent().lastPathComponent
-            let cost = (try? ModelPricing.lookup(model: resolvedModel).cost(
+            let pricing = ModelPricing.lookup(model: resolvedModel)
+            let cost = (try? pricing.cost(
                 inputTokens: input,
                 outputTokens: output,
                 cacheCreationTokens: cacheCreation,
@@ -193,6 +194,7 @@ public final class ModelFilterParser: LogParser, Sendable {
                 cacheCreation: cacheCreation,
                 cacheRead: cacheRead,
                 cost: cost,
+                pricingSource: pricing.source,
                 start: startTime,
                 end: endTime,
                 method: method,

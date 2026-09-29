@@ -62,13 +62,14 @@ extension UsageStore {
         "SUM(reasoningTokens)",
         "provenanceConfidence",
         "isRemote",
+        "pricingSource",
         """
         SUM(MAX(inputTokens, 0) + MAX(outputTokens, 0) + MAX(cacheCreationTokens, 0) \
         + MAX(cacheReadTokens, 0) + MAX(reasoningTokens, 0))
         """
     ]
-    static let chartAggregateBilledTotalColumn = ChartFactCol.isRemote.rawValue + 1
-    static let chartAggregateRecentWindowColumn = ChartFactCol.isRemote.rawValue + 2
+    static let chartAggregateBilledTotalColumn = ChartFactCol.pricingSource.rawValue + 1
+    static let chartAggregateRecentWindowColumn = ChartFactCol.pricingSource.rawValue + 2
 
     /// All-time Charts inputs aggregated in SQL instead of one `ChartFactRow`
     /// per ledger row plus a full-table sort (see `ChartAggregates`). Rows are
@@ -90,7 +91,7 @@ extension UsageStore {
             WHERE \(decodable.sql)
             GROUP BY CAST(strftime('%s', startTime) AS INTEGER) / \(chartAggregateSlotSeconds),
                      projectName, model, provider, billingKind, usageSource,
-                     provenanceConfidence, isRemote, inRecentWindow
+                     provenanceConfidence, isRemote, pricingSource, inRecentWindow
             """)
         var facts: [ChartFactRow] = []
         var recentFacts: [ChartFactRow] = []
@@ -224,7 +225,9 @@ extension UsageStore {
             ),
             provenanceConfidence: (indexed(row, ChartFactCol.provenanceConfidence.rawValue) as? String)
                 .flatMap(UsageProvenanceConfidence.init(rawValue:)) ?? .unknown,
-            isRemote: intValue(indexed(row, ChartFactCol.isRemote.rawValue)) != 0
+            isRemote: intValue(indexed(row, ChartFactCol.isRemote.rawValue)) != 0,
+            pricingSource: (indexed(row, ChartFactCol.pricingSource.rawValue) as? String)
+                .flatMap(UsagePricingSource.init(rawValue:)) ?? .unknown
         )
     }
 

@@ -167,6 +167,25 @@ public sealed partial class WindowsSqlCipherProvisioner
         new WindowsSchemaUpgradeStep(
             "v70_agent_memories_index_backfill",
             Array.Empty<WindowsSchemaUpgradeStatement>()),
+
+        // v71_token_usage_pricing_provenance — peer of
+        // OpenBurnBarDatabase+DataMigrationV71.swift. Where a row's dollars came
+        // from (catalog rate, fallback table, source-reported) and the
+        // confidence of its token counts alone. Existing rows read `unknown`
+        // and a NULL token confidence; nothing is backfilled.
+        new WindowsSchemaUpgradeStep(
+            "v71_token_usage_pricing_provenance",
+            new[]
+            {
+                WindowsSchemaUpgradeStatement.AddColumn(
+                    "token_usage",
+                    "pricingSource",
+                    "ALTER TABLE token_usage ADD COLUMN pricingSource TEXT NOT NULL DEFAULT 'unknown'"),
+                WindowsSchemaUpgradeStatement.AddColumn(
+                    "token_usage",
+                    "tokenConfidence",
+                    "ALTER TABLE token_usage ADD COLUMN tokenConfidence TEXT"),
+            }),
     };
 
     internal const string AgentMemoryInboxTableSql =

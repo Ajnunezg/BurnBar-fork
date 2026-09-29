@@ -96,22 +96,14 @@ extension UsageStore {
                     LOWER(TRIM(model)) IN ('', 'unknown', 'default', 'none')
                     OR (TRIM(model) LIKE '<%>' AND LENGTH(TRIM(model)) > 2)
                   )
-                  AND (
-                    CASE provenanceConfidence
-                        WHEN 'exact' THEN 4
-                        WHEN 'derived_exact' THEN 3
-                        WHEN 'high_confidence_estimate' THEN 2
-                        WHEN 'low_confidence_estimate' THEN 1
-                        ELSE 0
-                    END
-                  ) <= ?
+                  AND (\(Self.tokenPrecedenceSQL("token_usage"))) <= ?
                 """,
             arguments: [
                 usage.provider.rawValue,
                 usage.sessionId,
                 usage.sourceDeviceId,
                 usagePartition,
-                usage.provenanceConfidence.precedence
+                usage.tokenConfidence.precedence
             ]
         )
     }
@@ -195,6 +187,11 @@ extension UsageStore {
         )
     }
 
+    /// Retires a same-session row stored under another model whose TOKEN
+    /// counts are less certain than the incoming row's (an estimate
+    /// superseded by the exact model). Token confidence, not row confidence:
+    /// a per-model row whose dollars are a fallback estimate still carries
+    /// exact tokens and is a different model's real usage, not a stale copy.
     func deleteStaleLowerConfidenceModelRows(replacedBy usage: TokenUsage, in db: Database) throws { // pure-move: was private
         let usagePartition = Self.usagePartitionToken(from: usage.providerAccountID)
         try db.execute(
@@ -205,15 +202,7 @@ extension UsageStore {
                   AND model != ?
                   AND COALESCE(sourceDeviceId, '') = COALESCE(?, '')
                   AND COALESCE(providerAccountID, '') = COALESCE(?, '')
-                  AND (
-                    CASE provenanceConfidence
-                        WHEN 'exact' THEN 4
-                        WHEN 'derived_exact' THEN 3
-                        WHEN 'high_confidence_estimate' THEN 2
-                        WHEN 'low_confidence_estimate' THEN 1
-                        ELSE 0
-                    END
-                  ) < ?
+                  AND (\(Self.tokenPrecedenceSQL("token_usage"))) < ?
                 """,
             arguments: [
                 usage.provider.rawValue,
@@ -221,7 +210,7 @@ extension UsageStore {
                 usage.model,
                 usage.sourceDeviceId,
                 usagePartition,
-                usage.provenanceConfidence.precedence
+                usage.tokenConfidence.precedence
             ]
         )
     }
@@ -242,6 +231,55 @@ extension UsageStore {
     ///
     /// Precedence is still respected: higher-confidence data wins over lower-confidence.
     /// Cloud sync data with equal or higher confidence than existing row will update it.
+    /// Writes the daemon-ledger importer's rows. Each carries the full ledger
+    /// sum for its identity, so it replaces the stored daemon row even when
+    /// an earlier partial import stamped that row with more confident token
+    /// counts (the ladder would otherwise keep the stale, smaller sum); the
+    /// precedence ladder still decides against every other source. Rows the
+    /// retired RPC import keyed differently for the same events are deleted.
+    func replaceDaemonLedgerUsage(
+        _ usages: [TokenUsage],
+        superseding superseded: [DaemonUsageLedgerImporter.SupersededRow]
+    ) async throws {
+        guard !usages.isEmpty || !superseded.isEmpty else { return }
+        let daemonSource = UsageSource.daemon.rawValue
+        let changedRows = try await dbQueue.write { db -> Int in
+            let before = db.totalChangesCount
+            for row in superseded {
+                try db.execute(
+                    sql: """
+                        DELETE FROM token_usage
+                        WHERE provider = ? AND sessionId = ? AND model = ?
+                          AND COALESCE(sourceDeviceId, '') = ''
+                          AND usageSource = ?
+                        """,
+                    arguments: [row.provider.rawValue, row.sessionId, row.model, daemonSource]
+                )
+            }
+            for usage in usages {
+                try db.execute(
+                    sql: """
+                        DELETE FROM token_usage
+                        WHERE provider = ? AND sessionId = ? AND model = ?
+                          AND COALESCE(sourceDeviceId, '') = COALESCE(?, '')
+                          AND COALESCE(providerAccountID, '') = COALESCE(?, '')
+                          AND usageSource = ?
+                          AND (\(Self.tokenPrecedenceSQL("token_usage"))) > ?
+                        """,
+                    arguments: [
+                        usage.provider.rawValue, usage.sessionId, usage.model,
+                        usage.sourceDeviceId, Self.usagePartitionToken(from: usage.providerAccountID),
+                        daemonSource, usage.tokenConfidence.precedence
+                    ]
+                )
+                try self.writeUsageRow(usage, in: db)
+            }
+            return db.totalChangesCount - before
+        }
+        noteUsageWrite(changedRows: changedRows)
+        SearchQueryCache.shared.clear()
+    }
+
     func insertRemoteUsage(_ usage: TokenUsage) async throws {
         let changedRows = try await dbQueue.write { db -> Int in
             // A synced exact-model correction must retire a local placeholder
@@ -253,6 +291,8 @@ extension UsageStore {
                 return 0
             }
             let usagePartition = Self.usagePartitionToken(from: usage.providerAccountID)
+            let incomingPrecedence = Self.tokenPrecedenceSQL("excluded")
+            let storedPrecedence = Self.tokenPrecedenceSQL("token_usage")
             try db.execute(
                 sql: """
                     INSERT INTO token_usage (
@@ -264,8 +304,8 @@ extension UsageStore {
                         sourceDeviceId, sourceDeviceName, isRemote, syncedAt,
                         providerID, providerAccountID, providerAccountLabel, providerAccountSource,
                         provenanceMethod, provenanceConfidence, estimatorVersion, parentRequestID,
-                        billingKind
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        billingKind, pricingSource, tokenConfidence
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(provider, sessionId, model, COALESCE(sourceDeviceId, ''), COALESCE(providerAccountID, '')) DO UPDATE SET
                         projectName = excluded.projectName,
                         inputTokens = excluded.inputTokens,
@@ -281,22 +321,7 @@ extension UsageStore {
                         -- VAL-TOKEN-009: Preserve source identity on equal-confidence upserts.
                         -- Only update usageSource when incoming confidence is strictly higher.
                         usageSource = CASE
-                            WHEN
-                                CASE excluded.provenanceConfidence
-                                    WHEN 'exact' THEN 4
-                                    WHEN 'derived_exact' THEN 3
-                                    WHEN 'high_confidence_estimate' THEN 2
-                                    WHEN 'low_confidence_estimate' THEN 1
-                                    ELSE 0
-                                END
-                                >
-                                CASE token_usage.provenanceConfidence
-                                    WHEN 'exact' THEN 4
-                                    WHEN 'derived_exact' THEN 3
-                                    WHEN 'high_confidence_estimate' THEN 2
-                                    WHEN 'low_confidence_estimate' THEN 1
-                                    ELSE 0
-                                END
+                            WHEN \(incomingPrecedence) > \(storedPrecedence)
                             THEN excluded.usageSource
                             ELSE token_usage.usageSource
                         END,
@@ -349,40 +374,12 @@ extension UsageStore {
                                     WHEN 'low_confidence_estimate' THEN 1 ELSE 0 END
                             THEN excluded.executionSourceConfidence ELSE token_usage.executionSourceConfidence END,
                         sourceDeviceId = CASE
-                            WHEN CASE excluded.provenanceConfidence
-                                    WHEN 'exact' THEN 4
-                                    WHEN 'derived_exact' THEN 3
-                                    WHEN 'high_confidence_estimate' THEN 2
-                                    WHEN 'low_confidence_estimate' THEN 1
-                                    ELSE 0
-                                END
-                                >=
-                                CASE token_usage.provenanceConfidence
-                                    WHEN 'exact' THEN 4
-                                    WHEN 'derived_exact' THEN 3
-                                    WHEN 'high_confidence_estimate' THEN 2
-                                    WHEN 'low_confidence_estimate' THEN 1
-                                    ELSE 0
-                                END
+                            WHEN \(incomingPrecedence) >= \(storedPrecedence)
                             THEN excluded.sourceDeviceId
                             ELSE token_usage.sourceDeviceId
                         END,
                         sourceDeviceName = CASE
-                            WHEN CASE excluded.provenanceConfidence
-                                    WHEN 'exact' THEN 4
-                                    WHEN 'derived_exact' THEN 3
-                                    WHEN 'high_confidence_estimate' THEN 2
-                                    WHEN 'low_confidence_estimate' THEN 1
-                                    ELSE 0
-                                END
-                                >=
-                                CASE token_usage.provenanceConfidence
-                                    WHEN 'exact' THEN 4
-                                    WHEN 'derived_exact' THEN 3
-                                    WHEN 'high_confidence_estimate' THEN 2
-                                    WHEN 'low_confidence_estimate' THEN 1
-                                    ELSE 0
-                                END
+                            WHEN \(incomingPrecedence) >= \(storedPrecedence)
                             THEN excluded.sourceDeviceName
                             ELSE token_usage.sourceDeviceName
                         END,
@@ -393,25 +390,16 @@ extension UsageStore {
                         providerAccountSource = excluded.providerAccountSource,
                         provenanceMethod = excluded.provenanceMethod,
                         provenanceConfidence = CASE
-                            WHEN
-                                CASE excluded.provenanceConfidence
-                                    WHEN 'exact' THEN 4
-                                    WHEN 'derived_exact' THEN 3
-                                    WHEN 'high_confidence_estimate' THEN 2
-                                    WHEN 'low_confidence_estimate' THEN 1
-                                    ELSE 0
-                                END
-                                >=
-                                CASE token_usage.provenanceConfidence
-                                    WHEN 'exact' THEN 4
-                                    WHEN 'derived_exact' THEN 3
-                                    WHEN 'high_confidence_estimate' THEN 2
-                                    WHEN 'low_confidence_estimate' THEN 1
-                                    ELSE 0
-                                END
+                            WHEN \(incomingPrecedence) >= \(storedPrecedence)
                             THEN excluded.provenanceConfidence
                             ELSE token_usage.provenanceConfidence
                         END,
+                        tokenConfidence = CASE
+                            WHEN \(incomingPrecedence) >= \(storedPrecedence)
+                            THEN excluded.tokenConfidence
+                            ELSE token_usage.tokenConfidence
+                        END,
+                        pricingSource = excluded.pricingSource,
                         estimatorVersion = excluded.estimatorVersion,
                         -- Sticky fusion linkage (see upsertUsage): never erase a
                         -- recorded elderwand parentRequestID with an incoming NULL.
@@ -424,43 +412,14 @@ extension UsageStore {
                         billingKind = CASE
                             WHEN excluded.billingKind = 'unknown' THEN token_usage.billingKind
                             WHEN token_usage.billingKind = 'unknown' THEN excluded.billingKind
-                            WHEN
-                                CASE excluded.provenanceConfidence
-                                    WHEN 'exact' THEN 4
-                                    WHEN 'derived_exact' THEN 3
-                                    WHEN 'high_confidence_estimate' THEN 2
-                                    WHEN 'low_confidence_estimate' THEN 1
-                                    ELSE 0
-                                END
-                                >
-                                CASE token_usage.provenanceConfidence
-                                    WHEN 'exact' THEN 4
-                                    WHEN 'derived_exact' THEN 3
-                                    WHEN 'high_confidence_estimate' THEN 2
-                                    WHEN 'low_confidence_estimate' THEN 1
-                                    ELSE 0
-                                END
+                            WHEN \(incomingPrecedence) > \(storedPrecedence)
                             THEN excluded.billingKind
                             WHEN excluded.usageSource = token_usage.usageSource THEN excluded.billingKind
                             ELSE token_usage.billingKind
                         END,
                         syncedAt = NULL
                     WHERE
-                        CASE excluded.provenanceConfidence
-                            WHEN 'exact' THEN 4
-                            WHEN 'derived_exact' THEN 3
-                            WHEN 'high_confidence_estimate' THEN 2
-                            WHEN 'low_confidence_estimate' THEN 1
-                            ELSE 0
-                        END
-                        >=
-                        CASE token_usage.provenanceConfidence
-                            WHEN 'exact' THEN 4
-                            WHEN 'derived_exact' THEN 3
-                            WHEN 'high_confidence_estimate' THEN 2
-                            WHEN 'low_confidence_estimate' THEN 1
-                            ELSE 0
-                        END
+                        \(incomingPrecedence) >= \(storedPrecedence)
                     """,
                 arguments: [
                     usage.id.uuidString, usage.provider.rawValue, usage.sessionId,
@@ -490,7 +449,9 @@ extension UsageStore {
                             provider: usage.provider,
                             usageSource: usage.usageSource
                         )
-                        : usage.billingKind).rawValue
+                        : usage.billingKind).rawValue,
+                    usage.pricingSource.rawValue,
+                    usage.tokenConfidence.rawValue
                 ]
             )
             return db.changesCount

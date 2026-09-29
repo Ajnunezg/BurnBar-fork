@@ -170,6 +170,7 @@ actor ChatUsageTracker {
             cacheReadTokens: usageSnapshot.cacheReadTokens,
             reasoningTokens: usageSnapshot.reasoningTokens,
             costUSD: cost,
+            pricingSource: pricing.source,
             startTime: startedAt,
             endTime: endedAt,
             usageSource: .inAppChat,
