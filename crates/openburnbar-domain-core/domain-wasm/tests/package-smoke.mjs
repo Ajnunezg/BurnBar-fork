@@ -16,8 +16,12 @@ if (typeof domainCore.initSync === "function") {
   const wasmBytes = await readFile(wasmPath);
   domainCore.initSync({ module: wasmBytes });
 } else {
-  assert.ok(
-    domainCore.__wasm ?? domainCore.default?.__wasm,
+  // wasm-bindgen >= 0.2.106 instantiates the bundled module at require time
+  // and no longer exports `__wasm`; a callable export proves initialization.
+  assert.equal(
+    typeof (domainCore.domainCoreAbiVersion ??
+      domainCore.default?.domainCoreAbiVersion),
+    "function",
     "CommonJS Wasm package must initialize its bundled module",
   );
 }

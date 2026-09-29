@@ -1,5 +1,5 @@
 use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use std::collections::HashSet;
 use zeroize::{Zeroize, Zeroizing};
@@ -481,7 +481,7 @@ fn derive_key(
 }
 
 fn hmac_sha256(key: &[u8], data: &[u8]) -> Result<[u8; 32], CloudVaultSearchError> {
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key)
+    let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(key)
         .map_err(|_| CloudVaultSearchError::DerivationFailure)?;
     mac.update(data);
     Ok(mac.finalize().into_bytes().into())
