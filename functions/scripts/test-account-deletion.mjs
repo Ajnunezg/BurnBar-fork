@@ -247,7 +247,7 @@ assert.equal(providerSecretRefDocumentID("alice", "codex_work"), "alice_codex_wo
   const destroyedSecrets = [];
   const summary = await eraseUserCloudData(db, "alice", {
     deleteStorageObjects: async () => {},
-    destroyCredential: async (secretVersionName) => {
+    destroyCredentialSecret: async (secretVersionName) => {
       destroyedSecrets.push(secretVersionName);
     },
     logger: { warn() {} },
@@ -299,7 +299,7 @@ assert.equal(providerSecretRefDocumentID("alice", "codex_work"), "alice_codex_wo
   const warnings = [];
   const summary = await eraseUserCloudData(db, "alice", {
     deleteStorageObjects: async () => {},
-    destroyCredential: async () => {
+    destroyCredentialSecret: async () => {
       throw new Error("destroy failed");
     },
     logger: { warn: (...args) => warnings.push(args) },
@@ -326,7 +326,7 @@ assert.equal(providerSecretRefDocumentID("alice", "codex_work"), "alice_codex_wo
   const deletedAuthUsers = [];
   const summary = await eraseUserAccount(db, "alice", {
     deleteStorageObjects: async () => {},
-    destroyCredential: async () => {},
+    destroyCredentialSecret: async () => {},
     revokeAuthTokens: async () => {},
     deleteAuthUser: async (uid) => {
       deletedAuthUsers.push(uid);
@@ -359,7 +359,7 @@ assert.equal(providerSecretRefDocumentID("alice", "codex_work"), "alice_codex_wo
   const deletedAuthUsers = [];
   const summary = await eraseUserAccount(db, "alice", {
     deleteStorageObjects: async () => {},
-    destroyCredential: async () => {
+    destroyCredentialSecret: async () => {
       throw new Error("destroy failed");
     },
     revokeAuthTokens: async () => {},
@@ -389,7 +389,7 @@ assert.equal(providerSecretRefDocumentID("alice", "codex_work"), "alice_codex_wo
   userNotFound.code = "auth/user-not-found";
   const summary = await eraseUserAccount(db, "alice", {
     deleteStorageObjects: async () => {},
-    destroyCredential: async () => {},
+    destroyCredentialSecret: async () => {},
     revokeAuthTokens: async () => {},
     deleteAuthUser: async () => {
       throw userNotFound;
@@ -433,7 +433,7 @@ assert.equal(providerSecretRefDocumentID("alice", "codex_work"), "alice_codex_wo
   db.addRootCollection(collection("workspaces", []));
 
   const summary = await eraseUserCloudData(db, "alice", {
-    destroyCredential: async () => {
+    destroyCredentialSecret: async () => {
       throw Object.assign(new Error("Secret Version has been destroyed"), { code: 9 });
     },
     deleteStorageObjects: async () => {},
@@ -462,7 +462,7 @@ assert.equal(providerSecretRefDocumentID("alice", "codex_work"), "alice_codex_wo
 
   const warnings = [];
   const summary = await eraseUserCloudData(db, "alice", {
-    destroyCredential: async () => assert.fail("malformed ref must not call Secret Manager"),
+    destroyCredentialSecret: async () => assert.fail("malformed ref must not call Secret Manager"),
     deleteStorageObjects: async () => {},
     logger: { warn: (message) => warnings.push(message) },
   });
@@ -484,7 +484,7 @@ assert.equal(providerSecretRefDocumentID("alice", "codex_work"), "alice_codex_wo
 
   const deletedPrefixes = [];
   await eraseUserCloudData(db, "alice", {
-    destroyCredential: async () => {},
+    destroyCredentialSecret: async () => {},
     deleteStorageObjects: async (prefix) => {
       deletedPrefixes.push(prefix);
     },
@@ -504,7 +504,7 @@ assert.equal(providerSecretRefDocumentID("alice", "codex_work"), "alice_codex_wo
 
   const warnings = [];
   const summary = await eraseUserCloudData(db, "alice", {
-    destroyCredential: async () => {},
+    destroyCredentialSecret: async () => {},
     deleteStorageObjects: async () => {
       throw new Error("storage unavailable");
     },
@@ -538,7 +538,7 @@ assert.equal(providerSecretRefDocumentID("alice", "codex_work"), "alice_codex_wo
   };
 
   const first = await eraseUserCloudData(db, "alice", {
-    destroyCredential: async () => {},
+    destroyCredentialSecret: async () => {},
     deleteStorageObjects,
     logger: { warn() {} },
   });
@@ -548,7 +548,7 @@ assert.equal(providerSecretRefDocumentID("alice", "codex_work"), "alice_codex_wo
 
   attempt += 1;
   const second = await eraseUserCloudData(db, "alice", {
-    destroyCredential: async () => {},
+    destroyCredentialSecret: async () => {},
     deleteStorageObjects,
     logger: { warn() {} },
   });

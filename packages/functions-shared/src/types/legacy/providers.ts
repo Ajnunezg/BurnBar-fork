@@ -150,6 +150,18 @@ export interface ProviderAccountSecretRefDoc {
   secretVersionName: string;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Pending version-complete erasure: the durable retry manifest written
+   * before any Secret Manager destroy (see providerSecretErasure.ts).
+   */
+  erasureScope?: "all_versions" | "superseded_versions";
+  erasureReason?: string;
+  erasureRequestedAt?: string;
+  erasureAttemptCount?: number;
+  erasureLastAttemptAt?: string;
+  erasureLastErrorCode?: string;
+  /** ISO queue key read by `reconcileAccountErasures`. */
+  erasureRetryAfter?: string;
 }
 
 // ---------------------------------------------------------------------------

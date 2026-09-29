@@ -74,7 +74,7 @@ describe("account deletion log scrubbing (OPUS-F-005)", () => {
   it("does not log full UID or raw path when provider credential destroy fails", async () => {
     const { db } = fakeFirestore();
     await eraseUserCloudData(db, FULL_UID, {
-      destroyCredential: vi.fn(async () => {
+      destroyCredentialSecret: vi.fn(async () => {
         throw new Error(
           `secret manager rejected projects/openburnbar/secrets/${FULL_UID}/versions/1 for users/${FULL_UID}`,
         );
@@ -98,7 +98,7 @@ describe("account deletion log scrubbing (OPUS-F-005)", () => {
   it("does not log full UID or raw path when Cloud Storage purge fails", async () => {
     const { db } = fakeFirestore();
     await eraseUserCloudData(db, FULL_UID, {
-      destroyCredential: vi.fn(async () => undefined),
+      destroyCredentialSecret: vi.fn(async () => undefined),
       deleteStorageObjects: vi.fn(async () => {
         throw new Error("storage bucket unreachable");
       }),
@@ -116,7 +116,7 @@ describe("account deletion log scrubbing (OPUS-F-005)", () => {
   it("hashes the account identifier instead of logging the full provider_secret_ref doc id", async () => {
     const { db } = fakeFirestore();
     await eraseUserCloudData(db, FULL_UID, {
-      destroyCredential: vi.fn(async () => {
+      destroyCredentialSecret: vi.fn(async () => {
         throw new Error("secret manager rejected destroy");
       }),
       deleteStorageObjects: vi.fn(async () => undefined),

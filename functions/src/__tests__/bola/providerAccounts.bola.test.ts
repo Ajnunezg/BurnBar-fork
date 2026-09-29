@@ -34,8 +34,10 @@ vi.mock("../../../../packages/functions-shared/src/appCheckAttestation.js", asyn
     enforceHighRiskComputerUseCallableWithNonce: vi.fn(async () => ({ nonceConsumed: true })),
   };
 });
-vi.mock("../../../../packages/functions-shared/src/secrets.js", () => ({
-  destroyCredential: vi.fn(async () => undefined),
+vi.mock("../../../../packages/functions-shared/src/secrets.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../../packages/functions-shared/src/secrets.js")>()),
+  destroyCredentialSecret: vi.fn(async () => ({ destroyed: 0, alreadyDestroyed: 0 })),
+  destroySupersededCredentialVersions: vi.fn(async () => ({ destroyed: 0, alreadyDestroyed: 0 })),
   storeCredential: vi.fn(async () => "projects/test/secrets/x/versions/1"),
 }));
 export const BOLA_MANIFEST = {

@@ -27,9 +27,8 @@ import { logError, wrapCallableHandler } from "@openburnbar/functions-shared/log
 import { optionalEnumField, parseCallableInput } from "@openburnbar/functions-shared/validation/callableSchema.js";
 import { revokeAllSignalSessions } from "@openburnbar/functions-shared/signalDirectoryRuntime.js";
 import { revokeAllRemoteMcpGrantsForUser } from "@openburnbar/functions-shared/remoteMcpGrant.js";
-import { providerAccountSecretRefPath } from "@openburnbar/functions-shared/quota.js";
 import { enforceHighRiskOwnerAction } from "@openburnbar/functions-shared/callables/highRiskOwnerAction.js";
-import { destroyCredential } from "@openburnbar/functions-shared/secrets.js";
+import { eraseProviderAccountSecret } from "@openburnbar/functions-shared/providerSecretErasure.js";
 import { appendAuditEventRequired, auditActorLabel, AUDIT_ACTIONS } from "@openburnbar/functions-shared/shared/auditLog.js";
 import { FUNCTIONS_REGION } from "@openburnbar/functions-shared/runtimeOptions.js";
 
@@ -71,8 +70,8 @@ async function drainCollection(
   return total;
 }
 
-/** Test-only surface for the pagination invariant (the panic-completeness fix). */
-export const __testing__ = { drainCollection, PAGE_LIMIT };
+/** Test-only surface: pagination (panic completeness) and fail-closed credential revoke. */
+export const __testing__ = { drainCollection, PAGE_LIMIT, revokeProviderCredentials };
 
 /** Flip every non-revoked doc in a connection collection to revoked. Returns count. */
 async function revokeConnectionCollection(uid: string, collection: string): Promise<number> {
@@ -111,10 +110,13 @@ async function revokeEscrowDevices(uid: string): Promise<number> {
 }
 
 /**
- * Destroy every provider credential secret + mark the account deleted. Returns
- * the count revoked AND the number of Secret Manager destroys that failed — a
- * failed destroy means the credential may still be usable, so the panic result
- * must NOT claim full success when secretFailures > 0.
+ * Destroy every version of every provider credential secret + mark the account
+ * deleted. Returns the count revoked AND the number of accounts whose Secret
+ * Manager erasure is still pending — a pending erasure means a credential copy
+ * may still exist, so the panic result must NOT claim full success when
+ * secretFailures > 0. A pending erasure keeps its reference as the durable
+ * retry manifest (retried by reconcileAccountErasures), and an account that was
+ * already deleted with an erasure still pending is retried here too.
  */
 async function revokeProviderCredentials(uid: string): Promise<{ revoked: number; secretFailures: number }> {
   const now = new Date().toISOString();
@@ -122,36 +124,23 @@ async function revokeProviderCredentials(uid: string): Promise<{ revoked: number
   const revoked = await drainCollection(db.collection(`users/${uid}/provider_accounts`), async (docs) => {
     let pageRevoked = 0;
     for (const account of docs) {
-      if (account.get("status") === "deleted") continue;
-      const accountID = account.id;
-      const privateRef = db.doc(providerAccountSecretRefPath(uid, accountID));
-      const privateSnap = await privateRef.get();
-      const secretVersionName = privateSnap.exists
-        ? typeof privateSnap.get("secretVersionName") === "string"
-          ? privateSnap.get("secretVersionName")
-          : undefined
-        : undefined;
-      if (secretVersionName) {
-        try {
-          await destroyCredential(secretVersionName);
-        } catch (err) {
-          secretFailures += 1;
-          logError({
-            event: "callable_warn",
-            message: `panic revoke: failed to destroy provider secret for ${accountID}`,
-            detail: String(err),
-          });
-        }
-      }
-      const batch = db.batch();
-      batch.delete(privateRef);
-      batch.set(
-        account.ref,
-        { status: "deleted", lastValidatedAt: null, lastRefreshAt: null, updatedAt: now },
-        { merge: true },
-      );
-      await batch.commit();
-      pageRevoked += 1;
+      const alreadyDeleted = account.get("status") === "deleted";
+      const erasure = await eraseProviderAccountSecret({
+        uid,
+        accountID: account.id,
+        reason: "panic_revoke",
+        alsoInIntentTransaction: alreadyDeleted
+          ? undefined
+          : (tx) => {
+              tx.set(
+                account.ref,
+                { status: "deleted", lastValidatedAt: null, lastRefreshAt: null, updatedAt: now },
+                { merge: true },
+              );
+            },
+      });
+      if (!erasure.complete) secretFailures += 1;
+      if (!alreadyDeleted) pageRevoked += 1;
     }
     return pageRevoked;
   });

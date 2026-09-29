@@ -9,11 +9,8 @@ import type { Firestore } from "firebase-admin/firestore";
 
 import { getConfig } from "../config.js";
 import { storeCredential } from "../secrets.js";
-import {
-  providerAccountSecretRefPath,
-  refreshUserProviderAccountQuota,
-  refreshUserProviderQuota,
-} from "../quota.js";
+import { adoptStoredCredentialVersion } from "../providerSecretErasure.js";
+import { refreshUserProviderAccountQuota, refreshUserProviderQuota } from "../quota.js";
 import { upsertDeviceLink } from "../domains/device-links/index.js";
 import { minimaxAdapter } from "../providers/minimax.js";
 import { zaiAdapter } from "../providers/zai.js";
@@ -27,7 +24,6 @@ import type {
   Provider,
   ProviderAccountDoc,
   ProviderAccountConnectContext,
-  ProviderAccountSecretRefDoc,
   QuotaBucket,
   QuotaSnapshotDoc,
 } from "../types.js";
@@ -241,25 +237,6 @@ function isSecretLikeMetadataKey(key: string): boolean {
   );
 }
 
-export async function writePrivateSecretRef(
-  uid: string,
-  accountID: string,
-  provider: Provider,
-  secretVersionName: string,
-  createdAt: string,
-  updatedAt: string,
-): Promise<void> {
-  const refDoc: ProviderAccountSecretRefDoc = {
-    uid,
-    providerID: provider,
-    accountID,
-    secretVersionName,
-    createdAt,
-    updatedAt,
-  };
-  await db.doc(providerAccountSecretRefPath(uid, accountID)).set(refDoc, { merge: true });
-}
-
 export async function connectProviderAccountInternal(params: {
   uid: string;
   provider: Provider;
@@ -313,14 +290,16 @@ export async function connectProviderAccountInternal(params: {
   const now = nowISO();
   const existing = await db.doc(`users/${uid}/provider_accounts/${accountID}`).get();
   const secretVersionName = await storeCredential(uid, provider, credential, accountID);
-  await writePrivateSecretRef(
+  // Points the ref at the new version and destroys every older one; a cleanup
+  // failure leaves a durable retry marker rather than failing the connect.
+  await adoptStoredCredentialVersion({
     uid,
     accountID,
-    provider,
+    providerID: provider,
     secretVersionName,
-    existing.exists ? (optionalStringField(existing.get("createdAt")) ?? now) : now,
-    now,
-  );
+    createdAt: existing.exists ? (optionalStringField(existing.get("createdAt")) ?? now) : now,
+    updatedAt: now,
+  });
 
   const accountDoc: ProviderAccountDoc = {
     id: accountID,

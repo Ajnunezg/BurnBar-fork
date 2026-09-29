@@ -253,6 +253,7 @@ interface FakeQueryResult {
     exists: boolean;
   }>;
   empty: boolean;
+  size: number;
 }
 interface FakeChainableQuery {
   where: (field: string, op: string, value: unknown) => FakeChainableQuery;
@@ -338,7 +339,7 @@ export function pathKeyedFirestore(store: Map<string, Record<string, unknown>>) 
             for (const { field, value } of predicates) {
               docs = docs.filter((d) => d.get(field) === value);
             }
-            return { docs, empty: docs.length === 0 };
+            return { docs, empty: docs.length === 0, size: docs.length };
           },
         };
       }
@@ -353,7 +354,7 @@ export function pathKeyedFirestore(store: Map<string, Record<string, unknown>>) 
         },
         get: async () => {
           const docs = directDocs();
-          return { docs, empty: docs.length === 0 };
+          return { docs, empty: docs.length === 0, size: docs.length };
         },
         where: (field: string, op: string, value: unknown) => makeQuery().where(field, op, value),
         limit: (n: number) => makeQuery().limit(n),

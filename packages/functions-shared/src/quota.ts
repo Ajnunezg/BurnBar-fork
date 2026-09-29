@@ -123,6 +123,11 @@ async function retrieveAccountSecret(
   if (!snap.exists) {
     throw new Error(`No private secret reference for account ${accountID}`);
   }
+  // The owner asked for this credential to be erased; Secret Manager cleanup
+  // may still be retrying, but it must never be served again.
+  if (snap.get("erasureScope") === "all_versions") {
+    throw new Error(`Credential erasure is pending for account ${accountID}`);
+  }
   const data = parseProviderAccountSecretRefDoc(snap.data());
   if (!data) {
     throw new Error(`Invalid private secret reference for account ${accountID}`);
