@@ -231,6 +231,55 @@ extension UsageStore {
     ///
     /// Precedence is still respected: higher-confidence data wins over lower-confidence.
     /// Cloud sync data with equal or higher confidence than existing row will update it.
+    /// Writes the daemon-ledger importer's rows. Each carries the full ledger
+    /// sum for its identity, so it replaces the stored daemon row even when
+    /// an earlier partial import stamped that row with more confident token
+    /// counts (the ladder would otherwise keep the stale, smaller sum); the
+    /// precedence ladder still decides against every other source. Rows the
+    /// retired RPC import keyed differently for the same events are deleted.
+    func replaceDaemonLedgerUsage(
+        _ usages: [TokenUsage],
+        superseding superseded: [DaemonUsageLedgerImporter.SupersededRow]
+    ) async throws {
+        guard !usages.isEmpty || !superseded.isEmpty else { return }
+        let daemonSource = UsageSource.daemon.rawValue
+        let changedRows = try await dbQueue.write { db -> Int in
+            let before = db.totalChangesCount
+            for row in superseded {
+                try db.execute(
+                    sql: """
+                        DELETE FROM token_usage
+                        WHERE provider = ? AND sessionId = ? AND model = ?
+                          AND COALESCE(sourceDeviceId, '') = ''
+                          AND usageSource = ?
+                        """,
+                    arguments: [row.provider.rawValue, row.sessionId, row.model, daemonSource]
+                )
+            }
+            for usage in usages {
+                try db.execute(
+                    sql: """
+                        DELETE FROM token_usage
+                        WHERE provider = ? AND sessionId = ? AND model = ?
+                          AND COALESCE(sourceDeviceId, '') = COALESCE(?, '')
+                          AND COALESCE(providerAccountID, '') = COALESCE(?, '')
+                          AND usageSource = ?
+                          AND (\(Self.tokenPrecedenceSQL("token_usage"))) > ?
+                        """,
+                    arguments: [
+                        usage.provider.rawValue, usage.sessionId, usage.model,
+                        usage.sourceDeviceId, Self.usagePartitionToken(from: usage.providerAccountID),
+                        daemonSource, usage.tokenConfidence.precedence
+                    ]
+                )
+                try self.writeUsageRow(usage, in: db)
+            }
+            return db.totalChangesCount - before
+        }
+        noteUsageWrite(changedRows: changedRows)
+        SearchQueryCache.shared.clear()
+    }
+
     func insertRemoteUsage(_ usage: TokenUsage) async throws {
         let changedRows = try await dbQueue.write { db -> Int in
             // A synced exact-model correction must retire a local placeholder

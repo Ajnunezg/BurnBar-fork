@@ -42,6 +42,13 @@ extension DataStore {
         try await actor.usageStore.insert(newUsages)
     }
 
+    func replaceDaemonLedgerUsage(
+        _ usages: [TokenUsage],
+        superseding superseded: [DaemonUsageLedgerImporter.SupersededRow]
+    ) async throws {
+        try await actor.usageStore.replaceDaemonLedgerUsage(usages, superseding: superseded)
+    }
+
     func insertChunked(_ newUsages: [TokenUsage], chunkSize: Int = 100) async throws {
         try await actor.usageStore.insertChunked(newUsages, chunkSize: chunkSize)
     }

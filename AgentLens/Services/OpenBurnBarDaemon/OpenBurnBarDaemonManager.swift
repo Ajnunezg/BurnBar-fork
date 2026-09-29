@@ -208,6 +208,9 @@ final class OpenBurnBarDaemonManager {
     /// seconds; without this task they race the stale-file check and each load
     /// the same 10k-conversation snapshot on a separate GRDB reader.
     @ObservationIgnored var controllerActivitySnapshotExportTask: Task<Void, Never>?
+    /// The newest daemon-ledger write. Each write awaits the previous one so
+    /// an older pass's totals can never land after a newer pass's.
+    @ObservationIgnored private var daemonUsagePersistTask: Task<Void, Never>?
     /// Supervision state tracks consecutive health-check failures and crash-loop
     /// detection. The daemon manager reads this to decide when to back off
     /// health probes and when to surface a "needs repair" prompt.
@@ -487,7 +490,7 @@ final class OpenBurnBarDaemonManager {
                 recentEvents = loadRecentDaemonEvents()
                 controllerProjects = projects
                 runtimeStateSource = .daemonRPC
-                scheduleImportedUsagePersistence(snapshot.importedUsages)
+                scheduleImportedUsagePersistence(snapshot)
                 return
             } catch {
                 runtimeStateSource = .localFallback
@@ -503,19 +506,34 @@ final class OpenBurnBarDaemonManager {
         recentEvents = loadRecentDaemonEvents()
         controllerProjects = []
         runtimeStateSource = .localFallback
-        scheduleImportedUsagePersistence(snapshot.importedUsages)
+        scheduleImportedUsagePersistence(snapshot)
     }
 
-    private func scheduleImportedUsagePersistence(_ importedUsages: [TokenUsage]) {
-        guard !importedUsages.isEmpty, let dataStore else { return }
+    private func scheduleImportedUsagePersistence(_ snapshot: OpenBurnBarDaemonRuntimeSnapshot) {
+        let importedUsages = snapshot.importedUsages
+        guard !importedUsages.isEmpty else { return }
+        guard let dataStore else {
+            // Nowhere to write this pass: re-derive it once a store attaches.
+            usageSyncService.invalidateLedgerImport()
+            return
+        }
 
-        Task(priority: .utility) { [weak self, weak dataStore, importedUsages] in
-            guard let dataStore else { return }
+        let previous = daemonUsagePersistTask
+        let supersededUsages = snapshot.supersededUsages
+        let usageSyncService = usageSyncService
+        daemonUsagePersistTask = Task(priority: .utility) { [weak self, weak dataStore] in
+            await previous?.value
+            guard let dataStore else {
+                usageSyncService.invalidateLedgerImport()
+                return
+            }
             do {
-                try await dataStore.insert(importedUsages)
+                try await dataStore.replaceDaemonLedgerUsage(importedUsages, superseding: supersededUsages)
                 await dataStore.reloadUsagesIfChanged()
                 await self?.uploadImportedUsageIfNeeded(importedUsages.count)
             } catch {
+                // The watermark already moved past these rows; rebuild them.
+                usageSyncService.invalidateLedgerImport()
                 AppLogger.dataStore.silentFailure("OpenBurnBarDaemonManager: Failed to import daemon usage", error: error)
             }
         }
