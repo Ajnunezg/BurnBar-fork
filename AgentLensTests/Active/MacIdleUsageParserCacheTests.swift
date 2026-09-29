@@ -3,10 +3,11 @@ import GRDB
 @testable import OpenBurnBar
 @testable import OpenBurnBarCore
 
-/// Mac Copilot / Aider / Cursor / OpenCode / Pi / OpenClaw keep AgentLens
-/// parse math. These tests pin usage-only second-pass hits on that math
-/// (Copilot shutdown double-count, OpenClaw nested wrappers) rather than
-/// Core totals.
+/// Since #2641 the app's Copilot / Aider / Cursor / OpenCode / Pi / OpenClaw
+/// names alias the OpenBurnBarCore parsers (LiftedEngineTypeAliases.swift).
+/// These tests pin usage-only second-pass hits through the app call sites
+/// on Core math: a Copilot `session.shutdown` summary is not added to
+/// per-turn `assistant.usage`, and OpenClaw nested wrappers still count.
 final class MacIdleUsageParserCacheTests: XCTestCase {
     private let fileManager = FileManager.default
     private var temporaryDirectories: [URL] = []
@@ -56,14 +57,15 @@ final class MacIdleUsageParserCacheTests: XCTestCase {
         XCTAssertEqual(parser.lastSessionScanCount, 1)
         XCTAssertEqual(parser.lastSessionCacheHitCount, 0)
         let firstUsage = try XCTUnwrap(first.usages.first)
-        XCTAssertEqual(firstUsage.inputTokens, 20)
-        XCTAssertEqual(firstUsage.outputTokens, 8)
+        // The shutdown event is the session summary of the same turn.
+        XCTAssertEqual(firstUsage.inputTokens, 10)
+        XCTAssertEqual(firstUsage.outputTokens, 4)
 
         let second = try await parser.parse(options: usageOnly)
         XCTAssertEqual(parser.lastSessionScanCount, 0)
         XCTAssertEqual(parser.lastSessionCacheHitCount, 1)
-        XCTAssertEqual(second.usages.first?.inputTokens, 20)
-        XCTAssertEqual(second.usages.first?.outputTokens, 8)
+        XCTAssertEqual(second.usages.first?.inputTokens, 10)
+        XCTAssertEqual(second.usages.first?.outputTokens, 4)
         XCTAssertEqual(second.usages.first?.costUSD, firstUsage.costUSD)
     }
 
@@ -112,12 +114,12 @@ final class MacIdleUsageParserCacheTests: XCTestCase {
         XCTAssertEqual(parser.lastSessionScanCount, 1)
         XCTAssertEqual(first.usages.first?.inputTokens, 500)
         XCTAssertEqual(first.usages.first?.outputTokens, 150)
-        XCTAssertEqual(first.usages.first?.estimatorVersion, "hash-count-ratio-v1")
+        XCTAssertEqual(first.usages.first?.estimatorVersion, "cursor-hash-count-v1")
         let second = try await parser.parse(options: usageOnly)
         XCTAssertEqual(parser.lastSessionScanCount, 0)
         XCTAssertEqual(parser.lastSessionCacheHitCount, 1)
         XCTAssertEqual(second.usages.first?.inputTokens, 500)
-        XCTAssertEqual(second.usages.first?.estimatorVersion, "hash-count-ratio-v1")
+        XCTAssertEqual(second.usages.first?.estimatorVersion, "cursor-hash-count-v1")
     }
 
     func test_macOpenCode_skipsUnchangedSQLiteOnUsageOnlySecondPass() async throws {

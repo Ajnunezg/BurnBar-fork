@@ -87,9 +87,16 @@ enum LocalUsageParserSupport {
         }.sorted { $0.path < $1.path }
     }
 
-    static func jsonObjects(at file: URL) -> [LocalUsageJSONObject] {
+    /// Whole-document JSON (`[...]` / `{...}`) or JSONL. `containerKeys`
+    /// flattens a file that parses as one JSON document and nests its turns
+    /// (`{"messages": [...]}`); multi-line JSONL is split per line as before.
+    static func jsonObjects(
+        at file: URL,
+        flatteningContainerKeys containerKeys: [String] = []
+    ) -> [LocalUsageJSONObject] {
         guard let data = try? Data(contentsOf: file) else { return [] }
         if let object = try? JSONSerialization.jsonObject(with: data) {
+            if !containerKeys.isEmpty { return flattened(object, containerKeys: containerKeys) }
             if let array = object as? [LocalUsageJSONObject] { return array }
             if let dictionary = object as? LocalUsageJSONObject { return [dictionary] }
         }
@@ -98,6 +105,18 @@ enum LocalUsageParserSupport {
             guard let lineData = String(line).data(using: .utf8) else { return nil }
             return try? JSONSerialization.jsonObject(with: lineData) as? LocalUsageJSONObject
         }
+    }
+
+    private static func flattened(_ value: Any, containerKeys: [String]) -> [LocalUsageJSONObject] {
+        if let array = value as? [Any] {
+            return array.flatMap { flattened($0, containerKeys: containerKeys) }
+        }
+        guard let object = value as? LocalUsageJSONObject else { return [] }
+        let nested: [LocalUsageJSONObject] = containerKeys.flatMap { key -> [LocalUsageJSONObject] in
+            guard let child = object[key] else { return [] }
+            return flattened(child, containerKeys: containerKeys)
+        }
+        return nested.isEmpty ? [object] : nested
     }
 
     static func jsonLines(at file: URL) -> LocalUsageJSONLineSequence {
@@ -200,7 +219,8 @@ enum LocalUsageParserSupport {
         start: Date?,
         end: Date?,
         fileModifiedAt: Date?,
-        workingDirectory: String? = nil
+        workingDirectory: String? = nil,
+        title: String? = nil
     ) -> ConversationRecord {
         let userTurns = turns.filter { $0.role == "user" || $0.role == "human" }
         let assistantTurns = turns.filter { $0.role == "assistant" || $0.role == "agent" || $0.role == "model" }
@@ -224,7 +244,9 @@ enum LocalUsageParserSupport {
             keyFiles: [],
             keyCommands: [],
             keyTools: [],
-            inferredTaskTitle: String((firstUser.flatMap { $0.isEmpty ? nil : $0 } ?? project).prefix(120)),
+            // A provider-recorded session title names the thread; the first
+            // prompt is only the fallback.
+            inferredTaskTitle: String((title ?? firstUser.flatMap { $0.isEmpty ? nil : $0 } ?? project).prefix(120)),
             lastAssistantMessage: String((assistantTurns.last?.text ?? "").prefix(500)),
             fullText: fullText,
             indexedAt: Date(),
@@ -723,7 +745,8 @@ public final class OpenCodeParser: LogParser, Sendable {
                     start: start,
                     end: end,
                     fileModifiedAt: end,
-                    workingDirectory: meta?.directory
+                    workingDirectory: meta?.directory,
+                    title: meta?.title
                 ))
             }
         }
@@ -1233,7 +1256,13 @@ public final class OpenClawParser: LogParser, Sendable {
                 continue
             }
             sessionScanCount.withLock { $0 += 1 }
-            let objects = LocalUsageParserSupport.jsonObjects(at: file)
+            // Single-document sessions nest their turns (`{"messages": [...]}`);
+            // unflattened, the wrapper has no role/content and the session's
+            // usage is silently dropped.
+            let objects = LocalUsageParserSupport.jsonObjects(
+                at: file,
+                flatteningContainerKeys: ["messages", "turns", "events", "conversation", "history", "items"]
+            )
             guard !objects.isEmpty else { continue }
             var input = 0, output = 0, cacheRead = 0; var model = "openclaw"; var start: Date?, end: Date?; var turns: [LocalUsageParserSupport.Turn] = []
             for object in objects {
