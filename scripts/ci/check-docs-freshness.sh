@@ -47,6 +47,25 @@ def git(*args):
     ).stdout
 
 
+now = time.time()
+
+# In a shallow clone `git log -1 -- <doc>` stops at the shallow boundary, so a
+# doc untouched since before it reads as touched at the boundary commit; a
+# depth-1 checkout makes every doc look fresh. Measure only when the boundary is
+# older than the stale window.
+if git("rev-parse", "--is-shallow-repository").strip() == "true":
+    shallow_file = Path(git("rev-parse", "--git-path", "shallow").strip())
+    boundaries = shallow_file.read_text().split() if shallow_file.exists() else []
+    newest = max((int(git("log", "-1", "--format=%ct", sha).strip()) for sha in boundaries), default=now)
+    if (now - newest) / 86400 <= STALE_DAYS:
+        print(
+            f"FAIL: shallow history ends {int((now - newest) / 86400)} day(s) ago, inside the "
+            f"{STALE_DAYS}-day window, so doc ages cannot be measured. Deepen it first, e.g. "
+            "`git fetch --shallow-since=<date older than the window> origin HEAD`.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
 tracked_md = git("ls-files", "*.md").splitlines()
 docs = [p for p in git("ls-files", "docs/*.md").splitlines() if p.endswith(".md")]
 repo = Path(".").resolve()
@@ -84,7 +103,6 @@ try:
 except subprocess.CalledProcessError:
     pass  # exit 1 == no mentions at all
 
-now = time.time()
 stale = []
 for doc in sorted(docs):
     if any(hint in doc for hint in EXCLUDED_SUBSTRINGS):

@@ -5,6 +5,7 @@ import type { BolaExpectedCode } from "../../security/bolaCoverageTypes.js";
 
 import { seedBolaVictimTenant } from "./bolaVictimSeeds.generated.js";
 import { BOLA_EXPECTED_CODES } from "./bolaExpectedCodes.generated.js";
+import { ALICE_UID, BOB_UID } from "./bolaIdentities.js";
 
 type BolaExpectedOutcome = "throws" | "no-side-effect";
 
@@ -105,8 +106,7 @@ export const BOLA_STRICT_CODE_PENDING: ReadonlyMap<string, BolaExpectedCode> = n
   ["consumeCredentialTransfer", "permission-denied"],
 ]);
 
-export const ALICE_UID = "alice-bola-uid";
-export const BOB_UID = "bob-bola-uid";
+export { ALICE_UID, BOB_UID };
 
 /** Probe payload: supplies every client-controlled id the matrix tracks. */
 function bolaCrossUserData(overrides: Record<string, unknown> = {}): Record<string, unknown> {

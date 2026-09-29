@@ -1647,6 +1647,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (node24-native; June 16 forced-runtime fuse)
+        with:
+          # Partial clone so the docs-freshness step can deepen history for
+          # commits and trees without downloading 120 days of blobs.
+          filter: blob:none
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0 (node24-native)
         with:
@@ -1774,9 +1778,15 @@ jobs:
 
       # Wave 4 docs freshness: orphaned docs untouched for >90 days may
       # only shrink (link, refresh, or archive to docs/archive/YYYY-MM/).
-      # Pure git + python3.
+      # Pure git + python3. Age comes from `git log`, so the depth-1 checkout
+      # dated every doc to HEAD and the ratchet could not see a stale doc; the
+      # step first deepens history past the 90-day window (commits and trees
+      # only), and the script refuses a history too shallow to measure.
       - name: Docs freshness budget (shrink-only ratchet)
-        run: ./scripts/ci/check-docs-freshness.sh
+        run: |
+          git fetch --no-tags --quiet --filter=blob:none \
+            --shallow-since="$(date -u -d '120 days ago' +%Y-%m-%d)" origin "$(git rev-parse HEAD)"
+          ./scripts/ci/check-docs-freshness.sh
 
       - name: BurnBarRPC IPC canon is current
         run: node tools/ipc/generate-burnbarrpc-canon.mjs --check
