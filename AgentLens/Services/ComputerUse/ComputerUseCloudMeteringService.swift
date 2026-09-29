@@ -35,9 +35,17 @@ public protocol ComputerUseCloudMeteringRecording: AnyObject {
 @MainActor
 final class ComputerUseCloudMeteringService: ComputerUseCloudMeteringRecording {
     private let firestoreGateway: any ComputerUseFirestoreGateway
+    /// Session and action headers are cloud writes, so none are recorded while
+    /// the master Cloud sync switch is off. Admission never depends on them:
+    /// the local quota ledger stays authoritative.
+    private let cloudSyncEnabled: @MainActor () -> Bool
 
-    init(firestoreGateway: any ComputerUseFirestoreGateway = ComputerUseFirestoreLiveGateway()) {
+    init(
+        firestoreGateway: any ComputerUseFirestoreGateway = ComputerUseFirestoreLiveGateway(),
+        cloudSyncEnabled: @escaping @MainActor () -> Bool = { OpenBurnBarIdentity.isCloudSyncEnabled() }
+    ) {
         self.firestoreGateway = firestoreGateway
+        self.cloudSyncEnabled = cloudSyncEnabled
     }
 
     func recordSessionStart(
@@ -46,6 +54,7 @@ final class ComputerUseCloudMeteringService: ComputerUseCloudMeteringRecording {
         response: ComputerUseSessionStartResponse,
         macAppVersion: String
     ) async throws {
+        guard cloudSyncEnabled() else { return }
         let uid = try validatedUserID(userID)
         let payload = Self.sessionStartPayload(
             userID: uid,
@@ -90,6 +99,7 @@ final class ComputerUseCloudMeteringService: ComputerUseCloudMeteringRecording {
         invocation: BurnBarToolInvocation,
         response: ComputerUseInvokeResponse
     ) async throws {
+        guard cloudSyncEnabled() else { return }
         let uid = try validatedUserID(userID)
         guard let record = Self.actionRecord(invocation: invocation, response: response) else { return }
         try await firestoreGateway.setData(
@@ -136,6 +146,7 @@ final class ComputerUseCloudMeteringService: ComputerUseCloudMeteringRecording {
         state: ComputerUseSessionState?,
         auditHeadHashHex: String?
     ) async throws {
+        guard cloudSyncEnabled() else { return }
         let uid = try validatedUserID(userID)
         let payload = Self.sessionEndPayload(
             endedAt: endedAt,

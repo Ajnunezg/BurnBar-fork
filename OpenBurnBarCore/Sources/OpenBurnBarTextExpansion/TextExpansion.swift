@@ -60,6 +60,10 @@ public struct TextExpansionSnippet: Identifiable, Codable, Equatable, Sendable {
     public var updatedAt: Date
     public var deletedAt: Date?
     public var syncedAt: Date?
+    /// Stamped by the uploading device inside the cloud document, or by the iOS
+    /// keyboard (`TextExpansionKeyboardComposer.keyboardSourceDeviceID`). A snippet
+    /// created in an app has none until a cloud download brings the stamp back,
+    /// which `arrivedThroughCloudSync` relies on.
     public var sourceDeviceID: String?
 
     public init(
@@ -98,6 +102,39 @@ public struct TextExpansionSnippet: Identifiable, Codable, Equatable, Sendable {
 
     public var isActive: Bool {
         isEnabled && deletedAt == nil && !trigger.isEmpty
+    }
+
+    /// True when this copy came out of a decoded cloud document — the only place
+    /// a device stamp other than the keyboard's comes from.
+    public var arrivedThroughCloudSync: Bool {
+        guard let sourceDeviceID, !sourceDeviceID.isEmpty else { return false }
+        return sourceDeviceID != TextExpansionKeyboardComposer.keyboardSourceDeviceID
+    }
+}
+
+// MARK: - Cloud Sync Consent
+
+/// Snippets are where people paste secrets, so syncing them to OpenBurnBar Cloud
+/// is opt-in. The Mac also requires its master Cloud sync switch
+/// (`TextExpansionSyncService`); the mobile apps have no master switch — signing
+/// in is what connects them — so this preference is their only gate.
+public enum TextExpansionCloudSyncPreference {
+    public static let key = "textExpansion.cloudSyncEnabled"
+
+    /// A stored choice always wins. The switch used to default ON without being
+    /// stored, so an install with no stored choice decides once, from evidence:
+    /// ON only if a local snippet arrived through cloud sync (the install was
+    /// already syncing), OFF otherwise — which covers every new install. Pass
+    /// `nil` when the local snippets could not be read, so a failed read never
+    /// settles the decision.
+    public static func resolve(localSnippets: [TextExpansionSnippet]?, defaults: UserDefaults) -> Bool {
+        if let choice = defaults.object(forKey: key) as? Bool {
+            return choice
+        }
+        guard let localSnippets else { return false }
+        let alreadySyncing = localSnippets.contains(where: \.arrivedThroughCloudSync)
+        defaults.set(alreadySyncing, forKey: key)
+        return alreadySyncing
     }
 }
 

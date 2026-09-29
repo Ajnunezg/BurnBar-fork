@@ -78,4 +78,56 @@ final class AccountManagerCloudSyncConsentTests: XCTestCase {
         XCTAssertGreaterThan(fakeGateway.batchCommitCount, 0)
         XCTAssertNotNil(fakeGateway.documentData(at: docPath))
     }
+
+    // MARK: - Background egress beyond the sync domains
+
+    func test_cloudSyncUIDRequiresTheCloudSyncSwitch() {
+        let accountManager = FakeAccountManager.makeSignedIn()
+        accountManager.isCloudSyncEnabled = false
+        XCTAssertNil(accountManager.cloudSyncUID, "Signed in with sync off must read as no egress uid")
+        XCTAssertEqual(accountManager.currentUID, "test-uid-1", "Explicit user actions still see the signed-in uid")
+
+        accountManager.isCloudSyncEnabled = true
+        XCTAssertEqual(accountManager.cloudSyncUID, "test-uid-1")
+
+        accountManager.simulateAccountIdentityChange(to: nil)
+        XCTAssertNil(accountManager.cloudSyncUID)
+    }
+
+    func test_cloudSyncSwitchNotifiesObserversOnlyOnChange() {
+        let accountManager = AccountManager(userDefaults: freshSuite())
+        var seen: [Bool] = []
+        accountManager.observeCloudSyncConsentChanges { seen.append($0) }
+
+        accountManager.setCloudSyncEnabled(true)
+        accountManager.setCloudSyncEnabled(true)
+        accountManager.setCloudSyncEnabled(false)
+
+        XCTAssertEqual(seen, [true, false])
+    }
+
+    func test_downloadSyncWritesNoDeviceRecordWithCloudSyncOff() async throws {
+        let accountManager = FakeAccountManager.makeSignedIn()
+        accountManager.isCloudSyncEnabled = false
+        let fakeGateway = CloudSyncFirestoreFakeGateway()
+        let context = CloudSyncContext(
+            dataStore: try makeDiscoveryInMemoryStore(),
+            accountManager: accountManager,
+            settingsManager: SettingsManager(defaults: freshSuite()),
+            firestoreGateway: fakeGateway
+        )
+        let downloadSync = DownloadSyncService(
+            context: context,
+            conversationVaultKeyProvider: TestConversationVaultKeyProvider()
+        )
+        let devicePath = "users/test-uid-1/devices/test-device-1"
+
+        await downloadSync.sync()
+        XCTAssertNil(fakeGateway.documentData(at: devicePath))
+
+        // Control: the device record lands once consent is granted.
+        accountManager.isCloudSyncEnabled = true
+        await downloadSync.sync()
+        XCTAssertNotNil(fakeGateway.documentData(at: devicePath))
+    }
 }

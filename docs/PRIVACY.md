@@ -40,9 +40,11 @@ If you choose to sign in with Google or Apple and enable cloud sync, OpenBurnBar
 
 Cloud sync is **disabled by default**. You can disable it at any time in Settings. Disabling sync does not affect local data.
 
+On the Mac the same switch also covers background cloud traffic that is not a sync domain: presence heartbeats, the listeners that let your other devices start missions, imports, capability grants, Smart Display and Cast actions or reply to notifications, the Hermes and Pi relay hosts, Cloud Vault rotation pickup, Computer Use metering headers, standing orders, and the silent BurnBar Hosted fallback for Insights questions. Turning sync off drops those listeners within seconds. Actions you start yourself still reach the cloud because the control says so, for example approving or revoking a device, transferring a credential, team administration, billing, sending a bug report, or choosing BurnBar Hosted as an Insights model.
+
 ### Optional Text Expansion Snippets
 
-Text expansion snippets are user-authored phrases that expand from `&&name` triggers. Static snippets can contain whatever you type into them, so treat them like local notes. When cloud sync is enabled, OpenBurnBar stores snippet title, trigger, body, and scope as Cloud Vault encrypted fields in Firestore, plus a keyed trigger hash used for duplicate matching. Firestore rules reject plaintext snippet fields.
+Text expansion snippets are user-authored phrases that expand from `&&name` triggers. Static snippets can contain whatever you type into them, so treat them like local notes. Snippet sync is off by default and needs its own opt-in: on the Mac it runs only while both Cloud sync (**Settings → Devices & Sync**) and **Settings → Text Expansion → Sync snippets across devices** are on. The iPhone, iPad, and Android apps have no separate Cloud sync switch, so their snippet-sync switch alone decides; it is off for new installs and stays on only for an upgraded device that was already syncing snippets. When snippet sync is on, OpenBurnBar stores snippet title, trigger, body, and scope as Cloud Vault encrypted fields in Firestore, plus a keyed trigger hash used for duplicate matching. Firestore rules reject plaintext snippet fields.
 
 LLM rewrite snippets are previewed before insertion and use only OpenBurnBar-owned thread context. Global macOS expansion, iOS keyboard expansion, and Android IME expansion insert static snippets only.
 

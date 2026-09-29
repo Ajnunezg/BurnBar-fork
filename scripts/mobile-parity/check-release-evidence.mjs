@@ -71,14 +71,14 @@ export function inspectEvidenceBundle(root, relative = EVIDENCE_DIR) {
   const files = walkFiles(resolved.path);
   for (const file of files) {
     const rel = path.relative(root, file).split(path.sep).join('/');
-    const stat = fs.statSync(file);
     const base = path.basename(file);
     if (base === 'README.md' || base === 'bundle-status.json') continue;
-    if (stat.size === 0) {
+    // Judge emptiness from the bytes read, not a separate stat of the path.
+    const text = fs.readFileSync(file, 'utf8');
+    if (text.length === 0) {
       failures.push(`empty evidence file rejected: ${rel}`);
       continue;
     }
-    const text = fs.readFileSync(file, 'utf8');
     if (looksLikePlaceholder(text)) {
       failures.push(`placeholder evidence rejected: ${rel}`);
     }

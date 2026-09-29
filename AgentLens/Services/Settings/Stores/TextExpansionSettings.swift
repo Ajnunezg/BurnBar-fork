@@ -35,7 +35,11 @@ final class TextExpansionSettings {
         didSet { persistence.set(exportKeyboardSnapshotEnabled, forKey: "textExpansion.exportKeyboardSnapshotEnabled") }
     }
 
-    var cloudSyncEnabled: Bool = true {
+    /// Snippet sync is opt-in and still requires the master Cloud sync switch
+    /// (`TextExpansionSyncService.sync`). Only a new install sees this default:
+    /// the store has persisted this key on every launch, so an existing
+    /// install keeps whatever it already had.
+    var cloudSyncEnabled: Bool = false {
         didSet { persistence.set(cloudSyncEnabled, forKey: "textExpansion.cloudSyncEnabled") }
     }
 
@@ -45,6 +49,6 @@ final class TextExpansionSettings {
         self.macGlobalExpansionEnabled = persistence.bool(forKey: "textExpansion.macGlobalExpansionEnabled", defaultValue: false)
         self.llmRewritePreviewEnabled = persistence.bool(forKey: "textExpansion.llmRewritePreviewEnabled", defaultValue: true)
         self.exportKeyboardSnapshotEnabled = persistence.bool(forKey: "textExpansion.exportKeyboardSnapshotEnabled", defaultValue: true)
-        self.cloudSyncEnabled = persistence.bool(forKey: "textExpansion.cloudSyncEnabled", defaultValue: true)
+        self.cloudSyncEnabled = persistence.bool(forKey: "textExpansion.cloudSyncEnabled", defaultValue: false)
     }
 }

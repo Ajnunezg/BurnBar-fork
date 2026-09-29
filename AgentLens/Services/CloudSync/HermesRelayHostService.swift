@@ -51,6 +51,7 @@ final class HermesRelayHostService {
     private let cliSessionActionDispatcher: CLIAgentSessionActionDispatcher?
     private var computerUseControlDispatcher: ControlFrameDispatcher?
     private var heartbeatTask: Task<Void, Never>?
+    private var isObservingCloudSyncConsent = false
     private var listener: ListenerRegistration?
     private var listenerUID: String?
     private var requestTasks: [String: Task<Void, Never>] = [:]
@@ -279,12 +280,18 @@ final class HermesRelayHostService {
             )
         )
         heartbeatTask = Task { @MainActor in }
+        // The cadence above stops firing once sync is off, so its teardown
+        // branch never runs; drop the listener and relay here instead.
+        if !isObservingCloudSyncConsent {
+            isObservingCloudSyncConsent = true
+            accountManager.observeCloudSyncConsentChanges { [weak self] enabled in
+                guard !enabled, let self, self.heartbeatTask != nil else { return }
+                self.detachRelay()
+            }
+        }
     }
 
-    func stop() {
-        heartbeatTask?.cancel()
-        heartbeatTask = nil
-        BackgroundCadenceCoordinator.shared.unregister(id: Self.cadenceIDHermesHeartbeat)
+    private func detachRelay() {
         listener?.remove()
         listener = nil
         listenerUID = nil
@@ -292,8 +299,15 @@ final class HermesRelayHostService {
             task.cancel()
         }
         requestTasks.removeAll()
-        processingRequestIDs.removeAll()
         realtimeRelayClient.stop()
+    }
+
+    func stop() {
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+        BackgroundCadenceCoordinator.shared.unregister(id: Self.cadenceIDHermesHeartbeat)
+        detachRelay()
+        processingRequestIDs.removeAll()
     }
 
     private func refreshRelayHost() async {
@@ -301,26 +315,12 @@ final class HermesRelayHostService {
               accountManager.isSignedIn,
               accountManager.isCloudSyncEnabled,
               let uid = Auth.auth().currentUser?.uid else {
-            listener?.remove()
-            listener = nil
-            listenerUID = nil
-            for task in requestTasks.values {
-                task.cancel()
-            }
-            requestTasks.removeAll()
-            realtimeRelayClient.stop()
+            detachRelay()
             return
         }
 
         guard settingsManager.hermesRemoteRelayEnabled else {
-            listener?.remove()
-            listener = nil
-            listenerUID = nil
-            for task in requestTasks.values {
-                task.cancel()
-            }
-            requestTasks.removeAll()
-            realtimeRelayClient.stop()
+            detachRelay()
             await publishRelayOffline(uid: uid)
             return
         }

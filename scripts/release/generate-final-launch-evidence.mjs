@@ -16,7 +16,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, constants, ftruncateSync, openSync, readFileSync, writeSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import process from "node:process";
@@ -132,19 +132,36 @@ function main(argv) {
     console.error(`tag not found in this checkout: ${tag}`);
     return 1;
   }
-  if (existsSync(out) && !force) {
+  // Open `out` once and work only on the descriptor: without --force an
+  // exclusive create refuses an existing file atomically; with --force the
+  // status check and the rewrite hit the same file, so it cannot be swapped
+  // for collected evidence in between.
+  let fd;
+  try {
+    fd = openSync(out, force ? constants.O_RDWR | constants.O_CREAT : "wx");
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
     console.error(`refusing to overwrite ${out} without --force (never clobber collected evidence)`);
     return 1;
   }
-  if (existsSync(out)) {
-    const current = JSON.parse(readFileSync(out, "utf8"));
-    if (current?.status !== "PRE_LAUNCH_SKELETON") {
-      console.error(`refusing to overwrite ${out}: status is ${JSON.stringify(current?.status)}, not PRE_LAUNCH_SKELETON`);
-      return 1;
+  try {
+    const existing = force ? readFileSync(fd, "utf8") : "";
+    if (existing !== "") {
+      const current = JSON.parse(existing);
+      if (current?.status !== "PRE_LAUNCH_SKELETON") {
+        console.error(`refusing to overwrite ${out}: status is ${JSON.stringify(current?.status)}, not PRE_LAUNCH_SKELETON`);
+        return 1;
+      }
     }
+    const skeleton = buildSkeleton({ tag, sha, generatedAt: new Date().toISOString() });
+    const bytes = Buffer.from(`${JSON.stringify(skeleton, null, 2)}\n`, "utf8");
+    ftruncateSync(fd, 0);
+    if (writeSync(fd, bytes, 0, bytes.length, 0) !== bytes.length) {
+      throw new Error(`short write to ${out}`);
+    }
+  } finally {
+    closeSync(fd);
   }
-  const skeleton = buildSkeleton({ tag, sha, generatedAt: new Date().toISOString() });
-  writeFileSync(out, `${JSON.stringify(skeleton, null, 2)}\n`, "utf8");
   console.log(`Wrote skeleton manifest for ${tag} (${sha}) to ${out}`);
   return 0;
 }

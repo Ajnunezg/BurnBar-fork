@@ -34,12 +34,15 @@ Android stores static snippets in Room table `text_expansion_snippets`. The IME 
 
 Cloud sync uses `users/{uid}/text_snippets/{snippetId}`. Firestore stores `sealedTitle`, `sealedTrigger`, `sealedBody`, `sealedScope`, `triggerHash`, mode, timestamps, revision, and encryption metadata. It rejects plaintext `title`, `trigger`, `body`, and `scope` fields. New writes use Cloud Vault sealed-text schema v2 with AAD bound to `uid`, collection, document id, and field name, so sealed values cannot be copied between users, documents, or fields without failing decryption. The vault key is the same Cloud Vault device-key system used by encrypted hosted session search, so Firebase stores ciphertext and keyed hashes, not snippet text.
 
+Snippet sync is opt-in on every platform. macOS `TextExpansionSyncService.sync()` requires the master Cloud sync switch (Settings → Devices & Sync) **and** Settings → Text Expansion → Sync snippets across devices; the snippet switch defaults off, and because the Mac has persisted it on every launch since text expansion shipped, an upgrade keeps its stored value while a new install starts off. iOS/iPadOS and Android have no master Cloud sync switch, so the snippet switch alone gates uploads, delete tombstones, and (iOS) the realtime listener. It used to default on without being stored; an install with no stored choice decides once from evidence (`TextExpansionCloudSyncPreference` in `OpenBurnBarTextExpansion` and in the Android `data/text` package): on only if a local snippet already went through cloud sync, off otherwise. Windows has no snippet uploader yet and its switch also defaults off.
+
 ## Safety Rules
 
 - Global macOS expansion is off by default and compiles out of MAS builds.
 - macOS global expansion requires Accessibility permission, skips OpenBurnBar itself, skips secure/focused denied surfaces, and resets its buffer on command/control/option and non-printable navigation events. When permission is missing, Settings → Text Expansion routes users to **Privacy & Security → Accessibility** (same pane as Computer Use).
 - LLM snippets produce a preview with Insert/Cancel controls before draft replacement in macOS OpenBurnBar chat.
 - Static snippets can run globally; LLM snippets stay in OpenBurnBar-owned thread contexts.
+- Snippet cloud sync is off by default and, on macOS, never runs while the master Cloud sync switch is off.
 - Cloud rules allow owner-scoped read/write/delete only and validate the encrypted document shape.
 
 ## Verification

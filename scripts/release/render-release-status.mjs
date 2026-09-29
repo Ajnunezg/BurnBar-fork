@@ -90,6 +90,15 @@ function readText(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
 
+function readTextIfPresent(filePath) {
+  try {
+    return readText(filePath);
+  } catch (error) {
+    if (error.code === "ENOENT") return "";
+    throw error;
+  }
+}
+
 function readJson(filePath) {
   return JSON.parse(readText(filePath));
 }
@@ -170,13 +179,13 @@ function validateSurfaces(document, root) {
  */
 function readLaunchPosture(paths) {
   const base = { evidence: LAUNCH_EVIDENCE, readiness: READINESS_DOC };
-  if (!fs.existsSync(paths.launchEvidence)) {
-    return { ...base, commercialGo: false, reason: `${LAUNCH_EVIDENCE} is missing` };
-  }
   let manifest;
   try {
     manifest = readJson(paths.launchEvidence);
   } catch (error) {
+    if (error.code === "ENOENT") {
+      return { ...base, commercialGo: false, reason: `${LAUNCH_EVIDENCE} is missing` };
+    }
     return { ...base, commercialGo: false, reason: `${LAUNCH_EVIDENCE} is unreadable (${error.message})` };
   }
   const result = validateLaunchEvidenceBundle(manifest, {
@@ -358,7 +367,7 @@ function main() {
   const status = buildReleaseStatus(REPO_ROOT);
   const generatedJson = `${JSON.stringify(status, null, 2)}\n`;
   const renderedBlock = renderBlock(status);
-  const currentJson = fs.existsSync(paths.output) ? readText(paths.output) : "";
+  const currentJson = readTextIfPresent(paths.output);
   const currentReadme = readText(paths.readme);
   const renderedReadme = expectedReadme(currentReadme, renderedBlock);
 

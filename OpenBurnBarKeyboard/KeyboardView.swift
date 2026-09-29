@@ -673,7 +673,7 @@ struct KeyboardView: View {
         let result = TextExpansionKeyboardComposer.add(
             rawTrigger: composeTrigger,
             body: composeBody,
-            sourceDeviceID: "iOSKeyboard"
+            sourceDeviceID: TextExpansionKeyboardComposer.keyboardSourceDeviceID
         )
         switch result {
         case .success:

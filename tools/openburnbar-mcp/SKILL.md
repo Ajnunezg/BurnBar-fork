@@ -82,9 +82,15 @@ mcp_servers:
   embedding providers or fake semantic results when the local semantic index is
   absent.
 - `burnbar_cloud_semantic_search_conversations` is the hosted encrypted path.
-  It requires `OPENBURNBAR_FIREBASE_ID_TOKEN` and
-  `OPENBURNBAR_CLOUD_VAULT_KEY_BASE64`; plaintext and vault key stay on the MCP
-  host while Firebase receives only opaque search hashes.
+  It requires `OPENBURNBAR_FIREBASE_ID_TOKEN` and the cloud vault key in the OS
+  secret store: the macOS Keychain item `com.openburnbar.mcp-remote` /
+  `vault-key` that OpenBurnBar → Settings → Cloud → Remote MCP → Link this
+  Mac's CLI writes, or the same item in Linux libsecret via `secret-tool`.
+  `OPENBURNBAR_CLOUD_VAULT_KEY_BASE64` is used only alongside the test-only
+  `OPENBURNBAR_ALLOW_INSECURE_VAULT_KEY_SOURCE=true`; set alone while the
+  store has no key, it gets `CLOUD_VAULT_KEY_INSECURE_SOURCE_REFUSED`.
+  Plaintext and vault key stay on the MCP host while Firebase receives only
+  opaque search hashes.
 - `burnbar_project_summary` aggregates over `token_usage` — not a substitute
   for per-session transcripts.
 - `burnbar_get_conversation.fullText` is truncated at 120 000 chars by default.

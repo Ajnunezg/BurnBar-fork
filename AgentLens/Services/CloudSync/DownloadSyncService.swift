@@ -34,8 +34,10 @@ final class DownloadSyncService: CloudSyncDomain, Sendable {
     /// VAL-PERSIST-011: Watermark scope is account-aware and collection-safe.
     func sync() async {
         let gate = await context.syncGate()
+        // Also writes this Mac's device-registry doc, so it needs Cloud sync.
         guard gate.account.isFirebaseAvailable,
               gate.account.isSignedIn,
+              gate.account.isCloudSyncEnabled,
               let resolvedUid = gate.account.uid else { return }
         let localDeviceId = gate.account.deviceId
         let syncStartTime = Date()

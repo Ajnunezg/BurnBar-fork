@@ -10,7 +10,7 @@
 //   macGlobalExpansionEnabled   = false  (requires accessibility)
 //   llmRewritePreviewEnabled    = true
 //   exportKeyboardSnapshotEnabled = true
-//   cloudSyncEnabled            = true
+//   cloudSyncEnabled            = false  (opt-in; see CloudSyncEnabled)
 // Editor validation (Swift view): triggerError (nil when empty) + duplicateTriggerError
 // ("Trigger already exists.") + canSave (no errors AND non-empty title/trigger/body).
 
@@ -36,7 +36,7 @@ public sealed record TextExpansionRuntimeSettings(
         MacGlobalEnabled: false,
         LlmPreviewEnabled: true,
         ExportSnapshotEnabled: true,
-        CloudSyncEnabled: true);
+        CloudSyncEnabled: false);
 }
 
 /// <summary>Full CRUD over the snippet catalog + the runtime toggles (WinUI: SQLCipher-backed).</summary>
@@ -198,7 +198,12 @@ public sealed class TextExpansionSettingsViewModel : ObservableSettingsViewModel
         set { if (value != _runtime.ExportSnapshotEnabled) { _runtime = _runtime with { ExportSnapshotEnabled = value }; PersistRuntime(); OnPropertyChanged(); } }
     }
 
-    /// <summary>Sync snippets across devices through the cloud.</summary>
+    /// <summary>
+    /// Sync snippets across devices through the cloud. Opt-in, like the Mac: snippets
+    /// are where people paste secrets. Windows has no snippet uploader yet; when one
+    /// lands it must also require the Devices &amp; Sync master switch
+    /// (<c>devices.cloudSyncEnabled</c>), as the Mac's TextExpansionSyncService does.
+    /// </summary>
     public bool CloudSyncEnabled
     {
         get => _runtime.CloudSyncEnabled;

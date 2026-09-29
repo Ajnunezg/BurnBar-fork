@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -438,6 +439,29 @@ test('placeholder evidence file fails', () => {
   row.evidencePointers = [{ path: 'docs/mobile-parity/evidence/note.txt', candidateSha: HEAD }];
   const result = validate(documents, { repoRoot: root });
   assert.match(messages(result), /placeholder evidence/);
+});
+
+test('evidence pointer to a directory is not a regular file', () => {
+  const root = seedRepo({ 'docs/mobile-parity/evidence/run/log.txt': 'booted device run 42\n' });
+  const documents = docs();
+  const row = documents.ledger.rows.find((item) => item.id === 'VAL-MOB-002');
+  row.evidencePointers = [{ path: 'docs/mobile-parity/evidence/run', candidateSha: HEAD }];
+  const result = validate(documents, { repoRoot: root });
+  assert.match(messages(result), /evidence path must be a regular file: docs\/mobile-parity\/evidence\/run/);
+});
+
+test('evidence pointer sha256 is checked against the inspected bytes', () => {
+  const body = 'booted device run 42\n';
+  const root = seedRepo({ 'docs/mobile-parity/evidence/run.txt': body });
+  const pointerWith = (sha256) => {
+    const documents = docs();
+    const row = documents.ledger.rows.find((item) => item.id === 'VAL-MOB-002');
+    row.evidencePointers = [{ path: 'docs/mobile-parity/evidence/run.txt', candidateSha: HEAD, sha256 }];
+    return messages(validate(documents, { repoRoot: root }));
+  };
+  const digest = crypto.createHash('sha256').update(body).digest('hex');
+  assert.doesNotMatch(pointerWith(digest), /evidence pointer (sha256 mismatch|has invalid sha256)/);
+  assert.match(pointerWith('0'.repeat(64)), /evidence pointer sha256 mismatch: docs\/mobile-parity\/evidence\/run\.txt/);
 });
 
 test('historical evidence cannot satisfy a fresh/PASS close', () => {

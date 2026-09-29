@@ -21,13 +21,20 @@ public actor OrchestratedInsightAnalysisEngine: InsightAnalysisEngine {
     public struct Configuration: Sendable {
         public var privacyModeRestrictsToLocal: Bool
         public var failWhenSelectedGatewayUnavailable: Bool
+        /// Whether a failed or missing user-owned route may silently re-route
+        /// the question and usage digest to BurnBar Hosted. The Mac turns this
+        /// off while Cloud sync is off; an explicit hosted selection is
+        /// unaffected.
+        public var allowsHostedFallback: Bool
 
         public init(
             privacyModeRestrictsToLocal: Bool = false,
-            failWhenSelectedGatewayUnavailable: Bool = true
+            failWhenSelectedGatewayUnavailable: Bool = true,
+            allowsHostedFallback: Bool = true
         ) {
             self.privacyModeRestrictsToLocal = privacyModeRestrictsToLocal
             self.failWhenSelectedGatewayUnavailable = failWhenSelectedGatewayUnavailable
+            self.allowsHostedFallback = allowsHostedFallback
         }
     }
 
@@ -327,6 +334,7 @@ public actor OrchestratedInsightAnalysisEngine: InsightAnalysisEngine {
         guard request.instruction == .answerFollowUp else { return nil }
         guard request.selectedModel.egressTier != .localOnly else { return nil }
         if configuration.privacyModeRestrictsToLocal { return nil }
+        guard configuration.allowsHostedFallback else { return nil }
 
         guard let catalog else { return nil }
         guard let hosted = await catalog.gateway(

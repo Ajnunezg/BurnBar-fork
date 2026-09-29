@@ -300,6 +300,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// next foreground/revoke. `force` bypasses the foreground debounce for the
     /// launch and post-revoke passes.
     private func pickUpPendingCloudVaultRotations(force: Bool) {
+        // A pickup re-uploads re-sealed cloud data, so it waits for Cloud sync.
+        // Another trusted device can finish the rotation meanwhile, and an
+        // explicit Revoke still rotates inline.
+        guard OpenBurnBarIdentity.isCloudSyncEnabled() else { return }
         let now = Date().timeIntervalSinceReferenceDate
         if !force,
            now - lastCloudVaultRotationPickupAt < Self.cloudVaultRotationPickupDebounceInterval {

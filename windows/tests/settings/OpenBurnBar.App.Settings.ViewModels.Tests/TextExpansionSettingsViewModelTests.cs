@@ -27,6 +27,16 @@ public sealed class TextExpansionSettingsViewModelTests
         Assert.False(vm.MacGlobalEnabled);
         Assert.True(vm.LlmPreviewEnabled);
         Assert.True(vm.ExportSnapshotEnabled);
+        Assert.False(vm.CloudSyncEnabled);
+    }
+
+    [Fact]
+    public void SnippetCloudSync_IsOptInAndKeepsAStoredChoice()
+    {
+        Assert.False(TextExpansionRuntimeSettings.Default.CloudSyncEnabled);
+
+        var optedIn = TextExpansionRuntimeSettings.Default with { CloudSyncEnabled = true };
+        var vm = NewVm(new InMemoryTextExpansionSettingsStore(runtime: optedIn));
         Assert.True(vm.CloudSyncEnabled);
     }
 
@@ -153,10 +163,10 @@ public sealed class TextExpansionSettingsViewModelTests
         var store = new InMemoryTextExpansionSettingsStore();
         var vm = NewVm(store);
         vm.InAppEnabled = false;
-        vm.CloudSyncEnabled = false;
+        vm.CloudSyncEnabled = true;
 
         var reloaded = NewVm(store);
         Assert.False(reloaded.InAppEnabled);
-        Assert.False(reloaded.CloudSyncEnabled);
+        Assert.True(reloaded.CloudSyncEnabled);
     }
 }

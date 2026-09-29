@@ -624,8 +624,53 @@ you trust with session-log recall, and enable
 ```bash
 export OPENBURNBAR_FIREBASE_PROJECT_ID=burnbar
 export OPENBURNBAR_FIREBASE_ID_TOKEN="<Firebase Auth ID token>"
-export OPENBURNBAR_CLOUD_VAULT_KEY_BASE64="<32-byte vault key, base64>"
 ```
+
+The cloud vault key is deliberately not on that list. An MCP server's
+environment is readable by every process running as you and by the agent
+harness that launched it, and harnesses write it to their logs, so the local
+MCP reads the key from the OS secret store each time a cloud tool needs it
+([`cloud_vault_key_store.py`](cloud_vault_key_store.py)):
+
+- **macOS:** the Keychain generic password with service
+  `com.openburnbar.mcp-remote` and account `vault-key`, the same item the
+  hosted Remote MCP shim (`tools/openburnbar-mcp-remote`) reads, so one link
+  serves both. Create it with **OpenBurnBar → Settings → Cloud → Remote MCP →
+  Link this Mac's CLI** (signed in, with cloud sync on; it asks for Touch ID or
+  your login password). The MCP's first read may raise a Keychain prompt for
+  `security`, and the MCP waits up to 30 seconds for an answer. **Allow**
+  answers once. **Always Allow** trusts `/usr/bin/security` with this item,
+  which lets any process running as you read it that way.
+- **Linux:** the same service and account in libsecret, read with
+  `secret-tool` (Debian/Ubuntu package `libsecret-tools`). `secret-tool store`
+  prompts for the base64 key, so it never lands on a command line or in shell
+  history:
+
+  ```bash
+  secret-tool store --label='OpenBurnBar MCP vault key' \
+    service com.openburnbar.mcp-remote account vault-key
+  ```
+
+- **Tests and disposable CI only:** `OPENBURNBAR_CLOUD_VAULT_KEY_BASE64` is
+  read when `OPENBURNBAR_ALLOW_INSECURE_VAULT_KEY_SOURCE` is exactly `true`,
+  and only after the secret store comes up empty. Never use the pair for a
+  real key.
+
+**Migrating from `OPENBURNBAR_CLOUD_VAULT_KEY_BASE64`.** Earlier versions of
+this MCP read the vault key from that variable. It is no longer used on its
+own. Set without the opt-in while the secret store has no key, it makes the
+cloud tools answer `CLOUD_VAULT_KEY_INSECURE_SOURCE_REFUSED` and do nothing
+else (with no key anywhere they answer `CLOUD_VAULT_KEY_UNCONFIGURED`). Once
+the secret store holds the key the variable is ignored, but it still sits in
+the environment where it can leak. To move over:
+
+1. Store the key as above: **Link this Mac's CLI** on macOS, `secret-tool
+   store` on Linux.
+2. Delete `OPENBURNBAR_CLOUD_VAULT_KEY_BASE64` from every MCP client config
+   that launches this server (its `env` block) and from your shell profile,
+   then restart the client.
+3. Clear old copies of the value from shell history and dotfiles. Anything that
+   logged the server's environment, such as harness or CI logs, may hold it too.
 
 The MCP process keeps the plaintext query and vault key local. Firebase
 receives only keyed token/semantic hashes, returns encrypted result envelopes,

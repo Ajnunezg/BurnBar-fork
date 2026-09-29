@@ -74,6 +74,7 @@ import memory_engine as me  # noqa: E402
 import ministry as ministry_core  # noqa: E402
 import castle as castle_core  # noqa: E402
 import session_briefing  # noqa: E402
+from cloud_vault_key_store import CloudVaultKeyUnavailable, read_cloud_vault_key  # noqa: E402
 
 mcp = FastMCP("openburnbar-local")
 
@@ -1074,30 +1075,22 @@ def _cloud_config() -> dict[str, Any]:
     project_id = os.environ.get("OPENBURNBAR_FIREBASE_PROJECT_ID", OPENBURNBAR_FIREBASE_PROJECT_ID).strip()
     region = os.environ.get("OPENBURNBAR_FUNCTIONS_REGION", OPENBURNBAR_FUNCTIONS_REGION).strip()
     id_token = os.environ.get("OPENBURNBAR_FIREBASE_ID_TOKEN", "").strip()
-    vault_key_raw = os.environ.get("OPENBURNBAR_CLOUD_VAULT_KEY_BASE64", "").strip()
     if not id_token:
         return _unavailable_payload(
             "CLOUD_AUTH_UNCONFIGURED",
             "set OPENBURNBAR_FIREBASE_ID_TOKEN to a Firebase Auth ID token for the signed-in user",
         )
-    if not vault_key_raw:
-        return _unavailable_payload(
-            "CLOUD_VAULT_KEY_UNCONFIGURED",
-            "set OPENBURNBAR_CLOUD_VAULT_KEY_BASE64 to the 32-byte cloud vault key for this device",
-        )
-    try:
-        vault_key = base64.b64decode(vault_key_raw, validate=True)
-    except ValueError as exc:
-        return _unavailable_payload("CLOUD_VAULT_KEY_INVALID", "cloud vault key must be base64", error=str(exc))
-    if len(vault_key) != 32:
-        return _unavailable_payload("CLOUD_VAULT_KEY_INVALID", "cloud vault key must decode to 32 bytes")
+    # OS secret store only; the env var is a test-only opt-in (cloud_vault_key_store).
+    vault_key = read_cloud_vault_key()
+    if isinstance(vault_key, CloudVaultKeyUnavailable):
+        return _unavailable_payload(vault_key.code, vault_key.reason, **vault_key.detail)
     return {
         "status": "ok",
         "projectID": project_id,
         "region": region,
         "idToken": id_token,
         "uid": _uid_from_firebase_id_token(id_token),
-        "vaultKey": vault_key,
+        "vaultKey": vault_key.key,
     }
 
 
@@ -1702,8 +1695,10 @@ def burnbar_cloud_semantic_search_conversations(
 
     The MCP process derives token/semantic trapdoors locally from the cloud
     vault key, sends only opaque hashes to Firebase Functions, and decrypts
-    returned titles/snippets on this device. Required env:
-    OPENBURNBAR_FIREBASE_ID_TOKEN and OPENBURNBAR_CLOUD_VAULT_KEY_BASE64.
+    returned titles/snippets on this device. Requires
+    OPENBURNBAR_FIREBASE_ID_TOKEN and the cloud vault key in the OS secret
+    store (macOS Keychain via OpenBurnBar > Settings > Cloud > Remote MCP >
+    Link this Mac's CLI, or Linux libsecret).
     """
     denied = _capability_denial("burnbar_cloud_semantic_search_conversations", "cloud_decrypt")
     if denied:
@@ -4404,8 +4399,8 @@ def burnbar_cloud_sync_project_memory(project_slug: str) -> str:
     """
     Encrypt and upload one local Project Memory snapshot to cloud storage.
 
-    Requires local project_memory_snapshots data plus cloud auth env
-    (OPENBURNBAR_FIREBASE_ID_TOKEN and OPENBURNBAR_CLOUD_VAULT_KEY_BASE64).
+    Requires local project_memory_snapshots data plus OPENBURNBAR_FIREBASE_ID_TOKEN
+    and the cloud vault key in the OS secret store (macOS Keychain or Linux libsecret).
     """
     denied = _capability_denial("burnbar_cloud_sync_project_memory", "cloud_sync")
     if denied:

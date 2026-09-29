@@ -56,6 +56,8 @@ final class AccountManager {
     /// the one subscriber is the app-lifetime memory cloud-sync domain, and it
     /// captures itself weakly.
     private var accountIdentityObservers: [@MainActor @Sendable (String?) -> Void] = []
+    /// Callbacks registered through `observeCloudSyncConsentChanges(_:)`.
+    private var cloudSyncConsentObservers: [@MainActor @Sendable (Bool) -> Void] = []
     private var currentNonce: String?
     private var firebaseAuthAccessGroup: String?
     /// Retains `AppleSignInPresentationCoordinator` until Sign in with Apple completes.
@@ -80,9 +82,7 @@ final class AccountManager {
         deviceId = Self.loadOrCreateDeviceId()
         // A missing key means "never chose" → off. No grandfathering: the
         // flag was never persisted before, so nobody opted in.
-        isCloudSyncEnabled = (userDefaults.object(
-            forKey: OpenBurnBarCore.OpenBurnBarIdentity.cloudSyncEnabledKey
-        ) as? Bool) ?? false
+        isCloudSyncEnabled = OpenBurnBarCore.OpenBurnBarIdentity.isCloudSyncEnabled(defaults: userDefaults)
         configureFirebase()
     }
 
@@ -671,8 +671,18 @@ final class AccountManager {
     // MARK: - Cloud Sync Toggle
 
     func setCloudSyncEnabled(_ enabled: Bool) {
+        let changed = isCloudSyncEnabled != enabled
         isCloudSyncEnabled = enabled
         userDefaults.set(enabled, forKey: OpenBurnBarCore.OpenBurnBarIdentity.cloudSyncEnabledKey)
+        guard changed else { return }
+        for observer in cloudSyncConsentObservers {
+            observer(enabled)
+        }
+    }
+
+    /// See `AccountManaging.observeCloudSyncConsentChanges(_:)`.
+    func observeCloudSyncConsentChanges(_ observer: @escaping @MainActor @Sendable (Bool) -> Void) {
+        cloudSyncConsentObservers.append(observer)
     }
 
     // MARK: - Device UUID

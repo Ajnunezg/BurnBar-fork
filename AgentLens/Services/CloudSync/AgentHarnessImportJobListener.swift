@@ -68,7 +68,7 @@ final class AgentHarnessImportJobListener {
     }
 
     func attachIfPossible() {
-        guard accountManager.isFirebaseAvailable, let uid = accountManager.currentUID else {
+        guard accountManager.isFirebaseAvailable, let uid = accountManager.cloudSyncUID else {
             listener?.remove()
             listener = nil
             listenerUID = nil
@@ -105,7 +105,7 @@ final class AgentHarnessImportJobListener {
     }
 
     func handle(document: QueryDocumentSnapshot) async {
-        guard let uid = accountManager.currentUID else { return }
+        guard let uid = accountManager.cloudSyncUID else { return }
         let trust = await deviceTrustChecker.prepareAndValidateTrustedExecutor(
             uid: uid,
             deviceID: accountManager.deviceId

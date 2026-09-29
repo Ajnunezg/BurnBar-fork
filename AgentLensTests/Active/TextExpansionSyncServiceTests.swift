@@ -17,6 +17,8 @@ final class TextExpansionSyncServiceTests: XCTestCase {
         dataStore = try makeDiscoveryInMemoryStore()
         accountManager = FakeAccountManager.makeSignedIn()
         settingsManager = SettingsManager(defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+        // Snippet sync is opt-in; the consent tests below cover the defaults.
+        settingsManager.textExpansion.cloudSyncEnabled = true
         fakeGateway = CloudSyncFirestoreFakeGateway()
         vaultKeyStore = StaticSessionLogVaultKeyStore(keyData: Data(repeating: 0x33, count: 32))
         vaultKeyPublisher = FakeTextExpansionVaultKeyPublisher()
@@ -150,6 +152,77 @@ final class TextExpansionSyncServiceTests: XCTestCase {
 
     func testSnippetFromSignalPayloadReturnsNilForUndecodablePayload() {
         XCTAssertNil(TextExpansionSyncService.snippetFromSignalPayload(Data("not a snippet".utf8)))
+    }
+
+    // MARK: - Consent (mirrors AccountManagerCloudSyncConsentTests)
+
+    func testFreshInstallDefaultsSnippetSyncOff() {
+        XCTAssertFalse(makeSettingsManager().textExpansion.cloudSyncEnabled)
+    }
+
+    func testSnippetSyncChoicePersistsAcrossLaunches() {
+        let defaults = makeIsolatedDefaults()
+        let first = makeSettingsManager(defaults: defaults)
+        first.textExpansion.cloudSyncEnabled = true
+        first.persistence.flush()
+        XCTAssertTrue(makeSettingsManager(defaults: defaults).textExpansion.cloudSyncEnabled)
+    }
+
+    func testUpgradeKeepsTheStoredSnippetSyncChoice() {
+        // Every launch since text expansion shipped has persisted this key, so an
+        // upgrade reads what it stored rather than the new default.
+        let defaults = makeIsolatedDefaults()
+        defaults.set(true, forKey: "textExpansion.cloudSyncEnabled")
+        XCTAssertTrue(makeSettingsManager(defaults: defaults).textExpansion.cloudSyncEnabled)
+    }
+
+    func testCloudSyncOffWritesNothingToFirestore() async throws {
+        let docPath = "users/test-uid-1/text_snippets/snippet-consent"
+        try await dataStore.upsertTextExpansionSnippet(consentSnippet())
+        // Signed in with snippet sync on, but the master switch was never enabled.
+        accountManager.isCloudSyncEnabled = false
+        let service = makeService()
+
+        await service.sync()
+        XCTAssertEqual(fakeGateway.batchCommitCount, 0)
+        XCTAssertNil(fakeGateway.documentData(at: docPath))
+        XCTAssertTrue(vaultKeyPublisher.publishedKeys.isEmpty)
+
+        // Control: the same snippet uploads once consent is granted, proving the
+        // zero above comes from the gate rather than a broken fixture.
+        accountManager.isCloudSyncEnabled = true
+        await service.sync()
+        XCTAssertEqual(fakeGateway.batchCommitCount, 1)
+        XCTAssertNotNil(fakeGateway.documentData(at: docPath))
+    }
+
+    func testSnippetSyncOffWritesNothingEvenWithCloudSyncOn() async throws {
+        try await dataStore.upsertTextExpansionSnippet(consentSnippet())
+        settingsManager.textExpansion.cloudSyncEnabled = false
+
+        await makeService().sync()
+
+        XCTAssertEqual(fakeGateway.batchCommitCount, 0)
+        XCTAssertNil(fakeGateway.documentData(at: "users/test-uid-1/text_snippets/snippet-consent"))
+        XCTAssertTrue(vaultKeyPublisher.publishedKeys.isEmpty)
+    }
+
+    private func makeService() -> TextExpansionSyncService {
+        TextExpansionSyncService(context: context, vaultKeyStore: vaultKeyStore, vaultKeyPublisher: vaultKeyPublisher)
+    }
+
+    private func consentSnippet() -> TextExpansionSnippet {
+        let updatedAt = Date(timeIntervalSince1970: 1_780_000_000)
+        return TextExpansionSnippet(
+            id: "snippet-consent",
+            title: "Password",
+            trigger: "pw",
+            body: "not-a-real-secret",
+            mode: .staticText,
+            scope: TextExpansionScope(surfaces: [.inAppThread]),
+            createdAt: updatedAt.addingTimeInterval(-60),
+            updatedAt: updatedAt
+        )
     }
 }
 

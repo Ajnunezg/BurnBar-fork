@@ -96,11 +96,15 @@ describe("console auth domain", () => {
   it("documents the registered Firebase Auth handler domain used by production OAuth", () => {
     const envExample = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
     const firebaseClient = readFileSync(new URL("../lib/firebaseClient.ts", import.meta.url), "utf8");
+    const publicConfig = JSON.parse(
+      readFileSync(new URL("../../../config/firebase-web-public.json", import.meta.url), "utf8"),
+    );
 
     expect(envExample).toContain("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=app.burnbar.ai");
     expect(envExample).toContain("NEXT_PUBLIC_ENABLE_APPLE_AUTH=false");
+    expect(publicConfig.console.authDomain).toBe("app.burnbar.ai");
     expect(firebaseClient).toContain(
-      'authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "app.burnbar.ai"',
+      "authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || firebaseWebPublic.console.authDomain",
     );
   });
 });

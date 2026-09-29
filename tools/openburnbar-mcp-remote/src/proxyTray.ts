@@ -182,15 +182,13 @@ export async function ensureGatewayTrayApp(
   mkdirSync(join(appDir, "Contents", "Resources"), { recursive: true, mode: 0o700 });
   writeInfoPlist(appDir, readFileSync(join(sourceDir, "Info.plist"), "utf8"));
 
-  if (existsSync(stampPath) && existsSync(executable)) {
-    try {
-      const stamp = JSON.parse(readFileSync(stampPath, "utf8")) as { source: string; binary: string };
-      if (stamp.source === sourceHash && stamp.binary === binaryDigest(executable)) {
-        return { executable };
-      }
-    } catch {
-      // Corrupted stamp; fall through to recompile
+  try {
+    const stamp = JSON.parse(readFileSync(stampPath, "utf8")) as { source: string; binary: string };
+    if (stamp.source === sourceHash && stamp.binary === binaryDigest(executable)) {
+      return { executable };
     }
+  } catch {
+    // Missing or corrupted stamp, or no executable yet; fall through to recompile
   }
 
   const swiftc = find();

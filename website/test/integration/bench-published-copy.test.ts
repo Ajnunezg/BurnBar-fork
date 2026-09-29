@@ -33,20 +33,22 @@ const SKIP = !existsSync(DIST);
 const describeIf = (cond: boolean) => (cond ? describe : describe.skip);
 
 /** Built page HTML, tags stripped, entities decoded, whitespace collapsed —
-    i.e. roughly the words a reader sees. */
+    i.e. roughly the words a reader sees. Script/style blocks match the way a
+    browser ends them (any case, attributes or whitespace in the end tag), and
+    `&amp;` decodes last so `&amp;lt;` stays the literal text `&lt;`. */
 function pageText(route: string): string {
   const html = readFileSync(join(DIST, route, "index.html"), "utf8");
   const stripped = html
-    .replace(/<script[\s\S]*?<\/script>/g, " ")
-    .replace(/<style[\s\S]*?<\/style>/g, " ")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi, " ")
     .replace(/<[^>]+>/g, " ");
   const decoded = stripped
     .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
   return decoded.replace(/\s+/g, " ");
 }
 

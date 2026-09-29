@@ -17,7 +17,8 @@ struct MobileTextExpansionSettingsView: View {
     @State private var statusMessage: String?
     @State private var statusIsError = false
     @State private var isSyncing = false
-    @AppStorage("textExpansion.cloudSyncEnabled") private var cloudSyncEnabled = true
+    // Resolved and stored by `store` on init; see `TextExpansionCloudSyncPreference`.
+    @AppStorage(TextExpansionCloudSyncPreference.key) private var cloudSyncEnabled = false
     @Environment(\.colorScheme) private var colorScheme
 
     // Custom States for REDESIGN
@@ -560,6 +561,11 @@ struct MobileTextExpansionSettingsView: View {
                         .foregroundStyle(MobileTheme.textMuted)
                         .padding(.horizontal, 2)
                 }
+            } else {
+                Text("Off — snippets stay on this device.")
+                    .font(.caption2)
+                    .foregroundStyle(MobileTheme.textMuted)
+                    .padding(.horizontal, 2)
             }
         }
         .padding(18)
