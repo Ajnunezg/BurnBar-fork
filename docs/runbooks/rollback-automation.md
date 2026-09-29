@@ -175,6 +175,10 @@ A production-project receipt (the `.firebaserc` default) under
 `launch-evidence/latest-rollback-revision-drill.json`. Staging receipts never
 become that pointer, and `--receipt` cannot name it. Commit the dated receipt
 and, for production, the pointer.
+The commercial launch gate's `rollbackRevisionDrill` check
+(`scripts/ops/rollback-drill-evidence.mjs`) is `NO_GO` until that pointer is a
+live receipt of a passed round trip no older than 30 days
+(`OPENBURNBAR_ROLLBACK_DRILL_TTL_DAYS`). The 2026-09-23 finding does not count.
 
 **IAM:** `roles/run.admin` (or the `run.services.get/update` and
 `run.revisions.list/get` permissions) plus `roles/artifactregistry.reader` on

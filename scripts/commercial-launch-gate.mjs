@@ -38,6 +38,10 @@ import {
   evaluateFirestoreRestoreDrillEvidence,
   readFirestoreRestoreDrillEvidence,
 } from "./ops/firestore-restore-drill-verify.mjs";
+import {
+  DEFAULT_ROLLBACK_DRILL_TTL_DAYS,
+  readRollbackRevisionDrillEvidence,
+} from "./ops/rollback-drill-evidence.mjs";
 
 export {
   REQUIRED_FIREBASE_APP_CHECK_SERVICE_IDS,
@@ -66,6 +70,13 @@ const FIRESTORE_RESTORE_DRILL_EVIDENCE_PATH =
 const FIRESTORE_RESTORE_DRILL_TTL_DAYS = Number(
   process.env.OPENBURNBAR_FIRESTORE_RESTORE_DRILL_TTL_DAYS ||
     DEFAULT_RESTORE_DRILL_TTL_DAYS,
+);
+const ROLLBACK_DRILL_EVIDENCE_PATH =
+  process.env.OPENBURNBAR_ROLLBACK_DRILL_EVIDENCE ||
+  "launch-evidence/latest-rollback-revision-drill.json";
+const ROLLBACK_DRILL_TTL_DAYS = Number(
+  process.env.OPENBURNBAR_ROLLBACK_DRILL_TTL_DAYS ||
+    DEFAULT_ROLLBACK_DRILL_TTL_DAYS,
 );
 const GOOGLE_PLAY_RTDN_TOPIC_ID =
   process.env.OPENBURNBAR_GOOGLE_PLAY_RTDN_TOPIC ||
@@ -1707,6 +1718,16 @@ export function checkFirestoreRestoreDrill({
   return readFirestoreRestoreDrillEvidence(path, { maxAgeDays, now });
 }
 
+// Fast rollback counts only after a live pin-and-restore round trip, from the
+// production receipt scripts/ops/rollback-revision.sh --drill maintains.
+export function checkRollbackRevisionDrill({
+  path = ROLLBACK_DRILL_EVIDENCE_PATH,
+  maxAgeDays = ROLLBACK_DRILL_TTL_DAYS,
+  now,
+} = {}) {
+  return readRollbackRevisionDrillEvidence(path, { maxAgeDays, now });
+}
+
 export function requiredVerifiableAlertChannels(...alertChecks) {
   const byName = new Map();
   for (const alertCheck of alertChecks) {
@@ -2633,6 +2654,7 @@ async function main() {
     alertDeliverability: checkAlertDeliverabilityEvidence([opsAlerts, billingAlerts]),
     firestoreDisasterRecovery: checkFirestoreDisasterRecovery(),
     firestoreRestoreDrill: checkFirestoreRestoreDrill(),
+    rollbackRevisionDrill: checkRollbackRevisionDrill(),
     googlePlayRtdn: checkGooglePlayRtdnReadiness(),
     firebaseFunctionsInventory: checkFirebaseFunctionsInventory(),
     firebaseFunctionsSourceIdentity: checkFirebaseFunctionsSourceIdentity(
