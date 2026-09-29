@@ -182,6 +182,7 @@ on:
       - "scripts/lib/alert-delivery-drill.mjs"
       - "scripts/lib/ops-alerts-gate.mjs"
       - "scripts/validate-launch-evidence-bundle.mjs"
+      - "scripts/test-launch-evidence-bundle.mjs"
       - "functions/scripts/billing-alert-policy-definitions.mjs"
       - "functions/scripts/ops-alert-policy-definitions.mjs"
       - "scripts/ops/verify-firestore-app-check-enforcement.sh"
@@ -358,6 +359,7 @@ on:
       - "scripts/lib/alert-delivery-drill.mjs"
       - "scripts/lib/ops-alerts-gate.mjs"
       - "scripts/validate-launch-evidence-bundle.mjs"
+      - "scripts/test-launch-evidence-bundle.mjs"
       - "functions/scripts/billing-alert-policy-definitions.mjs"
       - "functions/scripts/ops-alert-policy-definitions.mjs"
       - "scripts/ops/verify-firestore-app-check-enforcement.sh"
@@ -519,8 +521,10 @@ jobs:
           node --test scripts/ops/firestore-restore-drill-verify.test.mjs
           node scripts/test-commercial-launch-gate-firestore-restore.mjs
 
-      - name: Self-test the launch gate's rollback-drill receipt check
-        run: node --test scripts/ops/rollback-drill-evidence.test.mjs
+      - name: Self-test the launch gate's rollback-drill receipt check and the launch evidence bundle validator
+        run: |
+          node --test scripts/ops/rollback-drill-evidence.test.mjs
+          node scripts/test-launch-evidence-bundle.mjs
 
       - name: Self-test the deploy-freshness monitor (per-surface ages and next-step lines)
         run: node --test scripts/ci/__tests__/check-deploy-freshness.test.mjs

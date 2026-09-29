@@ -176,4 +176,37 @@ function fixture(dir) {
   assert.match(result.errors.join("\n"), /missing row: stripe_cloud_monthly/);
 }
 
+// The documented capture path wraps proofs and the gate output in a record;
+// the validator must judge the captured payload.
+{
+  const dir = mkdtempSync(join(tmpdir(), "openburnbar-launch-evidence-captured-"));
+  const manifest = fixture(dir);
+  const captured = (payload) => ({ capturedAt: "2026-09-28T12:00:00.000Z", kind: "k", source: "stdin", payload });
+  writeJSON(dir, "latest-commercial-launch-gate.json", captured({ verdict: { status: "READY_FOR_CANARY" }, checks: { repo: { ok: true } } }));
+  for (const proof of manifest.paidProofs) {
+    writeJSON(dir, proof.path, captured({ ok: true, channel: proof.channel, tier: proof.tier }));
+  }
+  const manifestPath = join(dir, "final-launch-evidence.json");
+  assert.deepEqual(validateLaunchEvidenceBundle(manifest, { manifestPath, stage: "paid-proof" }), { ok: true, errors: [] });
+
+  writeJSON(dir, manifest.paidProofs[0].path, captured({ ok: false }));
+  assert.match(
+    validateLaunchEvidenceBundle(manifest, { manifestPath, stage: "paid-proof" }).errors.join("\n"),
+    /apple_cloud: proof artifact must contain ok:true/,
+  );
+}
+
+// A launch-ready status typed into the manifest cannot stand in for the gate's output.
+{
+  const dir = mkdtempSync(join(tmpdir(), "openburnbar-launch-evidence-typed-status-"));
+  const manifest = fixture(dir);
+  manifest.launchGate.status = "LAUNCH_DONE";
+  writeJSON(dir, "latest-commercial-launch-gate.json", { checks: { repo: { ok: true } } });
+  const result = validateLaunchEvidenceBundle(manifest, {
+    manifestPath: join(dir, "final-launch-evidence.json"),
+    stage: "paid-proof",
+  });
+  assert.deepEqual(result.errors, ["launchGate status must be a launch-ready status"]);
+}
+
 console.log("launch-evidence-bundle validator tests passed");
