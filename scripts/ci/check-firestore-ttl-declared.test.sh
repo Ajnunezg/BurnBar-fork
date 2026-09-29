@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Controls for check-firestore-ttl-declared.sh: one positive case (the real
-# manifest passes) and three fail-closed negatives (unregistered index TTL,
-# a lying indexDeclared claim, and invalid JSON). The check resolves its inputs
+# manifest passes) and four fail-closed negatives (unregistered index TTL,
+# a lying indexDeclared claim, a dead `source` path, and invalid JSON). The check resolves its inputs
 # relative to its own location, so each case runs inside a throwaway repo-root
 # skeleton built from the real files — the real ops/ + firestore.indexes.json
 # are never mutated.
@@ -20,6 +20,8 @@ cp "$CHECK" "$tmproot/scripts/ci/check-firestore-ttl-declared.sh"
 MANIFEST="$tmproot/ops/firestore-ttl-policies.json"
 INDEXES="$tmproot/firestore.indexes.json"
 SANDBOX_CHECK="$tmproot/scripts/ci/check-firestore-ttl-declared.sh"
+# Policy `source` paths resolve against the real tree, not the sandbox.
+export TTL_SOURCE_ROOT="$REPO"
 
 reset_fixtures() {
   cp "$REAL_MANIFEST" "$MANIFEST"
@@ -73,7 +75,25 @@ if bash "$SANDBOX_CHECK" >"$out" 2>&1; then
 fi
 grep -q "disagrees with firestore.indexes.json" "$out" || { echo "FAIL: honesty message missing" >&2; cat "$out" >&2; exit 1; }
 
-# Case 3 — invalid JSON manifest must fail closed (parse).
+# Case 3 — a policy whose writer moved (pre-split path) must fail (dead source).
+reset_fixtures
+python3 - "$MANIFEST" <<'PY'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+for pol in d["policies"]:
+    if pol["collectionGroup"] == "stripe_webhook_events":
+        pol["source"] = "functions/src/callables/stripe.ts"
+json.dump(d, open(p, "w"), indent=2)
+PY
+if bash "$SANDBOX_CHECK" >"$out" 2>&1; then
+  echo "FAIL: dead source path unexpectedly passed" >&2
+  cat "$out" >&2
+  exit 1
+fi
+grep -q "does not exist (moved?)" "$out" || { echo "FAIL: dead-source message missing" >&2; cat "$out" >&2; exit 1; }
+
+# Case 4 — invalid JSON manifest must fail closed (parse).
 reset_fixtures
 printf '{ "policies": [ { "collectionGroup": ' >"$MANIFEST"
 if bash "$SANDBOX_CHECK" >"$out" 2>&1; then
@@ -83,4 +103,4 @@ if bash "$SANDBOX_CHECK" >"$out" 2>&1; then
 fi
 grep -q "not valid JSON" "$out" || { echo "FAIL: JSON-parse message missing" >&2; cat "$out" >&2; exit 1; }
 
-echo "PASS: check-firestore-ttl-declared controls (1 positive, 3 fail-closed negatives)"
+echo "PASS: check-firestore-ttl-declared controls (1 positive, 4 fail-closed negatives)"

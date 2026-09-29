@@ -121,7 +121,7 @@
       "status": "active",
       "operatorAction": "Verify live via scripts/ci/verify-firestore-ttl-state.mjs.",
       "rationale": "Ephemeral push-delivery docs carry uid + push tokens; F-RR09-001 requires they self-expire.",
-      "source": "functions/src/voipPush.ts"
+      "source": "functions-media/src/domains/push/voipPush.ts"
     },
     {
       "collectionGroup": "fcm_outbound",
@@ -136,7 +136,7 @@
       "status": "active",
       "operatorAction": "Verify live via scripts/ci/verify-firestore-ttl-state.mjs.",
       "rationale": "Ephemeral push-delivery docs carry uid + push tokens; F-RR09-001 requires they self-expire.",
-      "source": "functions/src/callables/voipPush.ts"
+      "source": "functions-media/src/domains/push/voipPush.ts"
     },
     {
       "collectionGroup": "incoming_call_contexts",
@@ -151,7 +151,7 @@
       "status": "active",
       "operatorAction": "Verify live via scripts/ci/verify-firestore-ttl-state.mjs.",
       "rationale": "Owner-scoped, TTL-bound call context used to resolve the active connection; must self-expire.",
-      "source": "functions/src/callables/voipPush.ts"
+      "source": "functions-media/src/domains/push/voipPush.ts"
     },
     {
       "collectionGroup": "agent_notification_events",
@@ -166,7 +166,7 @@
       "status": "active",
       "operatorAction": "Verify live via scripts/ci/verify-firestore-ttl-state.mjs.",
       "rationale": "Ephemeral notification events carry identifying metadata; F-RR09-007 requires bounded retention.",
-      "source": "functions/src/agentNotifications.ts"
+      "source": "functions-sync/src/domains/notify/agentNotificationTriggers.ts"
     },
     {
       "collectionGroup": "stripe_webhook_events",
@@ -181,7 +181,7 @@
       "status": "active",
       "operatorAction": "Verify live via scripts/ci/verify-firestore-ttl-state.mjs.",
       "rationale": "LB-5: idempotency ledger kept long enough to defeat replayed webhooks, then aged out.",
-      "source": "functions/src/callables/stripe.ts"
+      "source": "functions-identity/src/domains/billing/stripe.ts"
     },
     {
       "collectionGroup": "google_play_rtdn_events",
@@ -196,7 +196,7 @@
       "status": "active",
       "operatorAction": "Verify live via scripts/ci/verify-firestore-ttl-state.mjs.",
       "rationale": "Deduplication/lease ledger for Pub/Sub RTDN deliveries, mirroring stripe_webhook_events: kept long enough to defeat replayed or redelivered events, then aged out so the collection stays bounded (one doc per delivery at negligible per-doc cost).",
-      "source": "functions/src/googlePlayRtdn.ts"
+      "source": "functions-identity/src/domains/billing/googlePlayRtdn.ts"
     },
     {
       "collectionGroup": "windows_app_check_challenges",
@@ -211,7 +211,7 @@
       "status": "active",
       "operatorAction": "Verify live via scripts/ci/verify-firestore-ttl-state.mjs after staging and production rules deployment.",
       "rationale": "Single-use attestation challenges must remain long enough to reject replay, then expire promptly.",
-      "source": "functions/src/callables/windowsAppCheck.ts"
+      "source": "functions-identity/src/domains/app-check/windowsAppCheck.ts"
     },
     {
       "collectionGroup": "credential_transfers",
@@ -226,7 +226,7 @@
       "status": "active",
       "operatorAction": "Verify live via scripts/ci/verify-firestore-ttl-state.mjs.",
       "rationale": "Short-lived credential handoff; must not linger.",
-      "source": "functions/src/callables/credentialTransfer.ts"
+      "source": "functions-identity/src/domains/identity/credentialTransfer.ts"
     },
     {
       "collectionGroup": "hermes_gateway_device_sessions",
@@ -241,7 +241,7 @@
       "status": "active",
       "operatorAction": "Verify live via scripts/ci/verify-firestore-ttl-state.mjs.",
       "rationale": "Short gateway session lease; self-expires so stale sessions do not accumulate.",
-      "source": "functions/src/hermesGatewayCore.ts"
+      "source": "functions-media/src/callables/hermesGatewayDeviceRoutes.ts"
     },
     {
       "collectionGroup": "pop_nonces",
@@ -256,7 +256,7 @@
       "status": "active",
       "operatorAction": "Verify live via scripts/ci/verify-firestore-ttl-state.mjs.",
       "rationale": "Replay-guard nonces are only useful within the clock-skew window; must self-expire.",
-      "source": "functions/src/callables/hermesGatewayCrypto.ts"
+      "source": "functions-media/src/callables/hermesGatewayCrypto.ts"
     },
     {
       "collectionGroup": "_rate_limits",
@@ -271,7 +271,7 @@
       "status": "active",
       "operatorAction": "Verify live via scripts/ci/verify-firestore-ttl-state.mjs.",
       "rationale": "Sliding-window rate-limit counters must age out with their window instead of accumulating.",
-      "source": "functions/src/callables/shared/providerConnect.ts"
+      "source": "packages/functions-shared/src/shared/providerConnect.ts"
     },
     {
       "collectionGroup": "domain_core_shadow_samples",
@@ -286,7 +286,7 @@
       "status": "active",
       "operatorAction": "Enable and verify live TTL with scripts/ci/verify-firestore-ttl-state.mjs before beta collection begins.",
       "rationale": "Promotion evidence needs a bounded observation window and contains no uid, payload, parsed value, path, or stable device identifier.",
-      "source": "functions/src/callables/domainCoreShadowEvidence.ts"
+      "source": "packages/functions-shared/src/domainCoreShadowEvidence.ts"
     }
   ]
 }
