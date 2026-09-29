@@ -52,7 +52,7 @@
     "functions/vendor/openburnbar/brace-expansion-cjs/package.json": ["d19a95c5939fae1a","e1e71c01654f285a","9b5554e302b638a6","6649d49b514648a2"],
     "functions/vendor/openburnbar/domain-core-wasm/openburnbar-domain-core-source.sha256": ["0edcec084db63d1a","625b330f00b44c77","93879212438bda92","a8855dc07bc70674"],
     "functions/vendor/openburnbar/domain-core-wasm/openburnbar_domain_core.js": ["0dcc0a6a968b92a1","be7d1a05e2837beb","2263012379d165a4","47b778d6ed18e93e"],
-    "functions/vendor/openburnbar/domain-core-wasm/openburnbar_domain_core_bg.wasm": ["b16f105d482112a9","88fce4458df296a2","02b7b99701168872","45a911f575c26579"],
+    "functions/vendor/openburnbar/domain-core-wasm/openburnbar_domain_core_bg.wasm": ["2306bcd5ccc398e1","24653d3acc56d453","a33120c9839e4a29","3613722fe7d4d518"],
     "functions/vendor/openburnbar/domain-core-wasm/package.json": ["80ef14a211db1c24","d2299c739c5e4d4c","f4a0001f1ef20825","4ab102a89739a966"],
     "governance/burnbar-ci-gate.fast.json": ["ea50e778241c2a28","2f7ca35232aebfa7","bb2a201b170b6389","3c0f60f71683c67c"],
     "governance/burnbar-ci-gate.json": ["d3b2098448d3fe54","8668f7364d01d685","2db7cda2ec611cc2","e5b7b0f66715b6c1"],
