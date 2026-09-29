@@ -25,13 +25,37 @@ function quotaSnapshotAgeMsBucket(fetchedAt: string | undefined, now: Date = new
   return ">=4h";
 }
 
-export function emitQuotaSnapshotWritten(snapshot: QuotaSnapshotDoc, now: Date): void {
-  logInfo({
+/**
+ * Fields of the `quota.snapshot_written` event, the quota-freshness SLI.
+ *
+ * `age_ms_bucket` is the new snapshot's fetch-to-write latency, so it is
+ * almost always `<1m`. Freshness is `replaced_age_s`: how old the snapshot this
+ * write replaces had grown (its `fetchedAt`, carried on the account doc as
+ * `quotaSnapshotFetchedAt`), graded per `remaining_tier` because the adaptive
+ * TTL deliberately refreshes accounts with ample headroom less often.
+ */
+export function quotaSnapshotWrittenFields(
+  snapshot: QuotaSnapshotDoc,
+  now: Date,
+  replacedFetchedAt: unknown,
+): Parameters<typeof logInfo>[0] {
+  const replacedFetchedAtMs = typeof replacedFetchedAt === "string" ? Date.parse(replacedFetchedAt) : Number.NaN;
+  const replacedAgeSeconds = Number.isFinite(replacedFetchedAtMs)
+    ? Math.max(0, Math.round((now.getTime() - replacedFetchedAtMs) / 1000))
+    : null;
+  const remainingFraction = quotaAccountRefreshMetadata(snapshot, now).quotaRemainingFraction;
+  return {
     event: "quota.snapshot_written",
     provider: snapshot.providerID ?? snapshot.provider,
     source: snapshot.sourceKind,
     age_ms_bucket: quotaSnapshotAgeMsBucket(snapshot.fetchedAt, now),
-  });
+    replaced_age_s: replacedAgeSeconds,
+    remaining_tier: QuotaRefreshPolicy.remainingTier(typeof remainingFraction === "number" ? remainingFraction : null),
+  };
+}
+
+export function emitQuotaSnapshotWritten(snapshot: QuotaSnapshotDoc, now: Date, replacedFetchedAt: unknown): void {
+  logInfo(quotaSnapshotWrittenFields(snapshot, now, replacedFetchedAt));
 }
 
 export function quotaAccountRefreshMetadata(snapshot: QuotaSnapshotDoc, now: Date): Record<string, unknown> {

@@ -1,14 +1,24 @@
-/** Durable reconciliation for erasures interrupted after the write barrier. */
+/**
+ * Durable reconciliation for erasures interrupted or refused mid-flight:
+ *   1. account erasures pending behind their tombstone write barrier;
+ *   2. hosted provider credentials whose Secret Manager versions still need
+ *      destroying (deleted accounts, replaced credentials, panic revokes). Each
+ *      `provider_account_secret_refs` entry with a due `erasureRetryAfter` is
+ *      the retry manifest; see providerSecretErasure.ts.
+ */
 
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
 import { auth, db } from "@openburnbar/functions-shared/adminRuntime.js";
 import { eraseUserAccount, isAccountErasureResumable } from "@openburnbar/functions-shared/accountDeletion.js";
 import { logError, logInfo } from "@openburnbar/functions-shared/logging.js";
+import { reconcilePendingProviderSecretErasures } from "@openburnbar/functions-shared/providerSecretErasure.js";
 import { FUNCTIONS_REGION } from "@openburnbar/functions-shared/runtimeOptions.js";
-import { destroyCredential } from "@openburnbar/functions-shared/secrets.js";
+import { destroyCredentialSecret } from "@openburnbar/functions-shared/secrets.js";
 
 const RECONCILE_BATCH_LIMIT = 5;
+/** Provider-secret retries per run; each lists and destroys one secret's versions. */
+export const PROVIDER_SECRET_RECONCILE_BATCH_LIMIT = 20;
 
 interface PendingErasureTombstone {
   readonly id: string;
@@ -99,6 +109,68 @@ export async function reconcilePendingAccountErasures(
   );
 }
 
+async function reconcileAccountErasureTombstones(): Promise<void> {
+  const pending = await db
+    .collection("account_erasure_tombstones")
+    .where("pending", "==", true)
+    .orderBy("updatedAt", "asc")
+    .limit(RECONCILE_BATCH_LIMIT)
+    .get();
+
+  const results = await reconcilePendingAccountErasures(pending.docs, {
+    isResumable: (uid) => isAccountErasureResumable(db, uid),
+    erase: (uid) =>
+      eraseUserAccount(db, uid, {
+        destroyCredentialSecret,
+        revokeAuthTokens: async (targetUID) => auth.revokeRefreshTokens(targetUID),
+        deleteAuthUser: async (targetUID) => auth.deleteUser(targetUID),
+        resumeExistingIntent: true,
+        audit: {
+          actor: "system:account-erasure-reconciler",
+          domain: "account",
+        },
+      }),
+    now: () => new Date(),
+  });
+
+  const failed = results.filter((result) => result.status === "failed" || result.status === "quarantined");
+  logInfo({
+    event: "account_erasure_reconcile_complete",
+    attempted: results.length,
+    completed: results.filter((result) => result.status === "completed").length,
+    failed: results.filter((result) => result.status === "failed").length,
+    quarantined: results.filter((result) => result.status === "quarantined").length,
+  });
+  for (const result of failed) {
+    logError({
+      event: "account_erasure_reconcile_failed",
+      error_code: result.errorCode ?? "unknown",
+      status: result.status,
+    });
+  }
+}
+
+/**
+ * Retry due provider-credential erasures, most overdue first. A failure moves
+ * its entry back by exponential backoff, so a poison secret cannot starve the
+ * rest of the queue; per-entry failures log `provider_secret_erasure_failed`.
+ */
+export async function reconcileProviderSecretErasureQueue(now: Date = new Date()): Promise<void> {
+  const due = await db
+    .collection("provider_account_secret_refs")
+    .where("erasureRetryAfter", "<=", now.toISOString())
+    .orderBy("erasureRetryAfter", "asc")
+    .limit(PROVIDER_SECRET_RECONCILE_BATCH_LIMIT)
+    .get();
+  const results = await reconcilePendingProviderSecretErasures(due.docs);
+  logInfo({
+    event: "provider_secret_erasure_reconcile_complete",
+    attempted: results.length,
+    completed: results.filter((result) => result.status === "completed").length,
+    failed: results.filter((result) => result.status === "failed").length,
+  });
+}
+
 export const reconcileAccountErasures = onSchedule(
   {
     schedule: "every 15 minutes",
@@ -108,43 +180,16 @@ export const reconcileAccountErasures = onSchedule(
     maxInstances: 1,
   },
   async () => {
-    const pending = await db
-      .collection("account_erasure_tombstones")
-      .where("pending", "==", true)
-      .orderBy("updatedAt", "asc")
-      .limit(RECONCILE_BATCH_LIMIT)
-      .get();
-
-    const results = await reconcilePendingAccountErasures(pending.docs, {
-      isResumable: (uid) => isAccountErasureResumable(db, uid),
-      erase: (uid) =>
-        eraseUserAccount(db, uid, {
-          destroyCredential,
-          revokeAuthTokens: async (targetUID) => auth.revokeRefreshTokens(targetUID),
-          deleteAuthUser: async (targetUID) => auth.deleteUser(targetUID),
-          resumeExistingIntent: true,
-          audit: {
-            actor: "system:account-erasure-reconciler",
-            domain: "account",
-          },
-        }),
-      now: () => new Date(),
-    });
-
-    const failed = results.filter((result) => result.status === "failed" || result.status === "quarantined");
-    logInfo({
-      event: "account_erasure_reconcile_complete",
-      attempted: results.length,
-      completed: results.filter((result) => result.status === "completed").length,
-      failed: results.filter((result) => result.status === "failed").length,
-      quarantined: results.filter((result) => result.status === "quarantined").length,
-    });
-    for (const result of failed) {
-      logError({
-        event: "account_erasure_reconcile_failed",
-        error_code: result.errorCode ?? "unknown",
-        status: result.status,
-      });
+    // Independent queues, drained in turn: a failure in one must never skip
+    // the other, and the first failure still fails the run for alerting.
+    let firstFailure: { reason: unknown } | undefined;
+    for (const phase of [reconcileAccountErasureTombstones, () => reconcileProviderSecretErasureQueue()]) {
+      try {
+        await phase();
+      } catch (reason) {
+        firstFailure ??= { reason };
+      }
     }
+    if (firstFailure) throw firstFailure.reason;
   },
 );

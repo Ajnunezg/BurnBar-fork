@@ -111,7 +111,7 @@ export const rollupUserRebuild = onTaskDispatched(
  * the one-time `lastRefreshAt` backfill live in `runQuotaRefreshSweep`
  * (quotaRefreshSweep.ts) — see that module for why missing-field legacy docs
  * can never be served by a `lastRefreshAt` filter or orderBy and must be
- * stamped explicit null instead.
+ * stamped with an ancient ISO marker instead.
  */
 export const refreshAllProviderQuotas = onSchedule(
   {

@@ -31,6 +31,15 @@ const LOW_REMAINING_TTL_SECONDS = 3 * 60;
 const UNKNOWN_REMAINING_TTL_SECONDS = 15 * 60;
 const DEFAULT_DAILY_PROBE_BUDGET = 4;
 
+type QuotaRemainingTier = "high" | "medium" | "low" | "unknown";
+
+const BASE_TTL_SECONDS_BY_TIER: Record<QuotaRemainingTier, number> = {
+  high: HIGH_REMAINING_TTL_SECONDS,
+  medium: MEDIUM_REMAINING_TTL_SECONDS,
+  low: LOW_REMAINING_TTL_SECONDS,
+  unknown: UNKNOWN_REMAINING_TTL_SECONDS,
+};
+
 export const QuotaRefreshPolicy = {
   minimumTTLSeconds: MINIMUM_TTL_SECONDS,
   maximumTTLSeconds: MAXIMUM_TTL_SECONDS,
@@ -40,25 +49,22 @@ export const QuotaRefreshPolicy = {
   unknownRemainingTTLSeconds: UNKNOWN_REMAINING_TTL_SECONDS,
   defaultDailyProbeBudget: DEFAULT_DAILY_PROBE_BUDGET,
 
+  /** Headroom tier that picks the base TTL (and grades the freshness SLO). */
+  remainingTier(remainingFraction: number | null | undefined): QuotaRemainingTier {
+    if (typeof remainingFraction !== "number" || !Number.isFinite(remainingFraction)) return "unknown";
+    const clamped = Math.min(Math.max(remainingFraction, 0), 1);
+    if (clamped >= 0.5) return "high";
+    if (clamped >= 0.2) return "medium";
+    return "low";
+  },
+
   adaptiveTTL(
     remainingFraction: number | null | undefined,
     _windowKind: QuotaRefreshWindowKind,
     resetsAt: Date | string | number | null | undefined,
     now: Date = new Date(),
   ): number {
-    let baseTTL: number;
-    if (typeof remainingFraction === "number" && Number.isFinite(remainingFraction)) {
-      const clamped = Math.min(Math.max(remainingFraction, 0), 1);
-      if (clamped >= 0.5) {
-        baseTTL = HIGH_REMAINING_TTL_SECONDS;
-      } else if (clamped >= 0.2) {
-        baseTTL = MEDIUM_REMAINING_TTL_SECONDS;
-      } else {
-        baseTTL = LOW_REMAINING_TTL_SECONDS;
-      }
-    } else {
-      baseTTL = UNKNOWN_REMAINING_TTL_SECONDS;
-    }
+    const baseTTL = BASE_TTL_SECONDS_BY_TIER[QuotaRefreshPolicy.remainingTier(remainingFraction)];
 
     const parsedResetsAt = parseDate(resetsAt);
     const resetBound =

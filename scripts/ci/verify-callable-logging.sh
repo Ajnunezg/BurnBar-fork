@@ -5,6 +5,9 @@
 #   export const x = onCallProduction("x", ...)                     (wrapped by construction)
 #   export const x = onRequest(opts, wrapRequestHandler("x", ...))
 #
+# The callable_error log is what openburnbar_callable_error counts, so an
+# unwrapped callable is invisible to the "Callable error spike" alert.
+#
 # The codebase list comes from firebase.json `functions[].source`, not a
 # hard-coded path: this gate used to scan functions/src only, so after the
 # 3.5 codebase split it saw 12 of 157 callables and failed its own floor on
@@ -109,6 +112,8 @@ for codebase in codebases:
         request_handlers += len(request_exports)
         found += count + len(request_exports)
     per_codebase[codebase] = found
+    if found == 0:
+        missing.append(f"{codebase}: no onCall/onCallProduction/onRequest exports found (codebase moved or scan pattern drifted)")
 
 print("codebases (firebase.json): " + ", ".join(f"{name}={per_codebase.get(name, 0)}" for name in codebases))
 print(f"callable exports: {callables} (floor {MIN_CALLABLES}); onRequest exports: {request_handlers} (floor {MIN_REQUEST_HANDLERS})")

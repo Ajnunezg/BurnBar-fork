@@ -12,7 +12,7 @@ import { accountIDFor, connectionDocFromAccount, assertHostedProvider, assertSel
 import { assertActiveHostedQuotaEntitlement } from "@openburnbar/functions-shared/shared/entitlements.js";
 import { connectProviderAccountInternal } from "@openburnbar/functions-shared/shared/providerConnect.js";
 import { assertProvider } from "@openburnbar/functions-shared/shared/validators.js";
-import { destroyCredential } from "@openburnbar/functions-shared/secrets.js";
+import { destroyCredentialSecret } from "@openburnbar/functions-shared/secrets.js";
 import { eraseUserAccount, isAccountErasureResumable } from "@openburnbar/functions-shared/accountDeletion.js";
 import { auditActorLabel } from "@openburnbar/functions-shared/shared/auditLog.js";
 import type { ProviderAccountConnectContext } from "@openburnbar/functions-shared/types.js";
@@ -370,7 +370,7 @@ export const deleteUserCloudData = onCall(
     }
 
     const summary = await eraseUserAccount(db, uid, {
-      destroyCredential,
+      destroyCredentialSecret,
       revokeAuthTokens: async (targetUID) => {
         await auth.revokeRefreshTokens(targetUID);
       },

@@ -223,12 +223,54 @@ function isDemoSweepAccountDoc(doc: SweepAccountDoc): boolean {
   return accountID !== undefined && isDemoProviderAccountID(accountID);
 }
 
+/**
+ * How early the sweep may take an account ahead of its `quotaNextRefreshAt`.
+ * A snapshot's `fetchedAt` trails its sweep tick by up to the job's 120 s
+ * timeout, so without this slack an account due "at" the next tick lands a
+ * few seconds after it and waits a whole extra 15-minute interval (a 30-minute
+ * TTL became 45 minutes of staleness).
+ */
+export const QUOTA_SWEEP_DUE_GRACE_MS = 2 * 60_000;
+
 export function isQuotaSweepAccountDue(doc: SweepAccountDoc, now: Date = new Date()): boolean {
   const nextRefreshAt = doc.get("quotaNextRefreshAt");
   if (typeof nextRefreshAt !== "string") return true;
   const nextRefreshAtMs = Date.parse(nextRefreshAt);
   if (!Number.isFinite(nextRefreshAtMs)) return true;
-  return nextRefreshAtMs <= now.getTime();
+  return nextRefreshAtMs <= now.getTime() + QUOTA_SWEEP_DUE_GRACE_MS;
+}
+
+type SelectionStream<Doc> = {
+  readonly status: (typeof REFRESHABLE_STATUSES)[number];
+  readonly buffer: Doc[];
+  cursor: Doc | undefined;
+  exhausted: boolean;
+};
+
+/**
+ * Firestore's cross-type sort rank for a `lastRefreshAt` value: null before
+ * numbers before timestamps before strings. Each per-status stream arrives in
+ * this order, so the merge must compare the same way.
+ */
+function lastRefreshAtSortKey(value: unknown): [rank: number, key: number | string] {
+  if (value === null) return [0, 0];
+  if (typeof value === "number") return [1, value];
+  if (typeof value === "object" && "toMillis" in value && typeof value.toMillis === "function") {
+    const millis: unknown = value.toMillis();
+    return [2, typeof millis === "number" ? millis : 0];
+  }
+  if (typeof value === "string") return [3, value];
+  return [4, 0];
+}
+
+/** Oldest refresh first, then document path — the order Firestore pages each stream in. */
+function compareSelectionOrder(a: SweepAccountDoc, b: SweepAccountDoc): number {
+  const [rankA, keyA] = lastRefreshAtSortKey(a.get("lastRefreshAt"));
+  const [rankB, keyB] = lastRefreshAtSortKey(b.get("lastRefreshAt"));
+  if (rankA !== rankB) return rankA - rankB;
+  if (keyA < keyB) return -1;
+  if (keyA > keyB) return 1;
+  return a.ref.path < b.ref.path ? -1 : a.ref.path > b.ref.path ? 1 : 0;
 }
 
 /**
@@ -329,10 +371,11 @@ async function runLastRefreshAtBackfill<Doc extends SweepAccountDoc>(
 /**
  * Full provider-quota sweep:
  *   1. Backfill slice (until the one-time migration completes).
- *   2. Stale-first ordered refresh of provider_accounts across the
- *      refreshable statuses, bounded by `batchSize`, refreshed through the
- *      concurrency pool. Selection (and the budget math) happens serially
- *      BEFORE any refresh runs, so pooling cannot skew the limit accounting.
+ *   2. Stale-first ordered refresh of provider_accounts, oldest snapshot
+ *      first across ALL refreshable statuses (not status by status), bounded
+ *      by `batchSize`, refreshed through the concurrency pool. Selection (and
+ *      the budget math) happens serially BEFORE any refresh runs, so pooling
+ *      cannot skew the limit accounting.
  *   3. Legacy provider_connections fallback for installs that predate
  *      account docs, deduped against the accounts already refreshed.
  */
@@ -354,46 +397,60 @@ export async function runQuotaRefreshSweep<Doc extends SweepAccountDoc>(
   );
   let scannedForSelection = 0;
 
-  for (const status of REFRESHABLE_STATUSES) {
-    if (selectedAccounts.length >= options.batchSize || scannedForSelection >= maxSelectionScanCount) break;
-    let cursor: Doc | undefined;
+  // One stale-first stream per status, merged oldest-snapshot-first so a
+  // full batch of `connected` accounts cannot starve older `stale`/`error`
+  // ones. Each stream is served by the existing (status, storageScope,
+  // lastRefreshAt) index; a stream is only paged when its buffer runs dry.
+  const streams: SelectionStream<Doc>[] = REFRESHABLE_STATUSES.map((status) => ({
+    status,
+    buffer: [],
+    cursor: undefined,
+    exhausted: false,
+  }));
 
-    for (;;) {
-      const scanRemaining = maxSelectionScanCount - scannedForSelection;
-      if (scanRemaining <= 0) break;
-      const limit = Math.min(options.batchSize - selectedAccounts.length, scanRemaining);
-      let query = db
-        .collectionGroup("provider_accounts")
-        .where("status", "==", status)
-        .where("storageScope", "in", [...REFRESHABLE_SCOPES])
-        .orderBy("lastRefreshAt", "asc")
-        .limit(limit);
-
-      if (cursor !== undefined) {
-        query = query.startAfter(cursor);
-      }
-
-      const snapshot = await query.get();
-      scannedForSelection += snapshot.docs.length;
-      for (const doc of snapshot.docs) {
-        if (isDemoSweepAccountDoc(doc) || selectedAccountPaths.has(doc.ref.path)) continue;
-        if (!isQuotaSweepAccountDue(doc, now)) continue;
-        selectedAccountPaths.add(doc.ref.path);
-        const legacyKey = options.legacyKeyForAccountDoc(doc);
-        if (legacyKey !== undefined) legacyKeys.add(legacyKey);
-        selectedAccounts.push(doc);
-        if (selectedAccounts.length >= options.batchSize) break;
-      }
-
-      if (
-        selectedAccounts.length >= options.batchSize
-        || scannedForSelection >= maxSelectionScanCount
-        || snapshot.docs.length < limit
-      ) {
-        break;
-      }
-      cursor = snapshot.docs.at(-1);
+  const fillStream = async (stream: SelectionStream<Doc>): Promise<boolean> => {
+    const limit = Math.min(options.batchSize - selectedAccounts.length, maxSelectionScanCount - scannedForSelection);
+    if (limit <= 0) return false;
+    let query = db
+      .collectionGroup("provider_accounts")
+      .where("status", "==", stream.status)
+      .where("storageScope", "in", [...REFRESHABLE_SCOPES])
+      .orderBy("lastRefreshAt", "asc")
+      .limit(limit);
+    if (stream.cursor !== undefined) {
+      query = query.startAfter(stream.cursor);
     }
+    const snapshot = await query.get();
+    scannedForSelection += snapshot.docs.length;
+    stream.buffer.push(...snapshot.docs);
+    stream.cursor = snapshot.docs.at(-1) ?? stream.cursor;
+    stream.exhausted = snapshot.docs.length < limit;
+    return true;
+  };
+
+  selection: while (selectedAccounts.length < options.batchSize) {
+    let oldest: { stream: SelectionStream<Doc>; head: Doc } | undefined;
+    for (const stream of streams) {
+      if (stream.buffer.length === 0 && !stream.exhausted && !(await fillStream(stream))) {
+        // Scan budget spent with this stream's head unknown: picking from the
+        // others could skip an older account, so stop the batch here.
+        break selection;
+      }
+      const head = stream.buffer[0];
+      if (head !== undefined && (oldest === undefined || compareSelectionOrder(head, oldest.head) < 0)) {
+        oldest = { stream, head };
+      }
+    }
+    if (oldest === undefined) break;
+
+    oldest.stream.buffer.shift();
+    const doc = oldest.head;
+    if (isDemoSweepAccountDoc(doc) || selectedAccountPaths.has(doc.ref.path)) continue;
+    if (!isQuotaSweepAccountDue(doc, now)) continue;
+    selectedAccountPaths.add(doc.ref.path);
+    const legacyKey = options.legacyKeyForAccountDoc(doc);
+    if (legacyKey !== undefined) legacyKeys.add(legacyKey);
+    selectedAccounts.push(doc);
   }
 
   await mapWithConcurrency(selectedAccounts, concurrency, (doc) => options.refreshAccountDoc(doc));

@@ -14,6 +14,9 @@ import { join, resolve } from "node:path";
 
 let googleapisLoads = 0;
 const destroy = vi.fn().mockResolvedValue({ data: {} });
+const list = vi.fn().mockResolvedValue({
+  data: { versions: [{ name: "projects/p/secrets/obb-test/versions/1", state: "ENABLED" }] },
+});
 
 vi.mock("googleapis", () => {
   googleapisLoads += 1;
@@ -21,7 +24,7 @@ vi.mock("googleapis", () => {
     google: {
       auth: { getClient: vi.fn().mockResolvedValue({}) },
       cloudkms: vi.fn(() => ({})),
-      secretmanager: vi.fn(() => ({ projects: { secrets: { versions: { destroy } } } })),
+      secretmanager: vi.fn(() => ({ projects: { secrets: { versions: { destroy, list } } } })),
     },
   };
 });
@@ -49,9 +52,10 @@ describe("lazy googleapis loading", () => {
   });
 
   it("first credential operation loads googleapis on demand", async () => {
-    const { destroyCredential } = await import("../../../packages/functions-shared/src/secrets.js");
-    await destroyCredential("projects/p/secrets/obb-test/versions/1");
+    const { destroyCredentialSecret } = await import("../../../packages/functions-shared/src/secrets.js");
+    await destroyCredentialSecret("projects/p/secrets/obb-test/versions/1");
     expect(googleapisLoads).toBe(1);
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ parent: "projects/p/secrets/obb-test" }));
     expect(destroy).toHaveBeenCalledWith({ name: "projects/p/secrets/obb-test/versions/1" });
   });
 

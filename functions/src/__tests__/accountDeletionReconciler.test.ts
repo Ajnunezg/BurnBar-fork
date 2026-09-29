@@ -2,14 +2,57 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
+const firestore = vi.hoisted(() => {
+  type RecordedQuery = { collection: string; where: unknown[][]; orderBy: unknown[][]; limit?: number };
+  const queries: RecordedQuery[] = [];
+  const docsByCollection = new Map<string, unknown[]>();
+  const failingCollections = new Set<string>();
+  function collection(name: string) {
+    const recorded: RecordedQuery = { collection: name, where: [], orderBy: [] };
+    const chain = {
+      where: (...args: unknown[]) => {
+        recorded.where.push(args);
+        return chain;
+      },
+      orderBy: (...args: unknown[]) => {
+        recorded.orderBy.push(args);
+        return chain;
+      },
+      limit: (count: number) => {
+        recorded.limit = count;
+        return chain;
+      },
+      get: async () => {
+        queries.push(recorded);
+        if (failingCollections.has(name)) throw new Error(`${name} query unavailable`);
+        return { docs: docsByCollection.get(name) ?? [] };
+      },
+    };
+    return chain;
+  }
+  return { queries, docsByCollection, failingCollections, db: { collection } };
+});
+
 vi.mock("firebase-functions/v2/scheduler", () => ({ onSchedule: (_options: unknown, handler: unknown) => handler }));
-vi.mock("../../../packages/functions-shared/src/adminRuntime.js", () => ({ db: {}, auth: {} }));
+vi.mock("../../../packages/functions-shared/src/adminRuntime.js", () => ({ db: firestore.db, auth: {} }));
+vi.mock("../../../packages/functions-shared/src/providerSecretErasure.js", () => ({
+  reconcilePendingProviderSecretErasures: vi.fn(async (docs: unknown[]) => docs.map(() => ({ status: "completed" }))),
+}));
 vi.mock("../../../packages/functions-shared/src/accountDeletion.js", () => ({ eraseUserAccount: vi.fn(), isAccountErasureResumable: vi.fn() }));
 vi.mock("../../../packages/functions-shared/src/logging.js", () => ({ logError: vi.fn(), logInfo: vi.fn() }));
 vi.mock("../../../packages/functions-shared/src/runtimeOptions.js", () => ({ FUNCTIONS_REGION: "us-central1" }));
-vi.mock("../../../packages/functions-shared/src/secrets.js", () => ({ destroyCredential: vi.fn() }));
+vi.mock("../../../packages/functions-shared/src/secrets.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../packages/functions-shared/src/secrets.js")>()),
+  destroyCredentialSecret: vi.fn(),
+}));
 
-import { reconcilePendingAccountErasures } from "../domains/lifecycle/accountDeletionReconciler.js";
+import {
+  PROVIDER_SECRET_RECONCILE_BATCH_LIMIT,
+  reconcileAccountErasures,
+  reconcilePendingAccountErasures,
+  reconcileProviderSecretErasureQueue,
+} from "../domains/lifecycle/accountDeletionReconciler.js";
+import { reconcilePendingProviderSecretErasures } from "../../../packages/functions-shared/src/providerSecretErasure.js";
 
 function tombstone(id: string, attemptCount = 0) {
   const patches: Record<string, unknown>[] = [];
@@ -102,6 +145,37 @@ describe("account erasure reconciler", () => {
         updatedAt: now.toISOString(),
       }),
     ]);
+  });
+
+  it("drains due provider-credential erasures, most overdue first, in a bounded batch", async () => {
+    firestore.queries.length = 0;
+    const due = [{ id: "a" }, { id: "b" }];
+    firestore.docsByCollection.set("provider_account_secret_refs", due);
+
+    await reconcileProviderSecretErasureQueue(now);
+
+    expect(firestore.queries).toEqual([
+      {
+        collection: "provider_account_secret_refs",
+        where: [["erasureRetryAfter", "<=", now.toISOString()]],
+        orderBy: [["erasureRetryAfter", "asc"]],
+        limit: PROVIDER_SECRET_RECONCILE_BATCH_LIMIT,
+      },
+    ]);
+    expect(reconcilePendingProviderSecretErasures).toHaveBeenCalledWith(due);
+  });
+
+  it("still drains the credential-erasure queue when the tombstone query fails, then fails the run", async () => {
+    firestore.queries.length = 0;
+    firestore.failingCollections.add("account_erasure_tombstones");
+    const handler = reconcileAccountErasures as unknown as () => Promise<void>;
+
+    await expect(handler()).rejects.toThrow("account_erasure_tombstones query unavailable");
+    expect(firestore.queries.map((query) => query.collection)).toEqual([
+      "account_erasure_tombstones",
+      "provider_account_secret_refs",
+    ]);
+    firestore.failingCollections.clear();
   });
 
   it("declares the oldest-first pending tombstone index", () => {

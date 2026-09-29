@@ -87,6 +87,12 @@ rm -rf "$tmp/lost-codebase/beta/src"
 mkdir -p "$tmp/lost-codebase/beta/src"
 run_case "a firebase.json codebase with no sources fails" "$tmp/lost-codebase" 1 "beta: firebase.json lists this codebase"
 
+make_fixture "$tmp/empty-codebase"
+mkdir -p "$tmp/empty-codebase/gamma/src"
+echo 'export const helper = () => 1;' >"$tmp/empty-codebase/gamma/src/helper.ts"
+echo '{"functions": [{"source": "alpha"}, {"source": "beta"}, {"source": "gamma"}]}' >"$tmp/empty-codebase/firebase.json"
+run_case "a codebase whose sources export no handlers fails" "$tmp/empty-codebase" 1 "gamma: no onCall/onCallProduction/onRequest exports found"
+
 make_fixture "$tmp/shrunk"
 sed -i.bak '/^export const prod54 /d' "$tmp/shrunk/beta/src/domains/production.ts"
 run_case "scan below the callable floor fails loudly" "$tmp/shrunk" 1 "expected >= 155 callables, got 154"

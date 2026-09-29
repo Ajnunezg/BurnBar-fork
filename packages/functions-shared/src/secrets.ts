@@ -249,15 +249,172 @@ export async function retrieveCredential(secretVersionName: string): Promise<str
   return decryptEnvelope(envelope);
 }
 
+// ---------------------------------------------------------------------------
+// Version-complete erasure
+//
+// A secret ID is deterministic per uid+provider+account, so every credential
+// replacement adds a NEW version under the SAME secret. Destroying only the
+// version a Firestore reference names therefore leaves every earlier
+// credential readable. Deletion must destroy every version; replacement must
+// destroy every version older than the live one. Both enumerate the secret's
+// versions and fail closed: any version left undestroyed is an error, never a
+// silent success. The secret resource itself is kept (with only DESTROYED
+// versions) so its create/destroy history stays auditable.
+// ---------------------------------------------------------------------------
+
+const VERSION_LIST_PAGE_SIZE = 250;
+const SECRET_VERSION_NAME_PATTERN = /^(projects\/[^/]+\/secrets\/[^/]+)\/versions\/(\d+)$/u;
+
+/** Outcome of a version-complete destroy. */
+export interface CredentialErasureResult {
+  /** Versions this call destroyed. */
+  destroyed: number;
+  /** Versions that were already destroyed (or were gone) before this call. */
+  alreadyDestroyed: number;
+}
+
+/** A reference whose version name does not identify a Secret Manager version. */
+export class MalformedSecretReferenceError extends Error {
+  readonly code = "malformed_secret_ref";
+
+  constructor() {
+    super("Credential reference does not name a Secret Manager version.");
+    this.name = "MalformedSecretReferenceError";
+  }
+}
+
+/** At least one version of the secret could not be destroyed. */
+export class CredentialErasureIncompleteError extends Error {
+  readonly code = "credential_erasure_incomplete";
+
+  constructor(
+    readonly failedVersions: number,
+    readonly result: CredentialErasureResult,
+    cause: unknown,
+  ) {
+    // Never embed resource names: callers log this message.
+    super(`Secret Manager left ${failedVersions} credential version(s) undestroyed.`, { cause });
+    this.name = "CredentialErasureIncompleteError";
+  }
+}
+
+/** Split `projects/{p}/secrets/{s}/versions/{n}` into its secret and version number. */
+export function parseSecretVersionName(
+  secretVersionName: string,
+): { secretName: string; version: number } | undefined {
+  const match = SECRET_VERSION_NAME_PATTERN.exec(secretVersionName.trim());
+  if (!match) return undefined;
+  const version = Number(match[2]);
+  if (!Number.isSafeInteger(version) || version < 1) return undefined;
+  return { secretName: match[1], version };
+}
+
+function secretManagerErrorFacts(error: unknown): { code: unknown; status: unknown; message: string } {
+  if (!isRecord(error)) return { code: undefined, status: undefined, message: "" };
+  const response = isRecord(error.response) ? error.response : undefined;
+  const responseData = response && isRecord(response.data) ? response.data : undefined;
+  const responseError = responseData && isRecord(responseData.error) ? responseData.error : undefined;
+  const errorInfo = isRecord(error.errorInfo) ? error.errorInfo : undefined;
+  const rawCode = error.code ?? response?.status;
+  const code = typeof rawCode === "string" && /^\d+$/u.test(rawCode) ? Number(rawCode) : rawCode;
+  const status = responseError?.status ?? errorInfo?.code;
+  const message = [error.message, responseError?.message, errorInfo?.message]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ");
+  return { code, status, message };
+}
+
+function isSecretManagerNotFound(error: unknown): boolean {
+  const { code, status } = secretManagerErrorFacts(error);
+  return code === 404 || code === 5 || status === "NOT_FOUND";
+}
+
+/** Secret Manager destroy is idempotent from the erasure contract's view. */
+export function isSecretVersionAlreadyErased(error: unknown): boolean {
+  if (isSecretManagerNotFound(error)) return true;
+  const { code, status, message } = secretManagerErrorFacts(error);
+  return (code === 400 || code === 9 || status === "FAILED_PRECONDITION") && /\bdestroyed\b/iu.test(message);
+}
+
 /**
- * Destroy a secret version and disable the underlying secret.
- *
- * We do NOT delete the secret (to preserve audit history), but we destroy
- * the active version so the payload is irrecoverable.
- *
- * @param secretVersionName - Full resource name of the secret version.
+ * Destroy every non-destroyed version of `secretName`, or — when
+ * `retainFromVersion` is set — every version numbered below it. Attempts every
+ * eligible version before throwing so one failure cannot shield the rest.
  */
-export async function destroyCredential(secretVersionName: string): Promise<void> {
+async function destroySecretVersions(
+  secretName: string,
+  retainFromVersion: number | undefined,
+): Promise<CredentialErasureResult> {
   const sm = await getSecretManager();
-  await sm.projects.secrets.versions.destroy({ name: secretVersionName });
+  const result: CredentialErasureResult = { destroyed: 0, alreadyDestroyed: 0 };
+  const failures: unknown[] = [];
+  let pageToken: string | undefined;
+  do {
+    let page;
+    try {
+      ({ data: page } = await sm.projects.secrets.versions.list({
+        parent: secretName,
+        pageSize: VERSION_LIST_PAGE_SIZE,
+        pageToken,
+      }));
+    } catch (error) {
+      // No secret means no version can hold a credential.
+      if (pageToken === undefined && isSecretManagerNotFound(error)) return result;
+      throw error;
+    }
+    for (const version of page.versions ?? []) {
+      const parsed = typeof version.name === "string" ? parseSecretVersionName(version.name) : undefined;
+      if (!parsed || typeof version.name !== "string") {
+        // An unreadable listing entry may still hold a payload: fail closed.
+        failures.push(new MalformedSecretReferenceError());
+        continue;
+      }
+      if (version.state === "DESTROYED") {
+        result.alreadyDestroyed += 1;
+        continue;
+      }
+      if (retainFromVersion !== undefined && parsed.version >= retainFromVersion) continue;
+      try {
+        await sm.projects.secrets.versions.destroy({ name: version.name });
+        result.destroyed += 1;
+      } catch (error) {
+        if (isSecretVersionAlreadyErased(error)) result.alreadyDestroyed += 1;
+        else failures.push(error);
+      }
+    }
+    pageToken = page.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  if (failures.length > 0) {
+    throw new CredentialErasureIncompleteError(failures.length, result, failures[0]);
+  }
+  return result;
+}
+
+/**
+ * Destroy EVERY version of the secret that holds `secretVersionName` — the
+ * deletion and account-erasure primitive. Earlier versions left behind by
+ * credential replacement are destroyed too.
+ *
+ * @param secretVersionName - Any version name of the secret (typically the live reference).
+ */
+export async function destroyCredentialSecret(secretVersionName: string): Promise<CredentialErasureResult> {
+  const parsed = parseSecretVersionName(secretVersionName);
+  if (!parsed) throw new MalformedSecretReferenceError();
+  return destroySecretVersions(parsed.secretName, undefined);
+}
+
+/**
+ * Destroy every version OLDER than `liveSecretVersionName` — the credential
+ * replacement primitive. Newer versions are never touched, so a concurrent
+ * replacement that already moved the reference forward keeps its credential.
+ *
+ * @param liveSecretVersionName - The version the account reference now points at.
+ */
+export async function destroySupersededCredentialVersions(
+  liveSecretVersionName: string,
+): Promise<CredentialErasureResult> {
+  const parsed = parseSecretVersionName(liveSecretVersionName);
+  if (!parsed) throw new MalformedSecretReferenceError();
+  return destroySecretVersions(parsed.secretName, parsed.version);
 }
