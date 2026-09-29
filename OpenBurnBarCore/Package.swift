@@ -1394,7 +1394,8 @@ let firstPartyTargetsBaseD: [Target] = [
         ),
         .target(
             name: "OpenBurnBarInsights",
-            dependencies: ["OpenBurnBarKernel"],
+            // LogParsers for `DaemonUsageLedgerImporter` (ModelPricing, ParserScanDigest).
+            dependencies: ["OpenBurnBarKernel", "OpenBurnBarLogParsers"],
             exclude: openBurnBarInsightsExcludes
         ),
         // OpenBurnBarEngine (S16) — UI-free umbrella the daemon/CLI/parity

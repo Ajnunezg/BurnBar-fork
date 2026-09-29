@@ -1,4 +1,5 @@
 import Foundation
+import OpenBurnBarInsights
 import OpenBurnBarKernel
 import OpenBurnBarLogParsers
 import OpenBurnBarUI

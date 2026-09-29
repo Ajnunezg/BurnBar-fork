@@ -1,5 +1,6 @@
 import XCTest
-@testable import OpenBurnBarLogParsers
+@testable import OpenBurnBarInsights
+import OpenBurnBarLogParsers
 import OpenBurnBarKernel
 
 /// The app imported daemon spend two ways: the newest 20 events over RPC,

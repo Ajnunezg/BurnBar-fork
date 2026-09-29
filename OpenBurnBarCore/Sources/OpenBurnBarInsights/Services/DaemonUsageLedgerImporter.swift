@@ -1,5 +1,6 @@
 import Foundation
 import OpenBurnBarKernel
+import OpenBurnBarLogParsers
 
 /// Turns the daemon's append-only usage ledger (`usage-events.jsonl`) into
 /// `token_usage` rows. It is the one path daemon-recorded spend takes into the
