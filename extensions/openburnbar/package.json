@@ -259,13 +259,13 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@size-limit/file": "14.0.0",
+    "@size-limit/file": "14.0.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "^26.6.2",
     "@types/vscode": "^1.95.0",
     "@typescript-eslint/eslint-plugin": "8.70.1",
     "@typescript-eslint/parser": "8.70.1",
-    "@vitest/coverage-v8": "5.0.1",
+    "@vitest/coverage-v8": "5.0.2",
     "@vscode/test-electron": "^3.1.0",
     "dependency-cruiser": "18.4.0",
     "eslint": "10.11.0",
@@ -273,9 +273,9 @@
     "knip": "6.38.0",
     "mocha": "^12.0.2",
     "prettier": "3.9.9",
-    "size-limit": "14.0.0",
+    "size-limit": "14.0.1",
     "typescript": "^5.9.3",
-    "vitest": "5.0.1"
+    "vitest": "5.0.2"
   },
   "dependencies": {
     "@sentry/node": "11.0.0",
