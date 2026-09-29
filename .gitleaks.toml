@@ -223,26 +223,14 @@ paths = [
 ]
 
 [[allowlists]]
-description = "Console Firebase web config contains public client identifiers, not server credentials"
+description = "Firebase web client config is public by design (it ships in every browser bundle; App Check, Firestore/Storage rules and the key's API restrictions enforce access). config/firebase-web-public.json is the single reviewed copy both web clients build from; the dist path covers the website's built bundle."
 condition = "AND"
 regexTarget = "match"
 regexes = [
   '''AIza[0-9A-Za-z_-]{35}''',
 ]
 paths = [
-  '''apps/console/lib/firebaseClient\.ts''',
-]
-
-[[allowlists]]
-description = "Website Firebase web config contains public client identifiers required for production sign-in"
-condition = "AND"
-regexTarget = "match"
-regexes = [
-  '''AIzaSyBiAIHwf1MKZ6LN5HrsaPYsAR3UTe8hyw4''',
-]
-paths = [
-  '''website/src/lib/firebaseClient\.ts''',
-  '''website/scripts/test-firebase-config\.mjs''',
+  '''config/firebase-web-public\.json''',
   '''website/dist/_assets/firebaseClient\.[A-Za-z0-9_-]+\.js''',
 ]
 

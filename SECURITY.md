@@ -74,6 +74,14 @@ as such (each has a trigger that would revisit it):
   `avatars/{uid}/profile.jpg` require `request.auth.uid == userId`
   ([storage.rules](storage.rules)). The retired public-read posture is
   [AR-002](docs/governance/RISK_REGISTER.md).
+- **The Firebase web client config is committed.** The API key, app id and
+  reCAPTCHA Enterprise *site* key in
+  [config/firebase-web-public.json](config/firebase-web-public.json) are public
+  client identifiers that ship in every browser bundle; App Check,
+  Firestore/Storage rules and the key's API restrictions enforce access, not
+  secrecy. That file is the only copy (the one place to rotate them and the only
+  path the gitleaks allowlist covers), and `PUBLIC_*` / `NEXT_PUBLIC_*` env
+  overrides it for staging. Revisit if any of these values must become secret.
 - **Solo-operator process / bus factor 1**: merge/control compensations are
   codified in [docs/SOLO_OPERATOR_POLICY.md](docs/SOLO_OPERATOR_POLICY.md)
   and accepted as [AR-008](docs/governance/RISK_REGISTER.md). Code cannot

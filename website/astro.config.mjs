@@ -30,7 +30,11 @@ export default defineConfig({
   vite: {
     server: {
       fs: {
-        allow: [websiteRoot, path.resolve(websiteRoot, "../services/analytics-collector/contract")]
+        allow: [
+          websiteRoot,
+          path.resolve(websiteRoot, "../services/analytics-collector/contract"),
+          path.resolve(websiteRoot, "../config/firebase-web-public.json")
+        ]
       }
     },
     build: {
