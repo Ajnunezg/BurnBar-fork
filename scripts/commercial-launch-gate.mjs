@@ -33,11 +33,17 @@ import {
   checkOpsAlerts,
 } from "./lib/ops-alerts-gate.mjs";
 import { validateLaunchEvidenceBundle } from "./validate-launch-evidence-bundle.mjs";
+import {
+  DEFAULT_RESTORE_DRILL_TTL_DAYS,
+  evaluateFirestoreRestoreDrillEvidence,
+  readFirestoreRestoreDrillEvidence,
+} from "./ops/firestore-restore-drill-verify.mjs";
 
 export {
   REQUIRED_FIREBASE_APP_CHECK_SERVICE_IDS,
   evaluateFirebaseAppCheckEnforcement,
   evaluateFirebaseAppCheckServiceSet,
+  evaluateFirestoreRestoreDrillEvidence,
 };
 
 const REPO = process.env.OPENBURNBAR_GITHUB_REPO || "Imagine-That-Ai/BurnBar";
@@ -53,6 +59,13 @@ const ALERT_DELIVERY_EVIDENCE_PATH =
   "launch-evidence/alert-channel-verified.json";
 const ALERT_DELIVERY_TTL_HOURS = Number(
   process.env.OPENBURNBAR_ALERT_DELIVERY_TTL_HOURS || "168",
+);
+const FIRESTORE_RESTORE_DRILL_EVIDENCE_PATH =
+  process.env.OPENBURNBAR_FIRESTORE_RESTORE_DRILL_EVIDENCE ||
+  "launch-evidence/latest-firestore-restore-drill.json";
+const FIRESTORE_RESTORE_DRILL_TTL_DAYS = Number(
+  process.env.OPENBURNBAR_FIRESTORE_RESTORE_DRILL_TTL_DAYS ||
+    DEFAULT_RESTORE_DRILL_TTL_DAYS,
 );
 const GOOGLE_PLAY_RTDN_TOPIC_ID =
   process.env.OPENBURNBAR_GOOGLE_PLAY_RTDN_TOPIC ||
@@ -1683,6 +1696,17 @@ function checkFirestoreDisasterRecovery() {
   };
 }
 
+// The posture check above proves PITR and backups are configured; this one
+// proves a restore worked and the restored data matched, from the receipt
+// scripts/ops/run-firestore-restore-drill.sh writes.
+export function checkFirestoreRestoreDrill({
+  path = FIRESTORE_RESTORE_DRILL_EVIDENCE_PATH,
+  maxAgeDays = FIRESTORE_RESTORE_DRILL_TTL_DAYS,
+  now,
+} = {}) {
+  return readFirestoreRestoreDrillEvidence(path, { maxAgeDays, now });
+}
+
 export function requiredVerifiableAlertChannels(...alertChecks) {
   const byName = new Map();
   for (const alertCheck of alertChecks) {
@@ -2608,6 +2632,7 @@ async function main() {
     billingAlerts,
     alertDeliverability: checkAlertDeliverabilityEvidence([opsAlerts, billingAlerts]),
     firestoreDisasterRecovery: checkFirestoreDisasterRecovery(),
+    firestoreRestoreDrill: checkFirestoreRestoreDrill(),
     googlePlayRtdn: checkGooglePlayRtdnReadiness(),
     firebaseFunctionsInventory: checkFirebaseFunctionsInventory(),
     firebaseFunctionsSourceIdentity: checkFirebaseFunctionsSourceIdentity(
