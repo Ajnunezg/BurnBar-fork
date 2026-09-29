@@ -172,6 +172,9 @@ on:
       - "scripts/lib/json-schema-subset.mjs"
       - "scripts/ops/rollback-drill-evidence.mjs"
       - "scripts/ops/rollback-drill-evidence.test.mjs"
+      - "scripts/ci/check-deploy-freshness.mjs"
+      - "scripts/ci/__tests__/check-deploy-freshness.test.mjs"
+      - "scripts/ci/__tests__/fixtures/deploy-freshness/**"
       - "scripts/ops/rollback-revision.sh"
       - "docs/schemas/rollback-drill-receipt.schema.json"
       - "scripts/commercial-launch-gate.mjs"
@@ -345,6 +348,9 @@ on:
       - "scripts/lib/json-schema-subset.mjs"
       - "scripts/ops/rollback-drill-evidence.mjs"
       - "scripts/ops/rollback-drill-evidence.test.mjs"
+      - "scripts/ci/check-deploy-freshness.mjs"
+      - "scripts/ci/__tests__/check-deploy-freshness.test.mjs"
+      - "scripts/ci/__tests__/fixtures/deploy-freshness/**"
       - "scripts/ops/rollback-revision.sh"
       - "docs/schemas/rollback-drill-receipt.schema.json"
       - "scripts/commercial-launch-gate.mjs"
@@ -515,6 +521,9 @@ jobs:
 
       - name: Self-test the launch gate's rollback-drill receipt check
         run: node --test scripts/ops/rollback-drill-evidence.test.mjs
+
+      - name: Self-test the deploy-freshness monitor (per-surface ages and next-step lines)
+        run: node --test scripts/ci/__tests__/check-deploy-freshness.test.mjs
 
       - name: Check functional QA runner syntax
         run: bash -n tools/qa/run-functional-qa.sh
