@@ -58,11 +58,15 @@ const detectedCount = totalCount - primaryCount;
         <div class="hero__eyebrow eyebrow">
           <span>v{SITE.macReleaseLatest} macOS</span>
           <span aria-hidden="true">·</span>
-          <a class="hero__agpl" href="/download#linux">Linux {SITE.linuxReleaseLatest} ARM64</a>
+          <a class="hero__agpl" href="/download#linux">
+            Linux {SITE.linuxReleaseLatest} ARM64
+          </a>
           <span aria-hidden="true">·</span>
           <span>iOS {SITE.iosStatus}</span>
           <span aria-hidden="true">·</span>
-          <a class="hero__agpl" href="/trust">{SITE.license.replace("-only", "")}</a>
+          <a class="hero__agpl" href="/trust">
+            {SITE.license.replace("-only", "")}
+          </a>
         </div>
 
         <img
@@ -125,19 +129,32 @@ const detectedCount = totalCount - primaryCount;
         <div class="hero__ctas">
           <a class="btn btn--ember" href="/download">
             Download for Mac — {SITE.macReleaseLatest}
-            <span class="btn-arrow" aria-hidden="true">→</span>
+            <span class="btn-arrow" aria-hidden="true">
+              →
+            </span>
           </a>
           <a class="btn btn--ghost" href="/download#linux">
             Download for Linux
-            <span class="btn-arrow" aria-hidden="true">→</span>
+            <span class="btn-arrow" aria-hidden="true">
+              →
+            </span>
           </a>
-          <a class="btn btn--ghost" href="/privacy"> Read the privacy model </a>
+          <a class="btn btn--ghost" href="/privacy">
+            {" "}
+            Read the privacy model{" "}
+          </a>
         </div>
 
         <div class="hero__attest mono">
-          <span><span class="ember">●</span> No telemetry by default</span>
-          <span><span class="ember">●</span> No account required</span>
-          <span><span class="ember">●</span> Reads logs, not your API keys</span>
+          <span>
+            <span class="ember">●</span> No telemetry by default
+          </span>
+          <span>
+            <span class="ember">●</span> No account required
+          </span>
+          <span>
+            <span class="ember">●</span> Reads logs, not your API keys
+          </span>
         </div>
       </div>
 
@@ -171,12 +188,16 @@ const detectedCount = totalCount - primaryCount;
       </div>
       <div class="band__sep" aria-hidden="true"></div>
       <div class="band__stat">
-        <div class="band__num display"><span class="sym">∞</span></div>
+        <div class="band__num display">
+          <span class="sym">∞</span>
+        </div>
         <div class="band__lbl">Works offline. The whole product, locally.</div>
       </div>
       <div class="band__sep" aria-hidden="true"></div>
       <div class="band__stat">
-        <div class="band__num mono">7<span class="band__num-unit">·2</span></div>
+        <div class="band__num mono">
+          7<span class="band__num-unit">·2</span>
+        </div>
         <div class="band__lbl">
           Upstream providers routed across two same-format pools (OpenAI · Anthropic)
         </div>
@@ -208,24 +229,23 @@ const detectedCount = totalCount - primaryCount;
             account. Firebase is an optional replication plane, not the source of truth. The whole
             product works offline.
           </p>
-          <a href="/privacy" class="pillar__more"
-            >How the privacy model works <span aria-hidden="true">→</span></a
-          >
+          <a href="/privacy" class="pillar__more">
+            How the privacy model works <span aria-hidden="true">→</span>
+          </a>
         </li>
         <li class="pillar">
           <div class="pillar__num mono">02</div>
           <h3>Honest about confidence.</h3>
           <p>
-            Every provider row carries one of three labels — <span
-              class="tag tag--exact tag--plain mono">exact</span
-            >,
+            Every provider row carries one of three labels —{" "}
+            <span class="tag tag--exact tag--plain mono">exact</span>,
             <span class="tag tag--estimated tag--plain mono">estimated</span>,
             <span class="tag tag--unavailable tag--plain mono">unavailable</span>. We don't pretend
             to know what the vendor doesn't tell us.
           </p>
-          <a href="/providers" class="pillar__more"
-            >See the full provider matrix <span aria-hidden="true">→</span></a
-          >
+          <a href="/providers" class="pillar__more">
+            See the full provider matrix <span aria-hidden="true">→</span>
+          </a>
         </li>
         <li class="pillar">
           <div class="pillar__num mono">03</div>
@@ -235,9 +255,9 @@ const detectedCount = totalCount - primaryCount;
             macOS, iOS, iPad, Cursor, VS Code, CLI, widgets, smart displays — speaks to the same
             daemon. One source of truth, many windows in.
           </p>
-          <a href="/product" class="pillar__more"
-            >Tour the product <span aria-hidden="true">→</span></a
-          >
+          <a href="/product" class="pillar__more">
+            Tour the product <span aria-hidden="true">→</span>
+          </a>
         </li>
       </ol>
     </div>
@@ -288,8 +308,9 @@ const detectedCount = totalCount - primaryCount;
         <span class="eyebrow eyebrow--ember">Providers</span>
         <h2 id="provshow-h">The list of vendors it actually understands.</h2>
         <p class="lead">
-          {primaryCount} providers ship with real usage data today. {detectedCount} more are detected
-          at install but don't expose data — so we show "Installed / Not installed" and stop there.
+          {primaryCount} providers ship with real usage data today. {detectedCount} more are
+          detected at install but don't expose data — so we show "Installed / Not installed" and
+          stop there.
         </p>
       </header>
 
@@ -300,7 +321,10 @@ const detectedCount = totalCount - primaryCount;
 
       <div class="provshow__cta">
         <a class="btn btn--ghost" href="/providers">
-          See all {totalCount} providers <span class="btn-arrow" aria-hidden="true">→</span>
+          See all {totalCount} providers{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
       </div>
     </div>
@@ -321,7 +345,9 @@ const detectedCount = totalCount - primaryCount;
       </header>
 
       <div class="surfaces__grid">
-        {surfaceShowcase.map((s, i) => <SurfaceCard surface={s} index={i} />)}
+        {surfaceShowcase.map((s, i) => (
+          <SurfaceCard surface={s} index={i} />
+        ))}
       </div>
     </div>
   </section>
@@ -339,18 +365,17 @@ const detectedCount = totalCount - primaryCount;
         </h2>
         <p class="hydrantsec__sub mono">Failover swaps the account · the model id never moves</p>
         <p class="lead">
-          BurnBar's local gateway preserves the exact model you asked for. Your <span class="mono"
-            >gpt-5.6</span
-          > stays
+          BurnBar's local gateway preserves the exact model you asked for. Your{" "}
+          <span class="mono">gpt-5.6</span> stays
           <span class="mono">gpt-5.6</span>; your
-          <span class="mono">claude-opus-4-8</span> stays itself. The router picks from accounts in your
-          library that already carry that model — and if none survive, it returns a structured 503 instead
-          of a silent substitute. Two modes ship: <strong>Provider-Family Failover</strong>
-          (default, stay inside the selected provider family) and <strong
-            >Exact Model Failover</strong
-          >
-          (opt-in, cross provider/account only after canonical model proof). Benchmarks are advisory;
-          they never authorize a model swap.
+          <span class="mono">claude-opus-4-8</span> stays itself. The router picks from accounts in
+          your library that already carry that model — and if none survive, it returns a structured
+          503 instead of a silent substitute. Two modes ship:{" "}
+          <strong>Provider-Family Failover</strong>
+          (default, stay inside the selected provider family) and{" "}
+          <strong>Exact Model Failover</strong>
+          (opt-in, cross provider/account only after canonical model proof). Benchmarks are
+          advisory; they never authorize a model swap.
         </p>
 
         <ul class="hydrantsec__modes mono">
@@ -374,10 +399,18 @@ const detectedCount = totalCount - primaryCount;
       <div class="hydrantsec__cta">
         <a class="btn btn--ember" href="/router">
           See how routing actually works
-          <span class="btn-arrow" aria-hidden="true">→</span>
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
-        <a class="btn btn--ghost" href="/router/daily"> Browse the latest rundown </a>
-        <a class="btn btn--ghost" href="/providers"> See the provider matrix </a>
+        <a class="btn btn--ghost" href="/router/daily">
+          {" "}
+          Browse the latest rundown{" "}
+        </a>
+        <a class="btn btn--ghost" href="/providers">
+          {" "}
+          See the provider matrix{" "}
+        </a>
       </div>
     </div>
   </section>
@@ -389,7 +422,9 @@ const detectedCount = totalCount - primaryCount;
     <div class="container container--wide hermes__grid">
       <div>
         <span class="eyebrow eyebrow--mercury">Hermes</span>
-        <h2 id="hermes-h" class="hermes__h">A messenger for your own data.</h2>
+        <h2 id="hermes-h" class="hermes__h">
+          A messenger for your own data.
+        </h2>
         <p class="lead">
           Ask, in plain language, what your week looked like. What model burned the most cache.
           Which window is about to roll over. Hermes pulls context from your local SQLite — your
@@ -397,35 +432,43 @@ const detectedCount = totalCount - primaryCount;
         </p>
         <ul class="hermes__list">
           <li>
-            <span class="hermes__mark mono" aria-hidden="true">·</span>
+            <span class="hermes__mark mono" aria-hidden="true">
+              ·
+            </span>
             <div class="hermes__listbody">
               <strong>Conversation Atoms.</strong>
-              Every entity Hermes mentions becomes a tappable chip — cost, session, provider, model, window
-              — that opens the matching native view.
+              Every entity Hermes mentions becomes a tappable chip — cost, session, provider, model,
+              window — that opens the matching native view.
             </div>
           </li>
           <li>
-            <span class="hermes__mark mono" aria-hidden="true">·</span>
+            <span class="hermes__mark mono" aria-hidden="true">
+              ·
+            </span>
             <div class="hermes__listbody">
               <strong>Chart Studio.</strong>
-              On iPhone and iPad, Hermes streams JSON envelopes that render to 10 native Swift Charts
-              kinds and sandboxed Mermaid diagrams.
+              On iPhone and iPad, Hermes streams JSON envelopes that render to 10 native Swift
+              Charts kinds and sandboxed Mermaid diagrams.
             </div>
           </li>
           <li>
-            <span class="hermes__mark mono" aria-hidden="true">·</span>
+            <span class="hermes__mark mono" aria-hidden="true">
+              ·
+            </span>
             <div class="hermes__listbody">
               <strong>Two backends.</strong>
-              Local Index for stateless per-turn answers via the CLI, or the local Hermes Gateway for
-              multi-turn, OpenAI-shaped chat with server-side tool calls.
+              Local Index for stateless per-turn answers via the CLI, or the local Hermes Gateway
+              for multi-turn, OpenAI-shaped chat with server-side tool calls.
             </div>
           </li>
           <li>
-            <span class="hermes__mark mono" aria-hidden="true">·</span>
+            <span class="hermes__mark mono" aria-hidden="true">
+              ·
+            </span>
             <div class="hermes__listbody">
               <strong>Hermes Realtime Relay.</strong>
-              Reach the Mac's Hermes from anywhere over an end-to-end-encrypted WebSocket. Paid-tier;
-              relay never sees plaintext.
+              Reach the Mac's Hermes from anywhere over an end-to-end-encrypted WebSocket.
+              Paid-tier; relay never sees plaintext.
             </div>
           </li>
         </ul>
@@ -453,7 +496,8 @@ const detectedCount = totalCount - primaryCount;
               </svg>
             </span>
             <span class="bubble">
-              Your <span
+              Your{" "}
+              <span
                 class="atom atom--ember"
                 style="display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;"
               >
@@ -463,9 +507,7 @@ const detectedCount = totalCount - primaryCount;
                   xmlns="http://www.w3.org/2000/svg"
                   style="width: 11px; height: 11px; flex-shrink: 0; display: inline-block;"
                 >
-                  <path
-                    d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z"
-                  ></path>
+                  <path d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z"></path>
                 </svg>
                 <span>Claude Code · 5h window</span>
               </span>
@@ -505,19 +547,33 @@ const detectedCount = totalCount - primaryCount;
                 </defs>
                 <path
                   d="M0 60 C 30 56 40 40 70 44 S 110 30 140 36 S 180 28 220 22 L220 84 L0 84 Z"
-                  fill="url(#hcg)"></path>
+                  fill="url(#hcg)"
+                ></path>
                 <path
                   d="M0 60 C 30 56 40 40 70 44 S 110 30 140 36 S 180 28 220 22"
                   stroke="#ff8a3d"
                   stroke-width="1.5"
-                  fill="none"></path>
+                  fill="none"
+                ></path>
                 <g font-family="var(--font-mono)" font-size="9" fill="#8b8275" text-anchor="middle">
-                  <text x="14" y="80">M</text><text x="50" y="80">T</text><text x="86" y="80"
-                    >W</text
-                  >
-                  <text x="122" y="80">T</text><text x="158" y="80">F</text><text x="194" y="80"
-                    >S</text
-                  >
+                  <text x="14" y="80">
+                    M
+                  </text>
+                  <text x="50" y="80">
+                    T
+                  </text>
+                  <text x="86" y="80">
+                    W
+                  </text>
+                  <text x="122" y="80">
+                    T
+                  </text>
+                  <text x="158" y="80">
+                    F
+                  </text>
+                  <text x="194" y="80">
+                    S
+                  </text>
                 </g>
               </svg>
               <span class="chart-cap mono">Mon → Sat · $87.34 total · trending +12% wow</span>
@@ -551,7 +607,9 @@ const detectedCount = totalCount - primaryCount;
             unlock it. Only your own devices, sealed between them once pairing completes. You
             approve every connection.
           </p>
-          <span class="companion__more">Explore {FLOO.name} <span aria-hidden="true">→</span></span>
+          <span class="companion__more">
+            Explore {FLOO.name} <span aria-hidden="true">→</span>
+          </span>
         </a>
         <a class="companion__card companion__card--control glass-pane" href={CONTROL.href}>
           <span class="companion__tag tag tag--ember tag--plain mono">{CONTROL.statusLabel}</span>
@@ -561,7 +619,9 @@ const detectedCount = totalCount - primaryCount;
             move, approve each step or set the limits, and stop it in an instant. It only ever does
             what you allow.
           </p>
-          <span class="companion__more">How it stays safe <span aria-hidden="true">→</span></span>
+          <span class="companion__more">
+            How it stays safe <span aria-hidden="true">→</span>
+          </span>
         </a>
       </div>
     </div>
@@ -587,31 +647,50 @@ const detectedCount = totalCount - primaryCount;
           domain, in a ledger you can audit.
         </p>
         <ul class="trust__points">
-          <li><strong>No API keys read</strong> for local-only tracking.</li>
-          <li><strong>No account required</strong> for the core product.</li>
-          <li><strong>Optional Firebase sync</strong> after sign-in — metadata only by default.</li>
           <li>
-            <strong>Optional iCloud mirror</strong> uses your Apple ID, separate from OpenBurnBar's servers.
+            <strong>No API keys read</strong> for local-only tracking.
+          </li>
+          <li>
+            <strong>No account required</strong> for the core product.
+          </li>
+          <li>
+            <strong>Optional Firebase sync</strong> after sign-in — metadata only by default.
+          </li>
+          <li>
+            <strong>Optional iCloud mirror</strong> uses your Apple ID, separate from OpenBurnBar's
+            servers.
           </li>
           <li>
             <strong>Hosted credentials</strong>, when used, go to Google Cloud Secret Manager — not
             Firestore.
           </li>
-          <li><strong>Claude Code is self-hosted only</strong>, by design.</li>
+          <li>
+            <strong>Claude Code is self-hosted only</strong>, by design.
+          </li>
         </ul>
         <div class="trust__ctas">
           <a class="btn btn--ember" href="/trust">
             Trust, in plain language
-            <span class="btn-arrow" aria-hidden="true">→</span>
+            <span class="btn-arrow" aria-hidden="true">
+              →
+            </span>
           </a>
-          <a class="btn btn--ghost" href="/privacy">Privacy model</a>
-          <a class="btn btn--ghost" href="/security">Security model</a>
+          <a class="btn btn--ghost" href="/privacy">
+            Privacy model
+          </a>
+          <a class="btn btn--ghost" href="/security">
+            Security model
+          </a>
         </div>
       </header>
 
       <aside class="trust__quote">
-        <p class="trust__pull">Read it. <em>Don't just trust it.</em></p>
-        <p class="mono small"><a href="/trust">burnbar.ai/trust</a></p>
+        <p class="trust__pull">
+          Read it. <em>Don't just trust it.</em>
+        </p>
+        <p class="mono small">
+          <a href="/trust">burnbar.ai/trust</a>
+        </p>
         <div class="trust__seal">
           <SealBadge variant="agpl" size={96} />
         </div>
@@ -641,7 +720,10 @@ const detectedCount = totalCount - primaryCount;
 
       <div class="pricing-teaser__more">
         <a class="btn btn--ghost" href="/pricing">
-          Compare all plans &amp; full details <span class="btn-arrow" aria-hidden="true">→</span>
+          Compare all plans &amp; full details{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
       </div>
     </div>
@@ -661,16 +743,23 @@ const detectedCount = totalCount - primaryCount;
       <div class="endcta__ctas">
         <a class="btn btn--ember" href="/download">
           Download for macOS
-          <span class="btn-arrow" aria-hidden="true">→</span>
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
         <a class="btn btn--ghost" href="/download#linux">
           Download for Linux
-          <span class="btn-arrow" aria-hidden="true">→</span>
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
         <a class="btn btn--ghost" href={SITE.github} target="_blank" rel="noopener noreferrer">
           View on GitHub
         </a>
-        <a class="btn btn--ghost" href="/faq"> Read the FAQ </a>
+        <a class="btn btn--ghost" href="/faq">
+          {" "}
+          Read the FAQ{" "}
+        </a>
       </div>
     </div>
   </section>

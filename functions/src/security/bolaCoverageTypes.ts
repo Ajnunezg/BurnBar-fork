@@ -1,4 +1,4 @@
-export type EndpointTrigger =
+type EndpointTrigger =
   | "callable"
   | "http"
   | "scheduled"
@@ -7,7 +7,7 @@ export type EndpointTrigger =
   | "task-queue"
   | "provider-webhook";
 
-export type BolaCoverageKind =
+type BolaCoverageKind =
   | "runtime-cross-user"
   | "firestore-rules"
   | "static-high-risk-wiring"

@@ -1,10 +1,5 @@
 export type LaunchChannel =
-  | "github_release"
-  | "hacker_news"
-  | "reddit"
-  | "indie_hackers"
-  | "product_hunt"
-  | "email";
+  "github_release" | "hacker_news" | "reddit" | "indie_hackers" | "product_hunt" | "email";
 
 export interface LaunchPost {
   channel: LaunchChannel;

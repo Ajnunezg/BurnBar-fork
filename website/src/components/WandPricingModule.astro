@@ -84,7 +84,8 @@ const wandModes = [
               stroke="currentColor"
               stroke-width="2.5"
               stroke-linecap="round"
-              stroke-linejoin="round"></path>
+              stroke-linejoin="round"
+            ></path>
             <circle cx="10" cy="32" r="3" fill="currentColor"></circle>
           </svg>
           <div class="wand-rail__spark" aria-hidden="true"></div>
@@ -100,21 +101,24 @@ const wandModes = [
             stroke-width="1.5"
             fill="none"
             opacity="0.5"
-            class="wand-rail__path"></path>
+            class="wand-rail__path"
+          ></path>
           <path
             d="M0 60 L180 60"
             stroke="currentColor"
             stroke-width="1.5"
             fill="none"
             opacity="0.5"
-            class="wand-rail__path"></path>
+            class="wand-rail__path"
+          ></path>
           <path
             d="M0 60 Q50 60 50 100 L180 100"
             stroke="currentColor"
             stroke-width="1.5"
             fill="none"
             opacity="0.5"
-            class="wand-rail__path"></path>
+            class="wand-rail__path"
+          ></path>
         </svg>
       </div>
 
@@ -127,7 +131,8 @@ const wandModes = [
                 stroke="currentColor"
                 stroke-width="2.5"
                 stroke-linecap="round"
-                stroke-linejoin="round"></path>
+                stroke-linejoin="round"
+              ></path>
             </svg>
           </div>
           <span class="wand-rail__sub mono">landed</span>
@@ -152,21 +157,24 @@ const wandModes = [
             stroke-width="1.5"
             fill="none"
             opacity="0.5"
-            class="wand-rail__path wand-rail__path--converge"></path>
+            class="wand-rail__path wand-rail__path--converge"
+          ></path>
           <path
             d="M20 60 L180 60"
             stroke="currentColor"
             stroke-width="1.5"
             fill="none"
             opacity="0.5"
-            class="wand-rail__path wand-rail__path--converge"></path>
+            class="wand-rail__path wand-rail__path--converge"
+          ></path>
           <path
             d="M20 100 Q100 100 180 60"
             stroke="currentColor"
             stroke-width="1.5"
             fill="none"
             opacity="0.5"
-            class="wand-rail__path wand-rail__path--converge"></path>
+            class="wand-rail__path wand-rail__path--converge"
+          ></path>
         </svg>
       </div>
 
@@ -179,7 +187,8 @@ const wandModes = [
               stroke="currentColor"
               stroke-width="2.5"
               stroke-linecap="round"
-              stroke-linejoin="round"></path>
+              stroke-linejoin="round"
+            ></path>
           </svg>
           <div class="wand-rail__spark wand-rail__spark--dest" aria-hidden="true"></div>
         </div>
@@ -190,7 +199,9 @@ const wandModes = [
     <!-- ── Tier cap ladder ── -->
     <div class="wand-ladder" role="table" aria-label="The Wand parallel worker cap by tier">
       <div class="wand-ladder__row wand-ladder__row--head" role="row">
-        <span class="wand-ladder__cell wand-ladder__cell--head mono" role="columnheader">Tier</span>
+        <span class="wand-ladder__cell wand-ladder__cell--head mono" role="columnheader">
+          Tier
+        </span>
         <span class="wand-ladder__cell wand-ladder__cell--head mono" role="columnheader">
           Parallel workers per cast
         </span>
@@ -198,29 +209,27 @@ const wandModes = [
           Visual
         </span>
       </div>
-      {
-        ladder.map(({ tier, cap, accent, capCopy }) => (
-          <div class="wand-ladder__row" data-accent={accent} role="row">
-            <span class="wand-ladder__cell wand-ladder__cell--tier" role="cell">
-              <span class="wand-ladder__tier-name">{tier.shortName}</span>
-              <span class="wand-ladder__tier-price mono">
-                {tier.priceMonthlyUSD === "0" ? "Free" : `$${tier.priceMonthlyUSD}/mo`}
-              </span>
+      {ladder.map(({ tier, cap, accent, capCopy }) => (
+        <div class="wand-ladder__row" data-accent={accent} role="row">
+          <span class="wand-ladder__cell wand-ladder__cell--tier" role="cell">
+            <span class="wand-ladder__tier-name">{tier.shortName}</span>
+            <span class="wand-ladder__tier-price mono">
+              {tier.priceMonthlyUSD === "0" ? "Free" : `$${tier.priceMonthlyUSD}/mo`}
             </span>
-            <span class="wand-ladder__cell wand-ladder__cell--cap mono" role="cell">
-              <span>{cap}</span>
-              <span class="wand-ladder__cap-copy">{capCopy}</span>
+          </span>
+          <span class="wand-ladder__cell wand-ladder__cell--cap mono" role="cell">
+            <span>{cap}</span>
+            <span class="wand-ladder__cap-copy">{capCopy}</span>
+          </span>
+          <span class="wand-ladder__cell wand-ladder__cell--viz" role="cell">
+            <span class="wand-ladder__dots" aria-hidden="true">
+              {Array.from({ length: cap }, () => (
+                <span class="wand-ladder__dot" />
+              ))}
             </span>
-            <span class="wand-ladder__cell wand-ladder__cell--viz" role="cell">
-              <span class="wand-ladder__dots" aria-hidden="true">
-                {Array.from({ length: cap }, () => (
-                  <span class="wand-ladder__dot" />
-                ))}
-              </span>
-            </span>
-          </div>
-        ))
-      }
+          </span>
+        </div>
+      ))}
     </div>
     <p class="wand-ladder__note">
       Each worker runs on the provider subscriptions and keys you already have. BurnBar orchestrates
@@ -231,45 +240,43 @@ const wandModes = [
     <div class="wand-modes">
       <h3 class="wand-modes__h">Choose a Wand</h3>
       <div class="wand-modes__grid">
-        {
-          wandModes.map((mode) => (
-            <article class="wand-mode" data-mode={mode.id}>
-              <div class="wand-mode__icon-wrap">
-                {mode.icon === "crown" ? (
-                  <svg viewBox="0 0 48 48" fill="none" aria-hidden="true" class="wand-mode__icon">
-                    <path
-                      d="M8 36L12 16L20 26L24 14L28 26L36 16L40 36H8Z"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linejoin="round"
-                    />
-                    <path
-                      d="M8 40H40"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                    />
-                    <circle cx="24" cy="10" r="2.5" fill="currentColor" />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 48 48" fill="none" aria-hidden="true" class="wand-mode__icon">
-                    <path
-                      d="M24 6V14M24 34V42M14 24H6M42 24H34M16 16L11 11M37 37L32 32M32 16L37 11M11 37L16 32"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                    />
-                    <circle cx="24" cy="24" r="7" stroke="currentColor" stroke-width="2" />
-                  </svg>
-                )}
-              </div>
-              <span class="wand-mode__tagline mono">{mode.tagline}</span>
-              <h4 class="wand-mode__name">{mode.name}</h4>
-              <p class="wand-mode__desc">{mode.description}</p>
-              <span class="wand-mode__best mono">Best {mode.best}</span>
-            </article>
-          ))
-        }
+        {wandModes.map((mode) => (
+          <article class="wand-mode" data-mode={mode.id}>
+            <div class="wand-mode__icon-wrap">
+              {mode.icon === "crown" ? (
+                <svg viewBox="0 0 48 48" fill="none" aria-hidden="true" class="wand-mode__icon">
+                  <path
+                    d="M8 36L12 16L20 26L24 14L28 26L36 16L40 36H8Z"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M8 40H40"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                  <circle cx="24" cy="10" r="2.5" fill="currentColor" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 48 48" fill="none" aria-hidden="true" class="wand-mode__icon">
+                  <path
+                    d="M24 6V14M24 34V42M14 24H6M42 24H34M16 16L11 11M37 37L32 32M32 16L37 11M11 37L16 32"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                  <circle cx="24" cy="24" r="7" stroke="currentColor" stroke-width="2" />
+                </svg>
+              )}
+            </div>
+            <span class="wand-mode__tagline mono">{mode.tagline}</span>
+            <h4 class="wand-mode__name">{mode.name}</h4>
+            <p class="wand-mode__desc">{mode.description}</p>
+            <span class="wand-mode__best mono">Best {mode.best}</span>
+          </article>
+        ))}
       </div>
     </div>
 
@@ -287,9 +294,13 @@ const wandModes = [
         <div class="wand-cta__actions">
           <a class="btn btn--ember" href="/pricing#plans">
             Compare plans
-            <span class="btn-arrow" aria-hidden="true">→</span>
+            <span class="btn-arrow" aria-hidden="true">
+              →
+            </span>
           </a>
-          <a class="btn btn--ghost" href="/download">Download for macOS</a>
+          <a class="btn btn--ghost" href="/download">
+            Download for macOS
+          </a>
         </div>
       </div>
     </div>

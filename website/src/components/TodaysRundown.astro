@@ -62,74 +62,74 @@ const archiveCount = ALL_RUNDOWNS.length;
     <p class="todays__lead">
       A board of language models runs research and analysis tasks against the model-landscape
       snapshot. Each run is frozen, dated, and inspectable — the archive at
-      <a class="todays__link" href="/router/daily">/router/daily</a>
-      holds {archiveCount} of them. Below: the top coding candidates from the {rundownDate} run, with
-      source freshness and the deterministic selection score shown alongside. These rankings are advisory;
-      they never prove that a failover destination is the exact same model.
+      <a class="todays__link" href="/router/daily">
+        /router/daily
+      </a>
+      holds {archiveCount} of them. Below: the top coding candidates from the {rundownDate} run,
+      with source freshness and the deterministic selection score shown alongside. These rankings
+      are advisory; they never prove that a failover destination is the exact same model.
     </p>
   </header>
 
-  {
-    rundown ? (
-      <div class="todays__body">
-        <IntelligentScoreboard
-          variant="full"
-          heading={`${rundownDate} · ${codingTask?.taskLabel ?? "ranking"}`}
-          sub={codingTask?.topPickRationale}
-          candidates={candidates}
-          sources={sources}
-          showAdvisory={true}
-          ctaURL="/router/daily"
-          ctaLabel="Browse the rundown archive"
-        />
+  {rundown ? (
+    <div class="todays__body">
+      <IntelligentScoreboard
+        variant="full"
+        heading={`${rundownDate} · ${codingTask?.taskLabel ?? "ranking"}`}
+        sub={codingTask?.topPickRationale}
+        candidates={candidates}
+        sources={sources}
+        showAdvisory={true}
+        ctaURL="/router/daily"
+        ctaLabel="Browse the rundown archive"
+      />
 
-        {otherTasks.length > 0 && (
-          <aside class="todays__tasks" aria-label="Other task categories in this rundown">
-            <header class="todays__taskshead">
-              <span class="todays__taskseyebrow mono">other task categories · {rundownDate}</span>
-            </header>
-            <ul class="todays__taskslist">
-              {otherTasks.map((t) => (
-                <li class="taskchip">
-                  <a class="taskchip__link" href={`/router/daily/${rundownDate}#task-${t.id}`}>
-                    <span class={`taskchip__pill taskchip__pill--${t.id} mono`}>{t.label}</span>
-                    {t.top ? (
-                      <span class="taskchip__pick">
-                        {t.top.providerLogo && (
-                          <img
-                            class="taskchip__logo"
-                            src={t.top.providerLogo}
-                            alt=""
-                            width="20"
-                            height="20"
-                            loading="lazy"
-                          />
-                        )}
-                        <span class="taskchip__name">{t.top.modelDisplay}</span>
-                        <span class="taskchip__score mono">
-                          {Math.round((t.top.selectionScore ?? t.top.score) * 100)}
-                        </span>
+      {otherTasks.length > 0 && (
+        <aside class="todays__tasks" aria-label="Other task categories in this rundown">
+          <header class="todays__taskshead">
+            <span class="todays__taskseyebrow mono">other task categories · {rundownDate}</span>
+          </header>
+          <ul class="todays__taskslist">
+            {otherTasks.map((t) => (
+              <li class="taskchip">
+                <a class="taskchip__link" href={`/router/daily/${rundownDate}#task-${t.id}`}>
+                  <span class={`taskchip__pill taskchip__pill--${t.id} mono`}>{t.label}</span>
+                  {t.top ? (
+                    <span class="taskchip__pick">
+                      {t.top.providerLogo && (
+                        <img
+                          class="taskchip__logo"
+                          src={t.top.providerLogo}
+                          alt=""
+                          width="20"
+                          height="20"
+                          loading="lazy"
+                        />
+                      )}
+                      <span class="taskchip__name">{t.top.modelDisplay}</span>
+                      <span class="taskchip__score mono">
+                        {Math.round((t.top.selectionScore ?? t.top.score) * 100)}
                       </span>
-                    ) : (
-                      <span class="taskchip__none mono">no fresh evidence</span>
-                    )}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </aside>
-        )}
-      </div>
-    ) : (
-      <p class="todays__empty">
-        No rundown is available right now — check back soon, or browse the dated archive at
-        <a class="todays__link" href="/router/daily">
-          /router/daily
-        </a>
-        .
-      </p>
-    )
-  }
+                    </span>
+                  ) : (
+                    <span class="taskchip__none mono">no fresh evidence</span>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
+    </div>
+  ) : (
+    <p class="todays__empty">
+      No rundown is available right now — check back soon, or browse the dated archive at
+      <a class="todays__link" href="/router/daily">
+        /router/daily
+      </a>
+      .
+    </p>
+  )}
 </section>
 
 <style>

@@ -69,7 +69,7 @@ export default function ExperimentalPage() {
           </span>
           <Link
             href="/dashboard"
-            className="font-medium text-[color:var(--accent-deep)] underline-offset-2 hover:underline"
+            className="font-medium text-(--accent-deep) underline-offset-2 hover:underline"
           >
             View →
           </Link>

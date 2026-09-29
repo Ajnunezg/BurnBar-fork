@@ -12,7 +12,7 @@
 // describes. Re-generate with: node website/scripts/generate-crypto-claims.mjs
 
 /** Official Signal library version pinned across the repo (CI-enforced byte-for-byte). */
-export const LIBSIGNAL_PIN = "0.94.4";
+export const LIBSIGNAL_PIN = "0.103.0";
 
 /**
  * The rollout posture for every Signal-library lane, emitted only while the
@@ -59,7 +59,7 @@ export const CRYPTO_CLAIMS: readonly CryptoClaim[] = [
   {
     "model": "libsignal-double-ratchet",
     "policyClaim": "Signal Protocol",
-    "publicLine": "Device-to-device lanes (Mac, Android, daemon) are built on Signal's official open-source library, pinned at v0.94.4 — wired in today, not yet activated in production; activation comes by staged rollout with instant revert.",
+    "publicLine": "Device-to-device lanes (Mac, Android, daemon) are built on Signal's official open-source library, pinned at v0.103.0 — wired in today, not yet activated in production; activation comes by staged rollout with instant revert.",
     "cells": [
       "android · device-to-device",
       "daemon · device-to-device",

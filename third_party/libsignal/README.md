@@ -4,9 +4,9 @@ OpenBurnBar pins official Signal libsignal in `manifest.json`.
 
 Current pin:
 
-- Tag: `v0.94.4`
-- Tag object: `03c449017b57eccbda715b8b018dce5dff603ac6`
-- Source commit: `46d867c986f66201e34e7ae20ce423eec742bf3f`
+- Tag: `v0.103.0`
+- Tag object: `6c573a122a5e1055408d7de00388ac9d6e7dfdf4`
+- Source commit: `ba133bd3457f556fbf56db0a5ab985de0af79da6`
 - License: `AGPL-3.0-only`
 
 Use this manifest for Swift, Kotlin/Android, Rust, and Node bridge work. Do not

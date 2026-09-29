@@ -41,20 +41,21 @@ import LockedModelRelay from "./LockedModelRelay.astro";
 
       <ul class="modecard__bullets">
         <li>
-          <strong>Your selected family is the boundary.</strong> A Codex route stays with Codex accounts,
-          a Claude route stays with Claude accounts, and a Z.ai route stays with Z.ai accounts.
+          <strong>Your selected family is the boundary.</strong> A Codex route stays with Codex
+          accounts, a Claude route stays with Claude accounts, and a Z.ai route stays with Z.ai
+          accounts.
         </li>
         <li>
-          <strong>Your active route wins while healthy.</strong> The exact selected account and model
-          stay active until quota, rate-limit, or availability state forces a retry.
+          <strong>Your active route wins while healthy.</strong> The exact selected account and
+          model stay active until quota, rate-limit, or availability state forces a retry.
         </li>
         <li>
-          <strong>Account-level capacity.</strong> Add a second subscription or key in that provider family
-          and BurnBar can hold it as the runner-up.
+          <strong>Account-level capacity.</strong> Add a second subscription or key in that provider
+          family and BurnBar can hold it as the runner-up.
         </li>
         <li>
-          <strong>Never a generic coding bucket.</strong> Provider-family mode does not send Claude traffic
-          to Z.ai or Codex traffic to Claude just because a different account has quota.
+          <strong>Never a generic coding bucket.</strong> Provider-family mode does not send Claude
+          traffic to Z.ai or Codex traffic to Claude just because a different account has quota.
         </li>
       </ul>
 
@@ -67,9 +68,9 @@ import LockedModelRelay from "./LockedModelRelay.astro";
     {/* RIGHT — exact model failover */}
     <article class="modecard modecard--exact" data-animate-onview="">
       <header class="modecard__head">
-        <span class="modecard__tag modecard__tag--mercury mono"
-          >02 · opt-in · exact model failover</span
-        >
+        <span class="modecard__tag modecard__tag--mercury mono">
+          02 · opt-in · exact model failover
+        </span>
         <h3 class="modecard__title">Cross providers only when the model identity matches.</h3>
         <p class="modecard__sub mono">canonical model proof · fail closed if proof is missing</p>
       </header>
@@ -157,22 +158,22 @@ import LockedModelRelay from "./LockedModelRelay.astro";
           <code>gpt-5.6</code>, eligible routes must prove <code>gpt-5.6</code>.
         </li>
         <li>
-          <strong>Cross-provider is allowed only after proof.</strong> BurnBar may move from Factory,
-          OpenAI, Codex, or another account only when the destination serves that exact canonical model.
+          <strong>Cross-provider is allowed only after proof.</strong> BurnBar may move from
+          Factory, OpenAI, Codex, or another account only when the destination serves that exact
+          canonical model.
         </li>
         <li>
           <strong>Similar does not count.</strong>
-          <code>gpt-5.6-mini</code>, <code>gpt-5.6-pro</code>,
-          <code>gpt-5-family</code>, and broad classes like <code>openai:standard</code> are rejected
-          as substitutes.
+          <code>gpt-5.6-mini</code>, <code>gpt-5.6-pro</code>,<code>gpt-5-family</code>, and broad
+          classes like <code>openai:standard</code> are rejected as substitutes.
         </li>
         <li>
-          <strong>Missing proof fails closed.</strong> If BurnBar cannot prove exact identity, the gateway
-          returns a structured 503 instead of guessing.
+          <strong>Missing proof fails closed.</strong> If BurnBar cannot prove exact identity, the
+          gateway returns a structured 503 instead of guessing.
         </li>
         <li>
-          <strong>The audit trail says what happened.</strong> Events record the attempted model, canonical
-          ID, original route, destination route, reason, and whether the invariant passed.
+          <strong>The audit trail says what happened.</strong> Events record the attempted model,
+          canonical ID, original route, destination route, reason, and whether the invariant passed.
         </li>
       </ul>
 

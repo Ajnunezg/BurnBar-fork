@@ -151,7 +151,7 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
                       <span className="flex items-center gap-2 font-display text-sm text-content-bright">
                         {def.title}
                         {placed && (
-                          <Check size={14} aria-hidden className="text-[color:var(--accent-deep)]" />
+                          <Check size={14} aria-hidden className="text-(--accent-deep)" />
                         )}
                       </span>
                       <span className="mt-0.5 block text-xs text-content-mute">{def.blurb}</span>
@@ -188,7 +188,7 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
               step={0.01}
               value={props.frost}
               onChange={(e) => props.setFrost(Number(e.target.value))}
-              className="mt-2 w-full accent-[color:var(--accent)]"
+              className="mt-2 w-full accent-(--accent)"
             />
           </div>
 
@@ -242,7 +242,7 @@ function KernelPicker({
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search backdrops…"
         aria-label="Search backdrops"
-        className="mt-2 w-full rounded-md bg-mercury-wash px-token-3 py-1.5 text-sm text-content-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+        className="mt-2 w-full rounded-md bg-mercury-wash px-token-3 py-1.5 text-sm text-content-base outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)"
         style={{ border: "1px solid var(--color-glass-line)" }}
       />
       <div className="mt-2 grid max-h-[44vh] grid-cols-2 gap-2 overflow-y-auto pr-1">

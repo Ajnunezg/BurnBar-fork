@@ -36,15 +36,15 @@ const statusClass =
   </header>
   <p class="surface-card__blurb">{surface.description}</p>
   <ul class="surface-card__bullets">
-    {surface.bullets.map((b) => <li>{b}</li>)}
+    {surface.bullets.map((b) => (
+      <li>{b}</li>
+    ))}
   </ul>
-  {
-    surface.cta && (
-      <a href={surface.cta.href} class="surface-card__cta">
-        {surface.cta.label} <span aria-hidden="true">→</span>
-      </a>
-    )
-  }
+  {surface.cta && (
+    <a href={surface.cta.href} class="surface-card__cta">
+      {surface.cta.label} <span aria-hidden="true">→</span>
+    </a>
+  )}
 </article>
 
 <style>

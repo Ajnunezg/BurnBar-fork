@@ -511,7 +511,7 @@ export function ContributionHeatmap({
               key={`${m.x}-${m.label}`}
               x={m.x}
               y={10}
-              className="fill-[color:var(--color-text-dim)]"
+              className="fill-(--color-text-dim)"
               style={{ fontSize: 9, fontFamily: "var(--font-mono)" }}
             >
               {m.label}
@@ -522,7 +522,7 @@ export function ContributionHeatmap({
               key={d}
               x={0}
               y={TOP + (1 + i * 2) * STRIDE + CELL - 2}
-              className="fill-[color:var(--color-text-dim)]"
+              className="fill-(--color-text-dim)"
               style={{ fontSize: 9, fontFamily: "var(--font-mono)" }}
             >
               {d}

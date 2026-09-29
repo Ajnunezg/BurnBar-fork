@@ -58,9 +58,15 @@ const faqEntries = [
       </h1>
 
       <ul class="pagehead__chips mono" aria-label="Quick highlights">
-        <li><span class="dot dot--ember"></span> 127.0.0.1:8317 · local-only</li>
-        <li><span class="dot dot--ember"></span> two router modes · one daemon</li>
-        <li><span class="dot dot--mercury"></span> canonical model id · fail closed</li>
+        <li>
+          <span class="dot dot--ember"></span> 127.0.0.1:8317 · local-only
+        </li>
+        <li>
+          <span class="dot dot--ember"></span> two router modes · one daemon
+        </li>
+        <li>
+          <span class="dot dot--mercury"></span> canonical model id · fail closed
+        </li>
       </ul>
 
       <div class="pagehead__visual">
@@ -68,16 +74,23 @@ const faqEntries = [
       </div>
 
       <div class="pagehead__ctas">
-        <a class="btn btn--ember" href="/download"
-          >Download for macOS <span class="btn-arrow" aria-hidden="true">→</span></a
-        >
+        <a class="btn btn--ember" href="/download">
+          Download for macOS{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
         <a
           class="btn btn--ghost"
           href={`${SITE.github}/blob/main/docs/ROUTED_CLIENT_GATEWAY.md`}
           target="_blank"
-          rel="noopener noreferrer">Read the gateway doc</a
+          rel="noopener noreferrer"
         >
-        <a class="btn btn--ghost" href="/router/daily">See the latest rundown</a>
+          Read the gateway doc
+        </a>
+        <a class="btn btn--ghost" href="/router/daily">
+          See the latest rundown
+        </a>
       </div>
     </div>
   </section>
@@ -87,7 +100,9 @@ const faqEntries = [
     <div class="container container--wide">
       <header class="rules__head">
         <span class="eyebrow eyebrow--ember">The non-negotiable rule</span>
-        <h2 id="rules-h" class="rules__h">Your model in. Your model out. Every path.</h2>
+        <h2 id="rules-h" class="rules__h">
+          Your model in. Your model out. Every path.
+        </h2>
         <p class="rules__lead">
           Three things can happen to a request in flight. Watch what each one does — or refuses to
           do — to the model identity you asked for.
@@ -194,8 +209,8 @@ const faqEntries = [
           <span class="exactstep__num mono">02</span>
           <h3>Accept only exact catalog proof.</h3>
           <p>
-            Explicit <code>canonicalModelID</code> wins. Otherwise direct catalog IDs count. Wrapper families
-            count only when they have one unambiguous exact alias, like
+            Explicit <code>canonicalModelID</code> wins. Otherwise direct catalog IDs count. Wrapper
+            families count only when they have one unambiguous exact alias, like
             <code>factory-gpt-5.6-family</code> resolving to <code>gpt-5.6</code>.
           </p>
         </li>
@@ -234,7 +249,9 @@ const faqEntries = [
     <div class="container container--wide">
       <header class="wontdo__head">
         <span class="eyebrow eyebrow--burn">What BurnBar will not do</span>
-        <h2 id="wontdo-h" class="wontdo__h">Four bright lines we don't cross.</h2>
+        <h2 id="wontdo-h" class="wontdo__h">
+          Four bright lines we don't cross.
+        </h2>
         <p class="wontdo__lead">
           A router that's allowed to do anything is a router you can't predict. These are baked into
           the policy — code, not promises.
@@ -243,7 +260,9 @@ const faqEntries = [
 
       <ul class="wontdo__grid" role="list">
         <li class="wontno wontno--headline">
-          <span class="wontno__x" aria-hidden="true">✕</span>
+          <span class="wontno__x" aria-hidden="true">
+            ✕
+          </span>
           <div>
             <h3 class="wontno__h">Will not swap your model on failover.</h3>
             <p>
@@ -254,7 +273,9 @@ const faqEntries = [
           </div>
         </li>
         <li class="wontno">
-          <span class="wontno__x" aria-hidden="true">✕</span>
+          <span class="wontno__x" aria-hidden="true">
+            ✕
+          </span>
           <div>
             <h3 class="wontno__h">Will not collapse accounts into a generic quota pool.</h3>
             <p>
@@ -265,7 +286,9 @@ const faqEntries = [
           </div>
         </li>
         <li class="wontno">
-          <span class="wontno__x" aria-hidden="true">✕</span>
+          <span class="wontno__x" aria-hidden="true">
+            ✕
+          </span>
           <div>
             <h3 class="wontno__h">Will not log secrets.</h3>
             <p>
@@ -276,7 +299,9 @@ const faqEntries = [
           </div>
         </li>
         <li class="wontno">
-          <span class="wontno__x" aria-hidden="true">✕</span>
+          <span class="wontno__x" aria-hidden="true">
+            ✕
+          </span>
           <div>
             <h3 class="wontno__h">Will not treat benchmarks as absolute truth.</h3>
             <p>
@@ -301,18 +326,18 @@ const faqEntries = [
     <div class="container container--wide">
       <header class="qa__head">
         <span class="eyebrow eyebrow--ember">Quick answers</span>
-        <h2 id="qa-h" class="qa__h">The questions we get on every demo.</h2>
+        <h2 id="qa-h" class="qa__h">
+          The questions we get on every demo.
+        </h2>
       </header>
 
       <dl class="qa__list">
-        {
-          faqEntries.map((entry) => (
-            <div class="qa__item glass-pane">
-              <dt>{entry.q}</dt>
-              <dd set:html={entry.a.replace(/`([^`]+)`/g, "<code class='mono'>$1</code>")} />
-            </div>
-          ))
-        }
+        {faqEntries.map((entry) => (
+          <div class="qa__item glass-pane">
+            <dt>{entry.q}</dt>
+            <dd set:html={entry.a.replace(/`([^`]+)`/g, "<code class='mono'>$1</code>")} />
+          </div>
+        ))}
       </dl>
     </div>
   </section>
@@ -328,16 +353,23 @@ const faqEntries = [
         </p>
       </div>
       <div class="endcta__ctas">
-        <a class="btn btn--ember" href="/download"
-          >Download for macOS <span class="btn-arrow" aria-hidden="true">→</span></a
-        >
+        <a class="btn btn--ember" href="/download">
+          Download for macOS{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
         <a
           class="btn btn--ghost"
           href={`${SITE.github}/blob/main/docs/ROUTED_CLIENT_GATEWAY.md`}
           target="_blank"
-          rel="noopener noreferrer">Read the gateway doc</a
+          rel="noopener noreferrer"
         >
-        <a class="btn btn--ghost" href="/router/daily">Browse the daily rundown</a>
+          Read the gateway doc
+        </a>
+        <a class="btn btn--ghost" href="/router/daily">
+          Browse the daily rundown
+        </a>
       </div>
     </div>
   </section>

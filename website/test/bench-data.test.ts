@@ -222,7 +222,8 @@ describe("C1 — cells_measured is a trial count, and the pages say so", () => {
     let sites = 0;
     for (const match of src.matchAll(RENDERED)) {
       sites += 1;
-      const after = match[1] ?? "";
+      // `{" "}` is the formatter's explicit rendered space before a line break.
+      const after = (match[1] ?? "").replace(/^\s*\{" "\}/, "");
       // The noun immediately following the number must be "trials".
       expect(after.trimStart(), `${_name}: trial count labelled wrong`).toMatch(
         /^(?:measured\s+)?trials\b/

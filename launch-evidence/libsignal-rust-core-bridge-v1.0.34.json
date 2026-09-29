@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "status": "passed",
-  "generatedAt": "2026-09-27T20:35:13Z",
+  "generatedAt": "2026-09-28T07:30:55Z",
   "privacy": "proof_only_no_plaintext_keys_or_user_data",
   "candidateReleaseTag": "v1.0.34",
-  "testedSourceCommit": "a18e972b4ecd66b9d2b2aed90dcb88178c30fb76",
+  "testedSourceCommit": "9273653ec553ce6a10a396e86fd1482aac267eca",
   "artifactDigests": [
     {
       "path": "OpenBurnBarCore/Package.swift",
-      "sha256": "d274d8f570eaf32112206f3a72e61721d6cf1c7f9831515c40f18ded84769d59"
+      "sha256": "19aff59febd59469a778becb956097d14efd4b569a4e362a3787f1c8b3b371ba"
     },
     {
       "path": "OpenBurnBarCore/Sources/OpenBurnBarSignalCore/CloudVaultDeviceTrustChain.swift",
@@ -96,7 +96,7 @@
     },
     {
       "path": "Vendor/libsignal/rust/bridge/ffi/Cargo.toml",
-      "sha256": "c4ca41657c04fb0a76d8265f306300f87c29dd71b6dbf19186acde4cb07f2e71"
+      "sha256": "94111501fd3a95085f1ee41c8f7b000770ea07dd6434b37d1473bb74b04e3295"
     },
     {
       "path": "Vendor/libsignal/rust/bridge/jni/Cargo.toml",
@@ -104,11 +104,11 @@
     },
     {
       "path": "Vendor/libsignal/rust/bridge/node/Cargo.toml",
-      "sha256": "a51e3d031a9d1398c11d0bc4f9092a6a245546acb93910b6ad6ec6987e2de00f"
+      "sha256": "a01e520f1f1bf4e1d96a9e233d891660a8f8c13e3af0a3079994f2335339c139"
     },
     {
       "path": "Vendor/libsignal/rust/bridge/shared/Cargo.toml",
-      "sha256": "c115d26fb97b62292a4181c415febf2e62e01c65199493fa20c43e9fd3468f8e"
+      "sha256": "c7c33cb676ca42e0c2d8e860cd718208e2a9c84de8ebb2c52525af57f0b1ca2e"
     },
     {
       "path": "Vendor/libsignal/swift/Package.swift",
@@ -116,7 +116,7 @@
     },
     {
       "path": "android/app/build.gradle.kts",
-      "sha256": "8fab8f1c53aa010202b5bff5ee766c30ed4422d3db8f0819d539510c8fb52759"
+      "sha256": "df3ef86cd32d40a1d1c0ed4e7b5d4069bbab19104f40020f151d848a775f064b"
     },
     {
       "path": "android/app/src/main/java/com/openburnbar/data/cloud/AndroidCloudVaultSignalPayloads.kt",
@@ -176,19 +176,19 @@
     },
     {
       "path": "packages/libsignal-bridge/package-lock.json",
-      "sha256": "395613010ac78356a981a0384b241bea3411852f8de2ddfb59f4f4ecbe962783"
+      "sha256": "98f937068ef4bb6de1af9e99bad8d9903f0c76c5d7542f506e69945b01ce6048"
     },
     {
       "path": "packages/libsignal-bridge/package.json",
-      "sha256": "154abbf4f3681a94d701b1823d4aacd3b7a477df31bee0eadbf4a66b7bb1e5a4"
+      "sha256": "a5b86991f60ed9ed28fbbe3bc805639c1d08e18f3bb4d9aee6f36af944303a11"
     },
     {
       "path": "packages/libsignal-bridge/src/index.test.ts",
-      "sha256": "dda5f720cd9ddbaadc2bca595c67d5474f5e00f5b9ccd88f5b2e218f93261862"
+      "sha256": "e5be19ded4e47cce82bf3e4298aa4575c56236a0fce315c16fc23b9b24b29e33"
     },
     {
       "path": "packages/libsignal-bridge/src/index.ts",
-      "sha256": "0e40df4a7055adc048e6eb3cb1fb19a7f6ae4c6c54601cb314fac4f5240b9f47"
+      "sha256": "dbc6384d5517fbe26d32946b90abef3632a01fb68cc19b5246bbf91653fedda5"
     },
     {
       "path": "packages/libsignal-bridge/src/protocolHarness.test.ts",
@@ -200,7 +200,7 @@
     },
     {
       "path": "packages/libsignal-bridge/tsconfig.json",
-      "sha256": "f29a47449fef7c94e5bfb518fdac8e2d592a5ea7ef4979793b4a58e7149e0438"
+      "sha256": "2fd234d99fc985a36e95d7a9cc124fe214c3931c7a6e87e96e37321ea042d5e3"
     },
     {
       "path": "scripts/ci/verify-libsignal-pin.sh",
@@ -212,20 +212,20 @@
     },
     {
       "path": "third_party/libsignal/manifest.json",
-      "sha256": "4e6db382c37f11a83cdb1fdfefab42a5eb9e89fb5872ef306e11c4d5bcb7844c"
+      "sha256": "4691ac67b61f9de61934f8771ee63e4616a77648efcf391206a5dffd3a8b7c43"
     }
   ],
   "officialLibsignalPin": {
-    "tag": "v0.94.4",
-    "tagObject": "03c449017b57eccbda715b8b018dce5dff603ac6",
-    "commit": "46d867c986f66201e34e7ae20ce423eec742bf3f"
+    "tag": "v0.103.0",
+    "tagObject": "6c573a122a5e1055408d7de00388ac9d6e7dfdf4",
+    "commit": "ba133bd3457f556fbf56db0a5ab985de0af79da6"
   },
   "integrityProofs": [
     {
       "id": "pin_metadata",
       "status": "passed",
-      "command": "bash scripts/ci/verify-libsignal-pin.sh",
-      "result": "PASS: libsignal pin metadata is internally consistent",
+      "command": "bash scripts/ci/verify-libsignal-pin.sh && bash scripts/ci/verify-libsignal-pin.sh --network",
+      "result": "PASS: libsignal pin metadata is internally consistent; PASS: libsignal pin is authentic against upstream Git, pinned npm metadata, and pinned Signal Maven artifacts",
       "artifactPaths": [
         "scripts/ci/verify-libsignal-pin.sh",
         "third_party/libsignal/manifest.json"
@@ -235,7 +235,7 @@
       "id": "fork_delta",
       "status": "passed",
       "command": "bash scripts/ci/verify-libsignal-submodule-delta.sh",
-      "result": "OK: Vendor/libsignal fork delta vs official 46d867c986f66201e34e7ae20ce423eec742bf3f is allow-listed (build-only): swift/Package.swift, swift/Sources/LibSignalClient/AsyncUtils.swift, swift/Sources/LibSignalClient/TokioAsyncContext.swift, swift/Sources/LibSignalClient/chat/UnauthUsernamesService.swift. No Rust, JNI, or Node crypto-core divergence.",
+      "result": "OK: Vendor/libsignal fork delta vs official ba133bd3457f556fbf56db0a5ab985de0af79da6 is allow-listed (build-only): swift/Package.swift, swift/Sources/LibSignalClient/AsyncUtils.swift, swift/Sources/LibSignalClient/TokioAsyncContext.swift. No Rust, JNI, or Node crypto-core divergence.",
       "artifactPaths": [
         "Vendor/libsignal/rust/bridge/ffi/Cargo.toml",
         "Vendor/libsignal/rust/bridge/jni/Cargo.toml",
@@ -250,8 +250,8 @@
     "swift": {
       "status": "passed",
       "bridge": "official libsignal Rust shared bridge through the Swift FFI package",
-      "command": "SIGNAL_FFI_BUILD_TARGETS=aarch64-apple-darwin SIGNAL_FFI_BUILD_PROFILE=debug bash scripts/lib/prepare-signal-ffi-xcframework.sh && swift test --package-path OpenBurnBarCore --scratch-path /tmp/obb-release-rust-bridge-swift --manifest-cache none --disable-swift-testing --filter OpenBurnBarSignalCoreTests",
-      "result": "26 tests executed, 1 intentionally skipped fixture generator, 0 failures. The Signal FFI XCFramework must be prepared before the first swift invocation and the manifest cache bypassed, because Package.swift probes for Vendor/OpenBurnBarSignalFfiMac.xcframework at manifest-evaluation time; a cached manifest from an unprepared tree links no libsignal_ffi and fails.",
+      "command": "SIGNAL_FFI_BUILD_TARGETS=aarch64-apple-darwin SIGNAL_FFI_BUILD_PROFILE=debug bash scripts/lib/prepare-signal-ffi-xcframework.sh && swift test --package-path OpenBurnBarCore --scratch-path /Volumes/DevSSD/BuildCache/deps-swift-signal/core --manifest-cache none --disable-swift-testing --filter OpenBurnBarSignalCoreTests",
+      "result": "26 tests executed, 1 intentionally skipped fixture generator, 0 failures, against the official v0.103.0 Rust shared bridge (fork 2c39c2601ce5e8c73326db037007fd294121e239) with swift-crypto 5.0.0. OBBSignalInteropKatTests opens the committed v0.94.4-generated android-alice-to-swift-bob vector unchanged, and also a freshly generated v0.103.0 Android vector (not committed). The Signal FFI XCFramework must be prepared before the first swift invocation and the manifest cache bypassed, because Package.swift probes for Vendor/OpenBurnBarSignalFfiMac.xcframework at manifest-evaluation time; a cached manifest from an unprepared tree links no libsignal_ffi and fails.",
       "artifactPaths": [
         "OpenBurnBarCore/Package.swift",
         "OpenBurnBarCore/Sources/OpenBurnBarSignalCore/CloudVaultDeviceTrustChain.swift",
@@ -282,9 +282,9 @@
     },
     "kotlinAndroid": {
       "status": "passed",
-      "bridge": "official libsignal Rust shared bridge through org.signal JNI 0.94.4",
-      "command": "cd android && ANDROID_HOME=\"$HOME/Library/Android/sdk\" ./gradlew :app:testDebugUnitTest --tests '*AndroidSignalSession*' --tests '*AndroidSignalInteropKatTest' --tests '*AndroidCloudVaultSignalPayloadsTest' --tests '*AndroidSignalIdentityKeyStoreTest' --no-daemon",
-      "result": "BUILD SUCCESSFUL; 6 selected classes executed 31 tests with 0 skipped, 0 failures, 0 errors (AndroidCloudVaultSignalPayloadsTest 18, AndroidSignalIdentityKeyStoreTest 3, AndroidSignalInteropKatTest 2, AndroidSignalSessionManagerFrameValidationTest 4, AndroidSignalSessionOverIrohTest 2, AndroidSignalSessionRoundTripTest 2)",
+      "bridge": "official libsignal Rust shared bridge through org.signal JNI 0.103.0",
+      "command": "cd android && ANDROID_HOME=\"$HOME/Library/Android/sdk\" ./gradlew :app:testDebugUnitTest --tests '*AndroidSignalSession*' --tests '*AndroidSignalInteropKatTest' --tests '*AndroidSignalReverseInteropKatTest' --tests '*AndroidCloudVaultSignalPayloadsTest' --tests '*AndroidSignalIdentityKeyStoreTest' --no-daemon",
+      "result": "BUILD SUCCESSFUL; 7 selected classes executed 32 tests with 0 skipped, 0 failures, 0 errors (AndroidCloudVaultSignalPayloadsTest 18, AndroidSignalIdentityKeyStoreTest 3, AndroidSignalInteropKatTest 2, AndroidSignalReverseInteropKatTest 1, AndroidSignalSessionManagerFrameValidationTest 4, AndroidSignalSessionOverIrohTest 2, AndroidSignalSessionRoundTripTest 2) at org.signal 0.103.0. AndroidSignalInteropKatTest also passes (2/2) against a freshly generated v0.103.0 Swift vector (not committed).",
       "artifactPaths": [
         "Vendor/libsignal/rust/bridge/jni/Cargo.toml",
         "Vendor/libsignal/rust/bridge/shared/Cargo.toml",
@@ -307,9 +307,9 @@
     },
     "node": {
       "status": "passed",
-      "bridge": "official libsignal Rust shared bridge through @signalapp/libsignal-client 0.94.4",
-      "command": "npm test --prefix packages/libsignal-bridge",
-      "result": "5 tests passed, 0 failures",
+      "bridge": "official libsignal Rust shared bridge through @signalapp/libsignal-client 0.103.0",
+      "command": "npm test --prefix packages/libsignal-bridge && bash scripts/ci/verify-signal-cross-device-kats.sh",
+      "result": "5 tests passed, 0 failures; Signal cross-device KATs passed (reverse-interop fixture byte-identity, crypto-proof harness 26/26 including the v0.94.4-sealed HPKE vector opening at 0.103.0, signal-envelope-contracts 12/12)",
       "artifactPaths": [
         "Vendor/libsignal/rust/bridge/node/Cargo.toml",
         "Vendor/libsignal/rust/bridge/shared/Cargo.toml",

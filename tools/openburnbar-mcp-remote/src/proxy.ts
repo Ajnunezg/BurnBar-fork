@@ -242,7 +242,8 @@ export function parseProxyCliOptions(
         token = readSecureTokenFile(tokenFilePath);
       } catch (error) {
         throw new Error(
-          `error: could not read token file "${tokenFilePath}": ${error instanceof Error ? error.message : String(error)}`
+          `error: could not read token file "${tokenFilePath}": ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error }
         );
       }
       index += 1;

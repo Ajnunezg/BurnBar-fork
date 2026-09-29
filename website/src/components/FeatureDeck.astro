@@ -38,31 +38,25 @@ const {
   role="list"
   aria-label={ariaLabel}
 >
-  {
-    items.map((item, i) => (
-      <article
-        class={`frow ${i % 2 === 1 ? "frow--flip" : ""}`}
-        role="listitem"
-        data-animate-onview
-      >
-        <div class="frow__visual">
-          {item.num && (
-            <span class="frow__ghost mono" aria-hidden="true">
-              {item.num}
-            </span>
-          )}
-          <div class="frow__art">
-            <FeatureVignette id={item.art} />
-          </div>
+  {items.map((item, i) => (
+    <article class={`frow ${i % 2 === 1 ? "frow--flip" : ""}`} role="listitem" data-animate-onview>
+      <div class="frow__visual">
+        {item.num && (
+          <span class="frow__ghost mono" aria-hidden="true">
+            {item.num}
+          </span>
+        )}
+        <div class="frow__art">
+          <FeatureVignette id={item.art} />
         </div>
-        <div class="frow__copy">
-          {item.num && <span class="frow__num mono">{item.num}</span>}
-          <h3 class="frow__title">{item.title}</h3>
-          <p class="frow__body">{item.body}</p>
-        </div>
-      </article>
-    ))
-  }
+      </div>
+      <div class="frow__copy">
+        {item.num && <span class="frow__num mono">{item.num}</span>}
+        <h3 class="frow__title">{item.title}</h3>
+        <p class="frow__body">{item.body}</p>
+      </div>
+    </article>
+  ))}
 </div>
 
 <script>

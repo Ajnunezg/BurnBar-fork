@@ -34,11 +34,10 @@ import { LIBSIGNAL_ROLLOUT_STATUS } from "@data/crypto-claims.generated";
             <h3>Local user impersonation of the daemon RPC</h3>
             <p>
               The daemon socket is a UNIX socket under your home directory with filesystem ACLs set
-              to <code>0o600</code>. Every RPC requires an auth token; the token is passed via <code
-                >launchd</code
-              >
-              <code>EnvironmentVariables</code>, not CLI args — keeping it out of <code>ps aux</code
-              >. The plist itself is <code>0o600</code>.
+              to <code>0o600</code>. Every RPC requires an auth token; the token is passed via{" "}
+              <code>launchd</code>
+              <code>EnvironmentVariables</code>, not CLI args — keeping it out of{" "}
+              <code>ps aux</code>. The plist itself is <code>0o600</code>.
             </p>
           </div>
         </li>
@@ -59,9 +58,9 @@ import { LIBSIGNAL_ROLLOUT_STATUS } from "@data/crypto-claims.generated";
             <h3>Unauthorized cloud access</h3>
             <p>
               Firestore is gated by Firebase Auth, owner-scoped rules per
-              <code>users/&#123;uid&#125;/…</code>, a secret-field-name denylist (<code>apiKey</code
-              >, <code>token</code>, <code>cookie</code>,
-              <code>credential</code>, …), and Firebase App Check attestation.
+              <code>users/&#123;uid&#125;/…</code>, a secret-field-name denylist (
+              <code>apiKey</code>, <code>token</code>, <code>cookie</code>,<code>credential</code>,
+              …), and Firebase App Check attestation.
               <code>provider_account_secret_refs</code> is server-only — all client reads denied.
             </p>
           </div>
@@ -73,8 +72,8 @@ import { LIBSIGNAL_ROLLOUT_STATUS } from "@data/crypto-claims.generated";
             <p>
               Every JWS receipt is verified server-side against a vendored set of Apple root CAs,
               pinned by SHA-256. The
-              <code>appAccountToken</code> is a UUID bound to your Firebase UID. Entitlement state is
-              re-reconciled against
+              <code>appAccountToken</code> is a UUID bound to your Firebase UID. Entitlement state
+              is re-reconciled against
               <code>getAllSubscriptionStatuses</code>.
             </p>
           </div>
@@ -112,8 +111,9 @@ import { LIBSIGNAL_ROLLOUT_STATUS } from "@data/crypto-claims.generated";
           you need vendor-side pinning, this is on the candidate list.
         </li>
         <li>
-          <strong>The optional Cursor connector tunnel</strong> routes BYOK traffic through Cloudflare
-          when you turn it on. This is the only way today to land Cursor BYOK on a localhost endpoint.
+          <strong>The optional Cursor connector tunnel</strong> routes BYOK traffic through
+          Cloudflare when you turn it on. This is the only way today to land Cursor BYOK on a
+          localhost endpoint.
         </li>
         <li>
           <strong>iCloud uses your Apple ID</strong>, not our infrastructure. Conflict copies can
@@ -125,8 +125,8 @@ import { LIBSIGNAL_ROLLOUT_STATUS } from "@data/crypto-claims.generated";
           publishing.
         </li>
         <li>
-          <strong>Sentry diagnostics</strong> (opt-in) anonymizes the user ID via a hash seeded from the
-          bundle ID and full user name. Not direct PII, but worth knowing.
+          <strong>Sentry diagnostics</strong> (opt-in) anonymizes the user ID via a hash seeded from
+          the bundle ID and full user name. Not direct PII, but worth knowing.
         </li>
       </ul>
     </div>
@@ -140,11 +140,11 @@ import { LIBSIGNAL_ROLLOUT_STATUS } from "@data/crypto-claims.generated";
       </header>
       <p>
         We pinned Signal's official open-source library for device-to-device lanes and at-rest
-        sealing. Today it is {LIBSIGNAL_ROLLOUT_STATUS} — per-domain flag, default off, staged rollout,
-        instant revert. The phone ⇄ gateway lane already runs our own hardened encrypted seal with pinned
-        keys and forward secrecy; at the gateway that seal is opened to run the model — it protects the
-        path, not the prompt from us. The claim-by-claim version, including what we don't claim, lives
-        on the trust page.
+        sealing. Today it is {LIBSIGNAL_ROLLOUT_STATUS} — per-domain flag, default off, staged
+        rollout, instant revert. The phone ⇄ gateway lane already runs our own hardened encrypted
+        seal with pinned keys and forward secrecy; at the gateway that seal is opened to run the
+        model — it protects the path, not the prompt from us. The claim-by-claim version, including
+        what we don't claim, lives on the trust page.
       </p>
       <p class="cryptoroad__link">
         <a href="/trust">Read it. Don't just trust it. → burnbar.ai/trust</a>
@@ -160,17 +160,22 @@ import { LIBSIGNAL_ROLLOUT_STATUS } from "@data/crypto-claims.generated";
       </header>
       <ul class="releasechain__list">
         <li>
-          <strong>Signed and notarized</strong> with a Developer ID, stapled. <code>spctl</code> verifies
-          on Gatekeeper-enabled Macs.
+          <strong>Signed and notarized</strong> with a Developer ID, stapled. <code>spctl</code>{" "}
+          verifies on Gatekeeper-enabled Macs.
         </li>
         <li>
-          <strong>SHA-256 and SHA-512 checksums</strong> are published next to each release artifact.
+          <strong>SHA-256 and SHA-512 checksums</strong> are published next to each release
+          artifact.
         </li>
-        <li><strong>Optional GPG-signed checksum file</strong> for stronger chain of trust.</li>
-        <li><strong>SPDX SBOM</strong> per release.</li>
         <li>
-          <strong>Release-metadata JSON</strong> with build commit, build date, and verified artifact
-          hashes.
+          <strong>Optional GPG-signed checksum file</strong> for stronger chain of trust.
+        </li>
+        <li>
+          <strong>SPDX SBOM</strong> per release.
+        </li>
+        <li>
+          <strong>Release-metadata JSON</strong> with build commit, build date, and verified
+          artifact hashes.
         </li>
       </ul>
     </div>
@@ -183,16 +188,15 @@ import { LIBSIGNAL_ROLLOUT_STATUS } from "@data/crypto-claims.generated";
         <h2>If you find something, tell us.</h2>
       </header>
       <p class="lead">
-        Email <a href={`mailto:${SITE.privacyContact}`}>{SITE.privacyContact}</a> with a description of
-        the issue. Please don't open public GitHub issues for active vulnerabilities — give us a chance
-        to fix them first.
+        Email <a href={`mailto:${SITE.privacyContact}`}>{SITE.privacyContact}</a> with a description
+        of the issue. Please don't open public GitHub issues for active vulnerabilities — give us a
+        chance to fix them first.
       </p>
       <p class="muted">
-        See the full <a
-          href={`${SITE.github}/blob/main/SECURITY.md`}
-          target="_blank"
-          rel="noopener noreferrer">SECURITY.md</a
-        >
+        See the full{" "}
+        <a href={`${SITE.github}/blob/main/SECURITY.md`} target="_blank" rel="noopener noreferrer">
+          SECURITY.md
+        </a>
         for the canonical disclosure policy.
       </p>
     </div>

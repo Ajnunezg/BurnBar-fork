@@ -138,7 +138,7 @@ export function EscrowFlow({
           />
         </ol>
 
-        {error && <p className="text-xs text-[color:var(--color-seal-crimson)]">{error}</p>}
+        {error && <p className="text-xs text-seal-crimson">{error}</p>}
 
         <div className="flex flex-wrap items-center gap-token-2">
           {(step === "idle" || step === "error") && (

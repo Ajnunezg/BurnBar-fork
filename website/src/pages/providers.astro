@@ -29,17 +29,15 @@ const primaryCount = PROVIDERS_PRIMARY.length;
   <section class="legend" aria-label="Confidence legend">
     <div class="container">
       <ol class="legend__grid">
-        {
-          confidenceKeys.map((k) => (
-            <li class={`legend__card legend__card--${k} glass-pane`}>
-              <header>
-                <span class={`tag tag--plain mono tag--${k}`}>{k}</span>
-              </header>
-              <h3>{CONFIDENCE_LABEL[k]}</h3>
-              <p>{CONFIDENCE_BLURB[k]}</p>
-            </li>
-          ))
-        }
+        {confidenceKeys.map((k) => (
+          <li class={`legend__card legend__card--${k} glass-pane`}>
+            <header>
+              <span class={`tag tag--plain mono tag--${k}`}>{k}</span>
+            </header>
+            <h3>{CONFIDENCE_LABEL[k]}</h3>
+            <p>{CONFIDENCE_BLURB[k]}</p>
+          </li>
+        ))}
       </ol>
     </div>
   </section>
@@ -66,12 +64,13 @@ const primaryCount = PROVIDERS_PRIMARY.length;
           </header>
           <p>
             Each row below lists which models that account carries. Failover only considers other
-            rows that <strong>list the same model you asked for</strong> — MiniMax or Kimi only handle
-            traffic for the models they actually carry, never a generic OpenAI-shape stand-in. The wire-format
-            family (OpenAI-shape, Anthropic-shape) is the outer boundary; the model id is the inner one.
-            Exact Model Failover can widen the provider/account search, but only after the destination
-            row proves the same canonical model ID. If no row survives the proof gate, the gateway returns
-            a structured 503 — never a stealth swap into a different model.
+            rows that <strong>list the same model you asked for</strong> — MiniMax or Kimi only
+            handle traffic for the models they actually carry, never a generic OpenAI-shape
+            stand-in. The wire-format family (OpenAI-shape, Anthropic-shape) is the outer boundary;
+            the model id is the inner one. Exact Model Failover can widen the provider/account
+            search, but only after the destination row proves the same canonical model ID. If no row
+            survives the proof gate, the gateway returns a structured 503 — never a stealth swap
+            into a different model.
           </p>
         </li>
         <li class="accountrouting__card accountrouting__card--account glass-pane">
@@ -150,14 +149,15 @@ const primaryCount = PROVIDERS_PRIMARY.length;
         <li>
           <h4>Z.ai endpoint</h4>
           <p>
-            The BigModel <code>monitor/usage/quota/limit</code> endpoint is undocumented. It works today
-            and returns clean numbers; the vendor can change it tomorrow.
+            The BigModel <code>monitor/usage/quota/limit</code> endpoint is undocumented. It works
+            today and returns clean numbers; the vendor can change it tomorrow.
           </p>
         </li>
         <li>
           <h4>Warp</h4>
           <p>
-            Requires a spoofed <code>User-Agent</code> upstream — Warp's edge limiter returns 429 otherwise.
+            Requires a spoofed <code>User-Agent</code> upstream — Warp's edge limiter returns 429
+            otherwise.
           </p>
         </li>
         <li>
@@ -201,7 +201,10 @@ const primaryCount = PROVIDERS_PRIMARY.length;
           target="_blank"
           rel="noopener noreferrer"
         >
-          Open a GitHub issue <span class="btn-arrow" aria-hidden="true">→</span>
+          Open a GitHub issue{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
         <a
           class="btn btn--ghost"

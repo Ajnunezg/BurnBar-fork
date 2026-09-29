@@ -121,7 +121,7 @@ export function hashTraySources(sourceDir: string, triple = hostTriple()): strin
 }
 
 async function defaultCompile(input: TrayCompileInput): Promise<void> {
-  let sdk = "";
+  let sdk: string;
   try {
     const { stdout } = await execFileAsync("xcrun", ["--sdk", "macosx", "--show-sdk-path"], {
       encoding: "utf8",

@@ -108,7 +108,7 @@ export function CommandPalette({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           aria-label="Command palette"
           className="glass-pane glass-pane--elevated fixed left-1/2 top-[14vh] z-50 w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 overflow-hidden p-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
@@ -129,7 +129,7 @@ export function CommandPalette({
               }}
               placeholder="Jump to a page, theme, or action…"
               aria-label="Search destinations and actions"
-              className="w-full bg-transparent text-sm text-content-bright outline-none placeholder:text-content-dim"
+              className="w-full bg-transparent text-sm text-content-bright outline-hidden placeholder:text-content-dim"
             />
             <kbd className="folio shrink-0 rounded border border-glass-line px-1.5 py-0.5">esc</kbd>
           </div>
@@ -159,7 +159,7 @@ export function CommandPalette({
                         className={cn(
                           "flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13.5px] transition-colors duration-100",
                           index === selected
-                            ? "bg-[color:var(--accent-wash)] text-content-bright"
+                            ? "bg-(--accent-wash) text-content-bright"
                             : "text-content-mute",
                         )}
                       >
@@ -168,7 +168,7 @@ export function CommandPalette({
                             size={15}
                             strokeWidth={1.8}
                             aria-hidden
-                            className={index === selected ? "text-[color:var(--accent)]" : "opacity-70"}
+                            className={index === selected ? "text-(--accent)" : "opacity-70"}
                           />
                         )}
                         <span className="flex-1">{entry.label}</span>

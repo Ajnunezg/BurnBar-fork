@@ -39,73 +39,67 @@ const defaultLede = `Your menu bar is one surface. Your Nest Hub on the kitchen 
   aria-label="OpenBurnBar smart-display platforms"
 >
   <div class="container container--wide">
-    {
-      variant === "hero" && (
-        <header class="platform__head sec-head">
-          <span class="eyebrow eyebrow--ember">{eyebrow ?? defaultEyebrow}</span>
-          <h2 class="platform__h">{heading ?? defaultHeading}</h2>
-          <p class="lead">{lede ?? defaultLede}</p>
-        </header>
-      )
-    }
+    {variant === "hero" && (
+      <header class="platform__head sec-head">
+        <span class="eyebrow eyebrow--ember">{eyebrow ?? defaultEyebrow}</span>
+        <h2 class="platform__h">{heading ?? defaultHeading}</h2>
+        <p class="lead">{lede ?? defaultLede}</p>
+      </header>
+    )}
 
     <div class="platform__grid">
-      {
-        PLATFORM_DEVICES.map((device: PlatformDevice) => {
-          const surface = surfaceForDevice(device);
-          return (
-            <article
-              class={`platform__card platform__card--${device.id}`}
-              id={`platform-${device.id}`}
-            >
-              <header class="platform__cardhead">
-                <span class="platform__pill mono">{surface?.statusLabel ?? "shipping"}</span>
-                <h3 class="platform__cardh">{device.name}</h3>
-                <p class="platform__formfactor mono">{device.formFactor}</p>
-              </header>
+      {PLATFORM_DEVICES.map((device: PlatformDevice) => {
+        const surface = surfaceForDevice(device);
+        return (
+          <article
+            class={`platform__card platform__card--${device.id}`}
+            id={`platform-${device.id}`}
+          >
+            <header class="platform__cardhead">
+              <span class="platform__pill mono">{surface?.statusLabel ?? "shipping"}</span>
+              <h3 class="platform__cardh">{device.name}</h3>
+              <p class="platform__formfactor mono">{device.formFactor}</p>
+            </header>
 
-              <div class="platform__stage">
-                <DeviceFrame kind={device.mockup} label={`${device.name} running OpenBurnBar`}>
-                  {device.mockup === "nest-hub" && <NestHubScreen id={`nest-${device.id}`} />}
-                  {device.mockup === "ulanzi-tc001" && (
-                    <PixelMatrix id={`ulanzi-${device.id}`} layout="quotaCarousel" />
-                  )}
-                </DeviceFrame>
-              </div>
+            <div class="platform__stage">
+              <DeviceFrame kind={device.mockup} label={`${device.name} running OpenBurnBar`}>
+                {device.mockup === "nest-hub" && <NestHubScreen id={`nest-${device.id}`} />}
+                {device.mockup === "ulanzi-tc001" && (
+                  <PixelMatrix id={`ulanzi-${device.id}`} layout="quotaCarousel" />
+                )}
+              </DeviceFrame>
+            </div>
 
-              <p class="platform__blurb">{device.blurb}</p>
+            <p class="platform__blurb">{device.blurb}</p>
 
-              <ul class="platform__bullets">
-                {device.marqueeBullets.map((b) => (
-                  <li>{b}</li>
-                ))}
-              </ul>
+            <ul class="platform__bullets">
+              {device.marqueeBullets.map((b) => (
+                <li>{b}</li>
+              ))}
+            </ul>
 
-              <footer class="platform__cardfoot">
-                <a
-                  class="platform__cta"
-                  href={device.setupHref}
-                  target={device.setupHref.startsWith("http") ? "_blank" : undefined}
-                  rel={device.setupHref.startsWith("http") ? "noopener noreferrer" : undefined}
-                >
-                  {device.setupLabel}
-                  <span aria-hidden="true">→</span>
-                </a>
-                {device.caption && <span class="platform__caption mono">{device.caption}</span>}
-              </footer>
-            </article>
-          );
-        })
-      }
+            <footer class="platform__cardfoot">
+              <a
+                class="platform__cta"
+                href={device.setupHref}
+                target={device.setupHref.startsWith("http") ? "_blank" : undefined}
+                rel={device.setupHref.startsWith("http") ? "noopener noreferrer" : undefined}
+              >
+                {device.setupLabel}
+                <span aria-hidden="true">→</span>
+              </a>
+              {device.caption && <span class="platform__caption mono">{device.caption}</span>}
+            </footer>
+          </article>
+        );
+      })}
     </div>
 
-    {
-      variant === "compact" && (
-        <p class="platform__deepcta mono">
-          <a href="/platforms">See every BurnBar surface →</a>
-        </p>
-      )
-    }
+    {variant === "compact" && (
+      <p class="platform__deepcta mono">
+        <a href="/platforms">See every BurnBar surface →</a>
+      </p>
+    )}
   </div>
 </section>
 
