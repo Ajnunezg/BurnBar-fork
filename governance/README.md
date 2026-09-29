@@ -115,6 +115,21 @@ request. For an exact-head deletion approval, rerun the trusted check manually
 after approval; do not add a candidate-controlled `pull_request_review`
 trigger.
 
+### Main-red Circuit Breaker Mode
+
+`burnbar-ci-gate.json` `circuitBreaker.mode` stays `observe` (decided 2026-09-28).
+The breaker reads only the latest `main` App PR Gate verdict (the bounded smoke
+catalog, Lab and iOS). That verdict was red on every scheduled run from 09-22 to
+09-26 (`8afc862e46`) and has been green on the 7 runs since `32b5d9bafa`. Two
+days of green is too thin a sample to block every merge on it. The broader
+nightly App XCTest corpus that shows what else is red on main is not a breaker
+input. The diligence-85 fold fixes 23 of its 25 deterministic failures on
+`99c2049e4b`; that proof ran on a local Mac and still needs a nightly run. The
+other two, the Factory per-window-cap tests, wait on a product decision.
+Flip to `enforce` after the fold lands, once the App PR Gate main verdict has 7
+consecutive green days and a nightly App XCTest run is green or its reds are
+quarantined with a dated owner. `Ajnunezg` is the override actor.
+
 ## Drift Check
 
 The `branch-protection-drift` job in
