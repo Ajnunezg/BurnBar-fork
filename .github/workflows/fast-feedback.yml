@@ -804,6 +804,11 @@ jobs:
       - name: Check schema sync drift + TypeSpec canon
         run: ./tools/schema-sync/check-drift.sh
 
+      # check-drift.sh runs the mobile-parity checkers; their negative
+      # controls ran nowhere (one had rotted onto a moved generated file).
+      - name: Self-test mobile-parity checkers
+        run: node --test scripts/mobile-parity/*.test.mjs
+
   # ── Wiki / Pensieve verbatim chunker parity ──────────────────────────────
   chunker-parity:
     name: Verbatim chunker parity (wiki + Pensieve)
