@@ -4,9 +4,9 @@
 --
 -- Source of truth: OpenBurnBarDatabase.migrator (OpenBurnBarCore/Sources/OpenBurnBarData).
 -- Database file (production): ~/Library/Application Support/OpenBurnBar/openburnbar.sqlite
--- migrationEndpoint: v70_agent_memories_index_backfill
--- migrationCount: 71
--- schemaHashSHA256: acece1bef6035403c38d38468f101b3ed8e0cf609865b18a6bfeb56803453f96 (sha256 over trimmed sqlite_master DDL ordered by type,name;
+-- migrationEndpoint: v71_token_usage_pricing_provenance
+-- migrationCount: 72
+-- schemaHashSHA256: 7734187254d0937c34c2038b08bab3b84330f26e59b2811c7b689c9dbd631127 (sha256 over trimmed sqlite_master DDL ordered by type,name;
 --   same algorithm as the DB byte-compat vector — the two MUST agree).
 --
 -- Statements are the verbatim `sql` sqlite recorded, ordered by (type, name).
@@ -1082,7 +1082,7 @@ CREATE TABLE text_expansion_snippets (
 );
 
 -- ── table token_usage ── (introduced: v1_initial)
-CREATE TABLE "token_usage" ("id" TEXT PRIMARY KEY, "provider" TEXT NOT NULL, "sessionId" TEXT NOT NULL, "projectName" TEXT NOT NULL, "model" TEXT NOT NULL, "inputTokens" INTEGER NOT NULL, "outputTokens" INTEGER NOT NULL, "cacheCreationTokens" INTEGER NOT NULL, "cacheReadTokens" INTEGER NOT NULL, "totalTokens" INTEGER NOT NULL, "cost" DOUBLE NOT NULL, "startTime" DATETIME NOT NULL, "endTime" DATETIME NOT NULL, "createdAt" DATETIME NOT NULL, "syncedAt" DATETIME, "sourceDeviceId" TEXT, "sourceDeviceName" TEXT, "isRemote" INTEGER NOT NULL DEFAULT 0, "reasoningTokens" INTEGER NOT NULL DEFAULT 0, "usageSource" TEXT NOT NULL DEFAULT 'unknown', "provenanceMethod" TEXT NOT NULL DEFAULT 'unknown', "provenanceConfidence" TEXT NOT NULL DEFAULT 'unknown', "estimatorVersion" TEXT NOT NULL DEFAULT '', "providerID" TEXT, "providerAccountID" TEXT, "providerAccountLabel" TEXT, "providerAccountSource" TEXT, "parentRequestID" TEXT, "executionSourceID" TEXT NOT NULL DEFAULT 'unknown', "executionSourceName" TEXT NOT NULL DEFAULT 'Unknown', "executionSourceKind" TEXT NOT NULL DEFAULT 'unknown', "executionSourceConfidence" TEXT NOT NULL DEFAULT 'unknown', "billingKind" TEXT NOT NULL DEFAULT 'unknown', "originatorKind" TEXT, "originatorRef" TEXT);
+CREATE TABLE "token_usage" ("id" TEXT PRIMARY KEY, "provider" TEXT NOT NULL, "sessionId" TEXT NOT NULL, "projectName" TEXT NOT NULL, "model" TEXT NOT NULL, "inputTokens" INTEGER NOT NULL, "outputTokens" INTEGER NOT NULL, "cacheCreationTokens" INTEGER NOT NULL, "cacheReadTokens" INTEGER NOT NULL, "totalTokens" INTEGER NOT NULL, "cost" DOUBLE NOT NULL, "startTime" DATETIME NOT NULL, "endTime" DATETIME NOT NULL, "createdAt" DATETIME NOT NULL, "syncedAt" DATETIME, "sourceDeviceId" TEXT, "sourceDeviceName" TEXT, "isRemote" INTEGER NOT NULL DEFAULT 0, "reasoningTokens" INTEGER NOT NULL DEFAULT 0, "usageSource" TEXT NOT NULL DEFAULT 'unknown', "provenanceMethod" TEXT NOT NULL DEFAULT 'unknown', "provenanceConfidence" TEXT NOT NULL DEFAULT 'unknown', "estimatorVersion" TEXT NOT NULL DEFAULT '', "providerID" TEXT, "providerAccountID" TEXT, "providerAccountLabel" TEXT, "providerAccountSource" TEXT, "parentRequestID" TEXT, "executionSourceID" TEXT NOT NULL DEFAULT 'unknown', "executionSourceName" TEXT NOT NULL DEFAULT 'Unknown', "executionSourceKind" TEXT NOT NULL DEFAULT 'unknown', "executionSourceConfidence" TEXT NOT NULL DEFAULT 'unknown', "billingKind" TEXT NOT NULL DEFAULT 'unknown', "originatorKind" TEXT, "originatorRef" TEXT, "pricingSource" TEXT NOT NULL DEFAULT 'unknown', "tokenConfidence" TEXT);
 
 -- ── table vector_index_snapshots ── (introduced: v34_vector_index_snapshots)
 CREATE TABLE "vector_index_snapshots" ("embeddingVersionID" TEXT NOT NULL REFERENCES "embedding_versions"("id") ON DELETE CASCADE, "backendID" TEXT NOT NULL, "state" TEXT NOT NULL, "fingerprint" TEXT NOT NULL, "dimensions" INTEGER NOT NULL, "distanceMetric" TEXT NOT NULL, "vectorCount" INTEGER NOT NULL DEFAULT 0, "storageRelativePath" TEXT, "fileBytes" INTEGER NOT NULL DEFAULT 0, "backendVersion" TEXT NOT NULL, "errorCode" TEXT, "errorMessage" TEXT, "createdAt" DATETIME NOT NULL, "updatedAt" DATETIME NOT NULL, "lastBuiltAt" DATETIME, PRIMARY KEY ("embeddingVersionID", "backendID"));
