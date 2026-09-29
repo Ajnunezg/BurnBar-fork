@@ -143,6 +143,8 @@ export interface RuntimeConnectionPreferenceDoc {
 // Firestore: provider_account_secret_refs/{uid}_{accountID} (server-private)
 // ---------------------------------------------------------------------------
 
+// A pending version-complete erasure adds its durable retry manifest
+// (`ProviderSecretErasureManifest`, module-private in providerSecretErasure.ts).
 export interface ProviderAccountSecretRefDoc {
   uid: string;
   providerID: ProviderID;
@@ -150,18 +152,6 @@ export interface ProviderAccountSecretRefDoc {
   secretVersionName: string;
   createdAt: string;
   updatedAt: string;
-  /**
-   * Pending version-complete erasure: the durable retry manifest written
-   * before any Secret Manager destroy (see providerSecretErasure.ts).
-   */
-  erasureScope?: "all_versions" | "superseded_versions";
-  erasureReason?: string;
-  erasureRequestedAt?: string;
-  erasureAttemptCount?: number;
-  erasureLastAttemptAt?: string;
-  erasureLastErrorCode?: string;
-  /** ISO queue key read by `reconcileAccountErasures`. */
-  erasureRetryAfter?: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -40,16 +40,16 @@ import {
 } from "./secrets.js";
 import type { ProviderAccountSecretRefDoc } from "./types.js";
 
-export type ProviderSecretErasureScope = "all_versions" | "superseded_versions";
+type ProviderSecretErasureScope = "all_versions" | "superseded_versions";
 
-export type ProviderSecretErasureReason =
+type ProviderSecretErasureReason =
   | "provider_account_delete"
   | "hosted_quota_credential_delete"
   | "legacy_credential_delete"
   | "panic_revoke"
   | "credential_replaced";
 
-export interface ProviderSecretErasureOutcome {
+interface ProviderSecretErasureOutcome {
   /** True when no version remains to destroy (or no credential was stored). */
   complete: boolean;
   /** Sanitized failure code when `complete` is false. */
@@ -105,12 +105,27 @@ export function providerSecretErasureErrorCode(error: unknown): string {
   return "secret_manager_error";
 }
 
+/**
+ * The durable retry manifest on a `provider_account_secret_refs` doc, written
+ * before any Secret Manager destroy. `erasureRetryAfter` is the ISO queue key
+ * `reconcileAccountErasures` reads.
+ */
+interface ProviderSecretErasureManifest {
+  erasureScope: ProviderSecretErasureScope;
+  erasureReason: ProviderSecretErasureReason;
+  erasureRequestedAt: string;
+  erasureAttemptCount?: number;
+  erasureLastAttemptAt?: string;
+  erasureLastErrorCode?: string;
+  erasureRetryAfter: string;
+}
+
 function pendingErasureFields(
   scope: ProviderSecretErasureScope,
   reason: ProviderSecretErasureReason,
   existingRequestedAt: unknown,
   now: Date,
-): Record<string, unknown> {
+): ProviderSecretErasureManifest & { updatedAt: string } {
   const nowISO = now.toISOString();
   return {
     erasureScope: scope,
@@ -326,12 +341,12 @@ export function providerCredentialErasurePendingError(
 }
 
 /** A pending reference as the reconciler's query returns it. */
-export interface PendingProviderSecretErasureDoc {
+interface PendingProviderSecretErasureDoc {
   readonly ref: DocumentReference;
   get(field: string): unknown;
 }
 
-export interface ProviderSecretErasureReconcileResult {
+interface ProviderSecretErasureReconcileResult {
   status: "completed" | "failed";
   errorCode?: string;
 }

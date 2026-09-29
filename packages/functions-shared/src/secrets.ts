@@ -266,7 +266,7 @@ const VERSION_LIST_PAGE_SIZE = 250;
 const SECRET_VERSION_NAME_PATTERN = /^(projects\/[^/]+\/secrets\/[^/]+)\/versions\/(\d+)$/u;
 
 /** Outcome of a version-complete destroy. */
-export interface CredentialErasureResult {
+interface CredentialErasureResult {
   /** Versions this call destroyed. */
   destroyed: number;
   /** Versions that were already destroyed (or were gone) before this call. */

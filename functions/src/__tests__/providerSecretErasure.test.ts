@@ -53,7 +53,6 @@ import {
 import {
   providerSecretErasureRetryDelayMs,
   reconcilePendingProviderSecretErasures,
-  type PendingProviderSecretErasureDoc,
 } from "../../../packages/functions-shared/src/providerSecretErasure.js";
 import { eraseUserCloudData } from "../../../packages/functions-shared/src/accountDeletion.js";
 import {
@@ -132,7 +131,7 @@ async function seedLegacyVersions(accountID: string, provider: string, count: nu
   return names;
 }
 
-function pendingDocs(): PendingProviderSecretErasureDoc[] {
+function pendingDocs(): Parameters<typeof reconcilePendingProviderSecretErasures>[0] {
   // `db` is the production handle (mocked onto the harness above), so its refs
   // carry the real DocumentReference type the reconciler's transactions take.
   return [...env.store.entries()]
