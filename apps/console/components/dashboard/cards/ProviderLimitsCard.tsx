@@ -26,6 +26,10 @@ function headlineBucket(snap: QuotaSnapshot): QuotaBucket | undefined {
 }
 
 export function ProviderLimitsCard({ data }: CardProps) {
+  if (!data.quotas) {
+    // The read failed: "no quotas synced" would be a false statement.
+    return <EmptyHint label="Provider limits" hint="Provider limits unavailable." />;
+  }
   const rawSnaps = data.quotas.filter((q) => q.buckets.length > 0);
   if (rawSnaps.length === 0) {
     return <EmptyHint label="Provider limits" hint="No provider quotas synced." />;
