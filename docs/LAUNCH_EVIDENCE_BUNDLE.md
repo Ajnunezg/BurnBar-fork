@@ -2,7 +2,9 @@
 
 `GTMMasterPlan.MD` is not complete until `launch-evidence/LAUNCH_DONE.md`
 exists and every referenced artifact proves the live commercial launch. The
-machine-checkable manifest is:
+machine-checkable manifest is below. The ordered owner-only steps, with the
+command and expected receipt for each, are in
+[runbooks/LAUNCH_PACKET_CHECKLIST.md](runbooks/LAUNCH_PACKET_CHECKLIST.md).
 
 ```bash
 scripts/validate-launch-evidence-bundle.mjs --template \
@@ -20,8 +22,9 @@ scripts/validate-launch-evidence-bundle.mjs --require-done-stamp launch-evidence
 ## Required Artifact Set
 
 - `launch-evidence/latest-commercial-launch-gate.json`
-- Six live paid proofs: Apple Cloud, Apple Cloud Pro, Stripe Cloud, Stripe
-  Cloud Pro, Google Play Cloud, Google Play Cloud Pro
+- Eight live paid proofs: Apple Cloud, Apple Cloud Pro, Apple Ultra, Stripe
+  Cloud, Stripe Cloud Pro, Google Play Cloud, Google Play Cloud Pro, Google
+  Play Ultra
 - `launch-evidence/cross-channel-paid-path-matrix.json`
 - Canary report with margin, App Check, entitlement failure, projected spend,
   dashboard, COGS, and incident-log evidence
