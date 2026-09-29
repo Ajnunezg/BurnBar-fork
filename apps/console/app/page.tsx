@@ -142,12 +142,12 @@ export default function HomePage() {
                 className={`ledger-row group reveal items-start ${LEDGER_COLS}`}
                 style={delay(120 + i * 35)}
               >
-                <span className="index-num pt-0.5 text-sm group-hover:text-[color:var(--accent-deep)]">
+                <span className="index-num pt-0.5 text-sm group-hover:text-(--accent-deep)">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <div className="flex min-w-0 items-start gap-token-2">
                   <span
-                    className="tier-dot mt-[0.5rem] sm:hidden"
+                    className="tier-dot mt-2 sm:hidden"
                     style={{ background: TIER_DOT[d.encryptionTier] }}
                     aria-hidden
                   />
@@ -185,7 +185,7 @@ function AccountReadyPanel({
       aria-labelledby="account-ready-heading"
     >
       <div className="max-w-2xl">
-        <div className="mb-token-2 inline-flex items-center gap-token-2 text-sm text-[color:var(--accent-deep)]">
+        <div className="mb-token-2 inline-flex items-center gap-token-2 text-sm text-(--accent-deep)">
           <CheckCircle2 className="size-4" aria-hidden />
           <span className="smallcaps text-xs">Account ready</span>
         </div>

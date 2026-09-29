@@ -27,7 +27,11 @@ const relayTopUp = SITE.pricing.topUps[1]!;
   <section class="pagehead">
     <div class="container pagehead__inner">
       <span class="eyebrow eyebrow--ember">Pricing</span>
-      <h1 class="pagehead__h">Free where it should be.<br />Paid where it costs us money.</h1>
+      <h1 class="pagehead__h">
+        Free where it should be.
+        <br />
+        Paid where it costs us money.
+      </h1>
     </div>
   </section>
 
@@ -86,12 +90,12 @@ const relayTopUp = SITE.pricing.topUps[1]!;
         <div>
           <dt>How do top-ups work?</dt>
           <dd>
-            Cloud Pro includes {allowance.hostedAgentActionsMonthly} hosted Agent Control actions and
-            {allowance.relayGBMonthly} relay-accounting GB each month. Extra hosted actions are ${
-              actionTopUp.priceUSD
-            } for {actionTopUp.unit}; extra relay is ${relayTopUp.priceUSD} for {relayTopUp.unit}.
-            Monthly caps still apply. BurnBar Ultra carries the same hosted allowance, caps, and
-            top-up prices as Cloud Pro.
+            Cloud Pro includes {allowance.hostedAgentActionsMonthly} hosted Agent Control actions
+            and
+            {allowance.relayGBMonthly} relay-accounting GB each month. Extra hosted actions are{" "}
+            {`$${actionTopUp.priceUSD}`} for {actionTopUp.unit}; extra relay is{" "}
+            {`$${relayTopUp.priceUSD}`} for {relayTopUp.unit}. Monthly caps still apply. BurnBar
+            Ultra carries the same hosted allowance, caps, and top-up prices as Cloud Pro.
           </dd>
         </div>
         <div>
@@ -152,10 +156,15 @@ const relayTopUp = SITE.pricing.topUps[1]!;
     <div class="container container--narrow endcta__inner">
       <h2>Start with the free product. Upgrade only if it earns it.</h2>
       <div class="endcta__ctas">
-        <a class="btn btn--ember" href="/download"
-          >Download for macOS <span class="btn-arrow" aria-hidden="true">→</span></a
-        >
-        <a class="btn btn--ghost" href="/privacy">Read the privacy model</a>
+        <a class="btn btn--ember" href="/download">
+          Download for macOS{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
+        <a class="btn btn--ghost" href="/privacy">
+          Read the privacy model
+        </a>
       </div>
     </div>
   </section>

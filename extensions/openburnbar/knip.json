@@ -27,5 +27,8 @@
     "dist/**",
     "node_modules/**",
     "src/generated/burnbar-rpc-ipc-canon.generated.ts"
+  ],
+  "ignoreBinaries": [
+    "swift"
   ]
 }

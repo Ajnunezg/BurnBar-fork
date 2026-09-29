@@ -9,11 +9,9 @@ import "@styles/arena-variant-neural.css";
   title="BurnBench Arena — cast a blind vote"
   description="Vote on a blind BurnBench Arena matchup: two anonymized experiential artifacts side by side, identities revealed only after you vote."
 >
-  {
-    /* Neural Split is the sole Arena skin. Set BEFORE paint so it never
+  {/* Neural Split is the sole Arena skin. Set BEFORE paint so it never
       flashes. bench-arena.ts reports exposure, plays and votes with the
-      variant attached. */
-  }
+      variant attached. */}
   <script slot="head" is:inline>
     (function () {
       try {
@@ -33,14 +31,16 @@ import "@styles/arena-variant-neural.css";
       <p class="bb-arena-hero__kicker mono">[ burnbench · arena · blind pairwise ]</p>
       <h1 id="vote-hero-h" class="bb-arena-hero__title">
         <span class="bb-arena-hero__l1">Which one</span>
-        <span class="bb-arena-hero__l2"><em>shipped it</em></span>
+        <span class="bb-arena-hero__l2">
+          <em>shipped it</em>
+        </span>
         <span class="bb-arena-hero__l3">better?</span>
       </h1>
       <p class="bb-arena-hero__lead mono">
-        &gt; two agents · same brief · anonymized · order randomized<span
-          class="bb-arena-hero__cursor"
-          aria-hidden="true">▌</span
-        >
+        &gt; two agents · same brief · anonymized · order randomized
+        <span class="bb-arena-hero__cursor" aria-hidden="true">
+          ▌
+        </span>
       </p>
       <p class="bb-arena-hero__sub">
         No logos until you decide — only after you vote do we reveal which harness × model built
@@ -50,34 +50,38 @@ import "@styles/arena-variant-neural.css";
   </section>
 
   <section class="bb-section bb-arena" aria-labelledby="ballot-h">
-    {
-      /* Neural-variant particle field (decorative; CSS shows it only under
-        [data-arena-variant="neural"], JS animates it only for that variant). */
-    }
+    {/* Neural-variant particle field (decorative; CSS shows it only under
+        [data-arena-variant="neural"], JS animates it only for that variant). */}
     <canvas id="arena-net" class="bb-arena__net" aria-hidden="true"></canvas>
     <div class="container container--wide">
-      <h2 id="ballot-h" class="bb-sec-h" style="position:absolute;left:-9999px">The ballot</h2>
+      <h2 id="ballot-h" class="bb-sec-h" style="position:absolute;left:-9999px">
+        The ballot
+      </h2>
       <p id="arena-status" class="bb-arena__status mono" role="status" aria-live="polite">
         Dealing a blind matchup…
       </p>
 
       <div id="arena-auth-chip" class="bb-arena__authchip mono" hidden></div>
-      <button id="arena-signout" class="bb-arena__signout mono" type="button" hidden
-        >sign out</button
-      >
+      <button id="arena-signout" class="bb-arena__signout mono" type="button" hidden>
+        sign out
+      </button>
 
       <div id="arena-brief" class="bb-arena__brief glass-pane" hidden>
-        <span class="bb-arena__brief-eyebrow mono"
-          >// mission brief — identical prompt, both cells</span
-        >
+        <span class="bb-arena__brief-eyebrow mono">
+          // mission brief — identical prompt, both cells
+        </span>
         <h2 id="brief-title" class="bb-arena__brief-title"></h2>
         <p id="brief-text" class="bb-arena__brief-text"></p>
-        <p class="bb-arena__judge mono"><span>Judge on</span> <span id="brief-judge"></span></p>
+        <p class="bb-arena__judge mono">
+          <span>Judge on</span> <span id="brief-judge"></span>
+        </p>
       </div>
 
       <div class="bb-arena__frames bb-versus">
         <figure class="bb-arena__pane bb-arena__pane--a glass-pane">
-          <span class="bb-arena__ghost" aria-hidden="true">A</span>
+          <span class="bb-arena__ghost" aria-hidden="true">
+            A
+          </span>
           <figcaption class="bb-arena__tag mono">Artifact A</figcaption>
           <div id="wrap-a" class="bb-arena__framewrap" data-live="false">
             <div
@@ -95,18 +99,19 @@ import "@styles/arena-variant-neural.css";
                   sandbox="allow-scripts allow-forms allow-modals allow-pointer-lock"
                   referrerpolicy="no-referrer"
                   loading="lazy"
-                  tabindex="-1"></iframe>
+                  tabindex="-1"
+                ></iframe>
               </div>
             </div>
-            {
-              /* The shield keeps the artifact inert until the voter opts in, so a
+            {/* The shield keeps the artifact inert until the voter opts in, so a
                 scroll past the ballot never gets captured by a live canvas. One
-                click hands pointer + keyboard to the artifact in place. */
-            }
+                click hands pointer + keyboard to the artifact in place. */}
             <button id="play-a" class="bb-arena__play" type="button" aria-describedby="play-a-hint">
               <span class="bb-arena__play-disc" aria-hidden="true"></span>
               <span class="bb-arena__play-label mono">Press to play A</span>
-              <span id="play-a-hint" class="bb-arena__play-hint">Use it for real — then judge</span>
+              <span id="play-a-hint" class="bb-arena__play-hint">
+                Use it for real — then judge
+              </span>
             </button>
             <div class="bb-arena__tools">
               <button
@@ -136,21 +141,29 @@ import "@styles/arena-variant-neural.css";
                 id="zoomout-a"
                 class="bb-zoom-btn"
                 type="button"
-                aria-label="Zoom out artifact A">−</button
+                aria-label="Zoom out artifact A"
               >
-              <span id="zoomlevel-a" class="bb-zoom-level" aria-live="polite">100%</span>
+                −
+              </button>
+              <span id="zoomlevel-a" class="bb-zoom-level" aria-live="polite">
+                100%
+              </span>
               <button
                 id="zoomin-a"
                 class="bb-zoom-btn"
                 type="button"
-                aria-label="Zoom in artifact A">+</button
+                aria-label="Zoom in artifact A"
               >
+                +
+              </button>
               <button
                 id="zoomreset-a"
                 class="bb-zoom-btn bb-zoom-reset"
                 type="button"
-                aria-label="Reset zoom for artifact A">↺</button
+                aria-label="Reset zoom for artifact A"
               >
+                ↺
+              </button>
             </div>
             {/* Filled by JS on handover so the state change is announced. */}
             <p id="live-a" class="bb-arena__live mono" role="status"></p>
@@ -159,13 +172,19 @@ import "@styles/arena-variant-neural.css";
           <div class="bb-arena__voteui">
             <button id="vote-a" class="bb-arena__votebar" type="button">
               <span>A shipped it better</span>
-              <span class="bb-arena__votearrow" aria-hidden="true">→</span>
+              <span class="bb-arena__votearrow" aria-hidden="true">
+                →
+              </span>
             </button>
           </div>
         </figure>
-        <span class="bb-arena__versus mono" aria-hidden="true">vs</span>
+        <span class="bb-arena__versus mono" aria-hidden="true">
+          vs
+        </span>
         <figure class="bb-arena__pane bb-arena__pane--b glass-pane">
-          <span class="bb-arena__ghost" aria-hidden="true">B</span>
+          <span class="bb-arena__ghost" aria-hidden="true">
+            B
+          </span>
           <figcaption class="bb-arena__tag mono">Artifact B</figcaption>
           <div id="wrap-b" class="bb-arena__framewrap" data-live="false">
             <div
@@ -183,13 +202,16 @@ import "@styles/arena-variant-neural.css";
                   sandbox="allow-scripts allow-forms allow-modals allow-pointer-lock"
                   referrerpolicy="no-referrer"
                   loading="lazy"
-                  tabindex="-1"></iframe>
+                  tabindex="-1"
+                ></iframe>
               </div>
             </div>
             <button id="play-b" class="bb-arena__play" type="button" aria-describedby="play-b-hint">
               <span class="bb-arena__play-disc" aria-hidden="true"></span>
               <span class="bb-arena__play-label mono">Press to play B</span>
-              <span id="play-b-hint" class="bb-arena__play-hint">Use it for real — then judge</span>
+              <span id="play-b-hint" class="bb-arena__play-hint">
+                Use it for real — then judge
+              </span>
             </button>
             <div class="bb-arena__tools">
               <button
@@ -219,21 +241,29 @@ import "@styles/arena-variant-neural.css";
                 id="zoomout-b"
                 class="bb-zoom-btn"
                 type="button"
-                aria-label="Zoom out artifact B">−</button
+                aria-label="Zoom out artifact B"
               >
-              <span id="zoomlevel-b" class="bb-zoom-level" aria-live="polite">100%</span>
+                −
+              </button>
+              <span id="zoomlevel-b" class="bb-zoom-level" aria-live="polite">
+                100%
+              </span>
               <button
                 id="zoomin-b"
                 class="bb-zoom-btn"
                 type="button"
-                aria-label="Zoom in artifact B">+</button
+                aria-label="Zoom in artifact B"
               >
+                +
+              </button>
               <button
                 id="zoomreset-b"
                 class="bb-zoom-btn bb-zoom-reset"
                 type="button"
-                aria-label="Reset zoom for artifact B">↺</button
+                aria-label="Reset zoom for artifact B"
               >
+                ↺
+              </button>
             </div>
             <p id="live-b" class="bb-arena__live mono" role="status"></p>
             <span id="zoomlive-b" class="sr-only" aria-live="polite"></span>
@@ -241,98 +271,98 @@ import "@styles/arena-variant-neural.css";
           <div class="bb-arena__voteui">
             <button id="vote-b" class="bb-arena__votebar" type="button">
               <span>B shipped it better</span>
-              <span class="bb-arena__votearrow" aria-hidden="true">→</span>
+              <span class="bb-arena__votearrow" aria-hidden="true">
+                →
+              </span>
             </button>
           </div>
         </figure>
       </div>
 
-      {
-        /* Optional rubric. The overall pick above is the required, one-click
+      {/* Optional rubric. The overall pick above is the required, one-click
           action and submits on its own; this only refines a vote that is
           already being cast. Every row starts unset, so a voter who ignores
           the whole block sends exactly the payload the page sent before the
           rubric existed. Rendered server-side and static: no JS is needed to
-          fill it in, and bench-arena.ts only reads it at submit time. */
-      }
+          fill it in, and bench-arena.ts only reads it at submit time. */}
       <form id="arena-rubric" class="bb-arena__rubric bb-arena__voteui" aria-labelledby="rubric-h">
         <div class="bb-arena__rubric-head">
-          <span id="rubric-h" class="bb-arena__brief-eyebrow mono"
-            >// optional rubric — skip it, your pick still counts</span
-          >
-          <button id="rubric-clear" class="bb-arena__rubric-clear mono" type="button" hidden
-            >clear</button
-          >
+          <span id="rubric-h" class="bb-arena__brief-eyebrow mono">
+            // optional rubric — skip it, your pick still counts
+          </span>
+          <button id="rubric-clear" class="bb-arena__rubric-clear mono" type="button" hidden>
+            clear
+          </button>
         </div>
         <div class="bb-arena__rubric-rows">
-          {
-            [
-              {
-                key: "visual_polish",
-                label: "Visual polish",
-                hint: "craft, hierarchy, typography"
-              },
-              {
-                key: "interaction_quality",
-                label: "Interaction quality",
-                hint: "feel, responsiveness, motion"
-              },
-              {
-                key: "accessibility",
-                label: "Accessibility",
-                hint: "keyboard, contrast, semantics"
-              },
-              {
-                key: "code_quality",
-                label: "Code quality",
-                hint: "structure, restraint, no slop"
-              }
-            ].map((dimension) => (
-              // role=radiogroup rather than fieldset/legend: a rendered <legend>
-              // is not a flex item, so a fieldset cannot put its label and its
-              // controls on one line without UA-specific hacks. The radios are
-              // still native, so grouping, arrow-key navigation and state all
-              // come from the platform; the group only supplies the name.
-              <div
-                class="bb-arena__rubric-row"
-                role="radiogroup"
-                aria-labelledby={`rubric-label-${dimension.key}`}
-                data-dimension={dimension.key}
-              >
-                <span class="bb-arena__rubric-legend" id={`rubric-label-${dimension.key}`}>
-                  <span class="bb-arena__rubric-label">{dimension.label}</span>
-                  <span class="bb-arena__rubric-hint">{dimension.hint}</span>
-                </span>
-                <div class="bb-arena__rubric-seg">
-                  {[
-                    { value: "A", label: "A", name: "Artifact A" },
-                    { value: "tie", label: "tie", name: "Tie" },
-                    { value: "B", label: "B", name: "Artifact B" }
-                  ].map((option) => (
-                    <label
-                      class={`bb-arena__rubric-opt bb-arena__rubric-opt--${option.value.toLowerCase()}`}
-                    >
-                      <input
-                        class="bb-arena__rubric-input"
-                        type="radio"
-                        name={`rubric-${dimension.key}`}
-                        value={option.value}
-                        aria-label={option.name}
-                      />
-                      <span class="bb-arena__rubric-optlabel mono" aria-hidden="true">
-                        {option.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+          {[
+            {
+              key: "visual_polish",
+              label: "Visual polish",
+              hint: "craft, hierarchy, typography"
+            },
+            {
+              key: "interaction_quality",
+              label: "Interaction quality",
+              hint: "feel, responsiveness, motion"
+            },
+            {
+              key: "accessibility",
+              label: "Accessibility",
+              hint: "keyboard, contrast, semantics"
+            },
+            {
+              key: "code_quality",
+              label: "Code quality",
+              hint: "structure, restraint, no slop"
+            }
+          ].map((dimension) => (
+            // role=radiogroup rather than fieldset/legend: a rendered <legend>
+            // is not a flex item, so a fieldset cannot put its label and its
+            // controls on one line without UA-specific hacks. The radios are
+            // still native, so grouping, arrow-key navigation and state all
+            // come from the platform; the group only supplies the name.
+            <div
+              class="bb-arena__rubric-row"
+              role="radiogroup"
+              aria-labelledby={`rubric-label-${dimension.key}`}
+              data-dimension={dimension.key}
+            >
+              <span class="bb-arena__rubric-legend" id={`rubric-label-${dimension.key}`}>
+                <span class="bb-arena__rubric-label">{dimension.label}</span>
+                <span class="bb-arena__rubric-hint">{dimension.hint}</span>
+              </span>
+              <div class="bb-arena__rubric-seg">
+                {[
+                  { value: "A", label: "A", name: "Artifact A" },
+                  { value: "tie", label: "tie", name: "Tie" },
+                  { value: "B", label: "B", name: "Artifact B" }
+                ].map((option) => (
+                  <label
+                    class={`bb-arena__rubric-opt bb-arena__rubric-opt--${option.value.toLowerCase()}`}
+                  >
+                    <input
+                      class="bb-arena__rubric-input"
+                      type="radio"
+                      name={`rubric-${dimension.key}`}
+                      value={option.value}
+                      aria-label={option.name}
+                    />
+                    <span class="bb-arena__rubric-optlabel mono" aria-hidden="true">
+                      {option.label}
+                    </span>
+                  </label>
+                ))}
               </div>
-            ))
-          }
+            </div>
+          ))}
         </div>
       </form>
 
       <div class="bb-arena__tiewrap bb-arena__voteui">
-        <button id="vote-tie" class="bb-arena__tie mono" type="button">or call it a tie</button>
+        <button id="vote-tie" class="bb-arena__tie mono" type="button">
+          or call it a tie
+        </button>
       </div>
 
       <ul class="bb-arena__trust" aria-label="How the blind test works">
@@ -354,11 +384,16 @@ import "@styles/arena-variant-neural.css";
         <span class="bb-arena__brief-eyebrow mono">// identities declassified</span>
         <div class="bb-arena__revealgrid">
           <div id="reveal-card-a"></div>
-          <span class="bb-arena__vs mono" aria-hidden="true">vs</span>
+          <span class="bb-arena__vs mono" aria-hidden="true">
+            vs
+          </span>
           <div id="reveal-card-b"></div>
         </div>
         <button id="arena-next" class="btn btn--ember bb-arena__next" type="button">
-          Next matchup <span class="btn-arrow" aria-hidden="true">→</span>
+          Next matchup{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </button>
       </div>
 
@@ -400,14 +435,18 @@ import "@styles/arena-variant-neural.css";
             id="stage-vote-a"
             class="btn btn--ghost bb-stage__vote"
             type="button"
-            aria-label="Vote for artifact A">A is better</button
+            aria-label="Vote for artifact A"
           >
+            A is better
+          </button>
           <button
             id="stage-vote-b"
             class="btn btn--ghost bb-stage__vote"
             type="button"
-            aria-label="Vote for artifact B">B is better</button
+            aria-label="Vote for artifact B"
           >
+            B is better
+          </button>
           <button
             id="stage-close"
             class="bb-stage__close mono"
@@ -421,7 +460,9 @@ import "@styles/arena-variant-neural.css";
       <p class="bb-stage__brief">
         <strong id="stage-brief-title"></strong>
         <span id="stage-brief-text"></span>
-        <span class="bb-stage__judge mono">Judge on: <span id="stage-brief-judge"></span></span>
+        <span class="bb-stage__judge mono">
+          Judge on: <span id="stage-brief-judge"></span>
+        </span>
       </p>
       <div class="bb-stage__viewport">
         <div
@@ -437,7 +478,8 @@ import "@styles/arena-variant-neural.css";
               class="bb-stage__frame"
               title="Artifact A, full view"
               sandbox="allow-scripts allow-forms allow-modals allow-pointer-lock"
-              referrerpolicy="no-referrer"></iframe>
+              referrerpolicy="no-referrer"
+            ></iframe>
           </div>
         </div>
         <div
@@ -454,7 +496,8 @@ import "@styles/arena-variant-neural.css";
               class="bb-stage__frame"
               title="Artifact B, full view"
               sandbox="allow-scripts allow-forms allow-modals allow-pointer-lock"
-              referrerpolicy="no-referrer"></iframe>
+              referrerpolicy="no-referrer"
+            ></iframe>
           </div>
         </div>
         <div
@@ -463,19 +506,23 @@ import "@styles/arena-variant-neural.css";
           role="toolbar"
           aria-label="Zoom artifact A full view"
         >
-          <button id="stage-zoomout-a" class="bb-zoom-btn" type="button" aria-label="Zoom out"
-            >−</button
-          >
-          <span id="stage-zoomlevel-a" class="bb-zoom-level" aria-live="polite">100%</span>
-          <button id="stage-zoomin-a" class="bb-zoom-btn" type="button" aria-label="Zoom in"
-            >+</button
-          >
+          <button id="stage-zoomout-a" class="bb-zoom-btn" type="button" aria-label="Zoom out">
+            −
+          </button>
+          <span id="stage-zoomlevel-a" class="bb-zoom-level" aria-live="polite">
+            100%
+          </span>
+          <button id="stage-zoomin-a" class="bb-zoom-btn" type="button" aria-label="Zoom in">
+            +
+          </button>
           <button
             id="stage-zoomreset-a"
             class="bb-zoom-btn bb-zoom-reset"
             type="button"
-            aria-label="Reset zoom">↺</button
+            aria-label="Reset zoom"
           >
+            ↺
+          </button>
         </div>
         <div
           id="stage-zoombar-b"
@@ -484,19 +531,23 @@ import "@styles/arena-variant-neural.css";
           aria-label="Zoom artifact B full view"
           hidden
         >
-          <button id="stage-zoomout-b" class="bb-zoom-btn" type="button" aria-label="Zoom out"
-            >−</button
-          >
-          <span id="stage-zoomlevel-b" class="bb-zoom-level" aria-live="polite">100%</span>
-          <button id="stage-zoomin-b" class="bb-zoom-btn" type="button" aria-label="Zoom in"
-            >+</button
-          >
+          <button id="stage-zoomout-b" class="bb-zoom-btn" type="button" aria-label="Zoom out">
+            −
+          </button>
+          <span id="stage-zoomlevel-b" class="bb-zoom-level" aria-live="polite">
+            100%
+          </span>
+          <button id="stage-zoomin-b" class="bb-zoom-btn" type="button" aria-label="Zoom in">
+            +
+          </button>
           <button
             id="stage-zoomreset-b"
             class="bb-zoom-btn bb-zoom-reset"
             type="button"
-            aria-label="Reset zoom">↺</button
+            aria-label="Reset zoom"
           >
+            ↺
+          </button>
         </div>
         <span id="stage-zoomlive-a" class="sr-only" aria-live="polite"></span>
         <span id="stage-zoomlive-b" class="sr-only" aria-live="polite"></span>
@@ -504,14 +555,18 @@ import "@styles/arena-variant-neural.css";
           id="stage-prev"
           class="bb-stage__arrow bb-stage__arrow--prev"
           type="button"
-          aria-label="Show the other artifact">‹</button
+          aria-label="Show the other artifact"
         >
+          ‹
+        </button>
         <button
           id="stage-next"
           class="bb-stage__arrow bb-stage__arrow--next"
           type="button"
-          aria-label="Show the other artifact">›</button
+          aria-label="Show the other artifact"
         >
+          ›
+        </button>
       </div>
       <p class="bb-stage__hint mono">Click the artifact to play · ‹ › to switch · esc to close</p>
     </div>
@@ -525,8 +580,13 @@ import "@styles/arena-variant-neural.css";
         Sign in to lock in your judgment. You'll never get dealt the same pairing twice, and the
         board stays honest — one person, one vote, no stuffing.
       </p>
-      <p id="authgate-status" class="bb-authgate__status" role="status" aria-live="polite" hidden>
-      </p>
+      <p
+        id="authgate-status"
+        class="bb-authgate__status"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></p>
       <div class="bb-authgate__buttons">
         <button
           id="authgate-google"
@@ -601,7 +661,9 @@ import "@styles/arena-variant-neural.css";
           </svg>
         </button>
       </div>
-      <button id="authgate-dismiss" class="bb-authgate__dismiss mono" type="button">Not now</button>
+      <button id="authgate-dismiss" class="bb-authgate__dismiss mono" type="button">
+        Not now
+      </button>
     </div>
   </dialog>
 

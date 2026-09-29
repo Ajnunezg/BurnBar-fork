@@ -86,7 +86,9 @@ const teeth = Array.from({ length: TOOTH_COUNT }, (_, i) => {
     <defs>
       <!-- Ring-text baseline: full circle starting at the left equator, sweeping
            over the upper arc first, so short legends sit across the top. -->
-      <path id={ringPathId} d="M 13.5 60 A 46.5 46.5 0 1 1 106.5 60 A 46.5 46.5 0 1 1 13.5 60"
+      <path
+        id={ringPathId}
+        d="M 13.5 60 A 46.5 46.5 0 1 1 106.5 60 A 46.5 46.5 0 1 1 13.5 60"
       ></path>
     </defs>
 
@@ -96,7 +98,9 @@ const teeth = Array.from({ length: TOOTH_COUNT }, (_, i) => {
 
     <!-- Toothed stamp edge -->
     <g class="seal__teeth">
-      {teeth.map((t) => <line x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} />)}
+      {teeth.map((t) => (
+        <line x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} />
+      ))}
     </g>
 
     <!-- Concentric engraved hairlines -->
@@ -105,49 +109,43 @@ const teeth = Array.from({ length: TOOTH_COUNT }, (_, i) => {
 
     <!-- Curved micro-legend between the rings -->
     <text class="seal__ringtext">
-      <textPath href={`#${ringPathId}`} startOffset="0">{ringText}</textPath>
+      <textPath href={`#${ringPathId}`} startOffset="0">
+        {ringText}
+      </textPath>
     </text>
 
     <!-- Center glyph (36×36 box centered at 60,60) -->
-    {
-      variant === "agpl" && (
-        <g class="seal__glyph">
-          <circle cx="60" cy="60" r="16" />
-          {/* Reversed C — the arc opens to the LEFT (copyleft, mirrored copyright) */}
-          <path d="M 53.68 54.31 A 8.5 8.5 0 1 1 53.68 65.69" />
-        </g>
-      )
-    }
-    {
-      variant === "sealed" && (
-        <g class="seal__glyph">
-          <rect x="44" y="50" width="32" height="21" rx="2" />
-          <path d="M 44 52.5 L 60 63.5 L 76 52.5" />
-          {/* Wax dot at the flap point — the one allowed fill */}
-          <circle class="seal__wax" cx="60" cy="63.5" r="2.6" />
-        </g>
-      )
-    }
-    {
-      variant === "pinned" && (
-        <g class="seal__glyph">
-          <path d="M 60 77 C 60 77 49 65 49 56 A 11 11 0 1 1 71 56 C 71 65 60 77 60 77 Z" />
-          <circle cx="60" cy="56" r="4" />
-        </g>
-      )
-    }
-    {
-      variant === "fail-closed" && (
-        <g class="seal__glyph">
-          <path d="M 44 77 L 44 58 A 16 16 0 0 1 76 58 L 76 77" />
-          <path d="M 52 45.5 L 52 77" />
-          <path d="M 60 42.5 L 60 77" />
-          <path d="M 68 45.5 L 68 77" />
-          {/* The dropped bar — gate unmistakably closed */}
-          <path class="seal__bar" d="M 42 70 L 78 70" />
-        </g>
-      )
-    }
+    {variant === "agpl" && (
+      <g class="seal__glyph">
+        <circle cx="60" cy="60" r="16" />
+        {/* Reversed C — the arc opens to the LEFT (copyleft, mirrored copyright) */}
+        <path d="M 53.68 54.31 A 8.5 8.5 0 1 1 53.68 65.69" />
+      </g>
+    )}
+    {variant === "sealed" && (
+      <g class="seal__glyph">
+        <rect x="44" y="50" width="32" height="21" rx="2" />
+        <path d="M 44 52.5 L 60 63.5 L 76 52.5" />
+        {/* Wax dot at the flap point — the one allowed fill */}
+        <circle class="seal__wax" cx="60" cy="63.5" r="2.6" />
+      </g>
+    )}
+    {variant === "pinned" && (
+      <g class="seal__glyph">
+        <path d="M 60 77 C 60 77 49 65 49 56 A 11 11 0 1 1 71 56 C 71 65 60 77 60 77 Z" />
+        <circle cx="60" cy="56" r="4" />
+      </g>
+    )}
+    {variant === "fail-closed" && (
+      <g class="seal__glyph">
+        <path d="M 44 77 L 44 58 A 16 16 0 0 1 76 58 L 76 77" />
+        <path d="M 52 45.5 L 52 77" />
+        <path d="M 60 42.5 L 60 77" />
+        <path d="M 68 45.5 L 68 77" />
+        {/* The dropped bar — gate unmistakably closed */}
+        <path class="seal__bar" d="M 42 70 L 78 70" />
+      </g>
+    )}
   </svg>
 
   <figcaption class="seal__label">{caption}</figcaption>

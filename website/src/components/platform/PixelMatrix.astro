@@ -108,15 +108,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   style={`--cols:${COLUMNS}; --rows:${ROWS};`}
 >
   <div class="pixmatrix__panel" aria-hidden="true">
-    {
-      cells.map((cell, i) => (
-        <span
-          class={cell.isLit ? "px px--on" : "px"}
-          style={cell.isLit ? `--c:${cell.color}` : undefined}
-          data-i={i}
-        />
-      ))
-    }
+    {cells.map((cell, i) => (
+      <span
+        class={cell.isLit ? "px px--on" : "px"}
+        style={cell.isLit ? `--c:${cell.color}` : undefined}
+        data-i={i}
+      />
+    ))}
   </div>
 </div>
 

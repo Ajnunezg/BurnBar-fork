@@ -22,63 +22,63 @@ const year = new Date().getFullYear();
       </div>
 
       <div>
-        <span class="site-footer__colhead" role="presentation">Product</span>
+        <span class="site-footer__colhead" role="presentation">
+          Product
+        </span>
         <ul>
-          {
-            NAV_FOOTER.product.map((item) => (
-              <li>
-                <a href={item.href}>{item.label}</a>
-              </li>
-            ))
-          }
+          {NAV_FOOTER.product.map((item) => (
+            <li>
+              <a href={item.href}>{item.label}</a>
+            </li>
+          ))}
         </ul>
       </div>
 
       <div>
-        <span class="site-footer__colhead" role="presentation">Trust</span>
+        <span class="site-footer__colhead" role="presentation">
+          Trust
+        </span>
         <ul>
-          {
-            NAV_FOOTER.trust.map((item) => (
-              <li>
-                <a
-                  href={item.href}
-                  target={item.external ? "_blank" : undefined}
-                  rel={item.external ? "noopener noreferrer" : undefined}
-                >
-                  {item.label}
-                  {item.external && (
-                    <span class="ext" aria-hidden="true">
-                      ↗
-                    </span>
-                  )}
-                </a>
-              </li>
-            ))
-          }
+          {NAV_FOOTER.trust.map((item) => (
+            <li>
+              <a
+                href={item.href}
+                target={item.external ? "_blank" : undefined}
+                rel={item.external ? "noopener noreferrer" : undefined}
+              >
+                {item.label}
+                {item.external && (
+                  <span class="ext" aria-hidden="true">
+                    ↗
+                  </span>
+                )}
+              </a>
+            </li>
+          ))}
         </ul>
       </div>
 
       <div>
-        <span class="site-footer__colhead" role="presentation">Build</span>
+        <span class="site-footer__colhead" role="presentation">
+          Build
+        </span>
         <ul>
-          {
-            NAV_FOOTER.build.map((item) => (
-              <li>
-                <a
-                  href={item.href}
-                  target={item.external ? "_blank" : undefined}
-                  rel={item.external ? "noopener noreferrer" : undefined}
-                >
-                  {item.label}
-                  {item.external && (
-                    <span class="ext" aria-hidden="true">
-                      ↗
-                    </span>
-                  )}
-                </a>
-              </li>
-            ))
-          }
+          {NAV_FOOTER.build.map((item) => (
+            <li>
+              <a
+                href={item.href}
+                target={item.external ? "_blank" : undefined}
+                rel={item.external ? "noopener noreferrer" : undefined}
+              >
+                {item.label}
+                {item.external && (
+                  <span class="ext" aria-hidden="true">
+                    ↗
+                  </span>
+                )}
+              </a>
+            </li>
+          ))}
         </ul>
       </div>
     </div>
@@ -98,15 +98,19 @@ const year = new Date().getFullYear();
         <span aria-hidden="true">·</span>
         <a href="/legal/privacy-policy">Privacy policy</a>
         <span aria-hidden="true">·</span>
-        <button type="button" class="site-footer__manage" data-analytics-manage>analytics</button>
+        <button type="button" class="site-footer__manage" data-analytics-manage>
+          analytics
+        </button>
         <span aria-hidden="true">·</span>
         <a
           href={SITE.github}
           target="_blank"
           rel="noopener noreferrer"
           data-analytics-event="nav.external.clicked"
-          data-analytics-prop-destination="github">github</a
+          data-analytics-prop-destination="github"
         >
+          github
+        </a>
       </div>
     </div>
   </div>

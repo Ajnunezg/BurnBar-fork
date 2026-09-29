@@ -107,7 +107,7 @@ export function PensieveMcpDoctorCard({
 
             <div className="mt-3 flex gap-token-2">
               <input
-                className="flex-1 rounded-md border border-glass-line bg-panel-subtle px-3 py-2 text-sm text-content-bright outline-none placeholder:text-content-dim focus:border-tier-end-to-end"
+                className="flex-1 rounded-md border border-glass-line bg-panel-subtle px-3 py-2 text-sm text-content-bright outline-hidden placeholder:text-content-dim focus:border-tier-end-to-end"
                 value={testText}
                 onChange={(e) => setTestText(e.target.value)}
                 onKeyDown={(e) => {
@@ -127,7 +127,7 @@ export function PensieveMcpDoctorCard({
 
             {testSuccessMessage && (
               <div className="mt-3 flex items-center gap-2 rounded-md bg-tier-end-to-end/10 p-2 text-xs text-tier-end-to-end">
-                <CheckCircle2 className="size-4 flex-shrink-0" />
+                <CheckCircle2 className="size-4 shrink-0" />
                 <span>{testSuccessMessage}</span>
               </div>
             )}

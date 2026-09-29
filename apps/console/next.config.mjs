@@ -82,6 +82,8 @@ const nextConfig = {
 // ── Sentry (observability) ────────────────────────────────────────────────────
 // Runtime init lives in instrumentation-client.ts / instrumentation.ts and is
 // gated on NEXT_PUBLIC_SENTRY_DSN, so a no-DSN build is a clean no-op. We do not
-// use the Next Sentry build wrapper here: it pulls in the Sentry CLI package,
-// whose source-available license is intentionally blocked by dependency review.
+// use the Next Sentry build wrapper here: a static export has no server to wrap
+// and no source-map upload step. The FSL-1.1 Sentry CLI package (`sentry`) that
+// Sentry 11 pulls in transitively is allowed by PURL in dependency review
+// (owner-approved 2026-09-28); console code never imports it.
 export default nextConfig;

@@ -32,5 +32,9 @@
     "@openburnbar/signal-envelope-contracts",
     "openburnbar-brace-expansion-cjs",
     "@openburnbar/functions-shared"
+  ],
+  "ignoreBinaries": [
+    "gcloud",
+    "sqlite3"
   ]
 }

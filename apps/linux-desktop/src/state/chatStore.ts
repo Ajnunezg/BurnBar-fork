@@ -238,13 +238,13 @@ async function fetchThreads(
     return { threads: [], config: null, catalog: null };
   }
   const result = await bridge.chatThreadList(query.trim() || undefined, 100);
-  let config: ConfigSnapshot | null = null;
+  let config: ConfigSnapshot | null;
   try {
     config = await bridge.configSnapshot();
   } catch {
     config = null;
   }
-  let catalog: ProviderCatalog | null = null;
+  let catalog: ProviderCatalog | null;
   try {
     catalog = typeof bridge.providerCatalog === 'function' ? await bridge.providerCatalog() : null;
   } catch {

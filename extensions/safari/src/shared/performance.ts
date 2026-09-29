@@ -4,7 +4,7 @@ export const SAFARI_PERFORMANCE_SCHEMA_VERSION = 1;
 export const SAFARI_PERFORMANCE_RETENTION_LIMIT = 240;
 export const SAFARI_PERFORMANCE_MAX_DURATION_MS = 10 * 60 * 1_000;
 
-export const SAFARI_PERFORMANCE_METRICS = [
+const SAFARI_PERFORMANCE_METRICS = [
   'popup_bootstrap',
   'native_attach',
   'command_poll',

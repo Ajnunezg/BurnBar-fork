@@ -43,7 +43,9 @@ const steps = [
   <div class="container container--wide hgw__inner">
     <div class="hgw__copy">
       <span class="eyebrow eyebrow--ember">Hermes Gateway · BurnBar Cloud</span>
-      <h2 id={anchor} class="hgw__h">Connect Hermes through BurnBar&nbsp;Cloud</h2>
+      <h2 id={anchor} class="hgw__h">
+        Connect Hermes through BurnBar&nbsp;Cloud
+      </h2>
       <p class="lead hgw__lead">
         Hermes — the open computer-use agent, separate from BurnBar's own assistant — treats BurnBar
         as a messaging platform, the same way it treats <strong>Telegram</strong> or
@@ -59,16 +61,22 @@ const steps = [
             stroke="currentColor"
             stroke-width="2.5"
             stroke-linecap="round"
-            stroke-linejoin="round"></path>
+            stroke-linejoin="round"
+          ></path>
         </svg>
         Included with BurnBar Cloud &amp; Cloud Pro
       </span>
 
       <div class="hgw__ctas">
         <a class="btn btn--ember" href="/download">
-          Download BurnBar <span class="btn-arrow" aria-hidden="true">→</span>
+          Download BurnBar{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
-        <a class="btn btn--ghost" href="/hermes/connect">Connect Hermes</a>
+        <a class="btn btn--ghost" href="/hermes/connect">
+          Connect Hermes
+        </a>
       </div>
       <a class="hgw__doclink mono" href={gatewayDocsUrl} target="_blank" rel="noopener noreferrer">
         Read the gateway docs <span aria-hidden="true">↗</span>
@@ -123,17 +131,15 @@ const steps = [
         <div class="hgw__picker" role="presentation">
           <span class="hgw__pickerlabel mono">Add a platform in Hermes</span>
           <ul class="hgw__list">
-            {
-              otherPlatforms.map((p) => (
-                <li class="hgw__row">
-                  <span class="hgw__mono" aria-hidden="true">
-                    {p.mark}
-                  </span>
-                  <span class="hgw__rowname">{p.name}</span>
-                  <span class="hgw__radio" aria-hidden="true" />
-                </li>
-              ))
-            }
+            {otherPlatforms.map((p) => (
+              <li class="hgw__row">
+                <span class="hgw__mono" aria-hidden="true">
+                  {p.mark}
+                </span>
+                <span class="hgw__rowname">{p.name}</span>
+                <span class="hgw__radio" aria-hidden="true" />
+              </li>
+            ))}
             <li class="hgw__row hgw__row--active">
               <span class="hgw__logo hgw__logo--row" aria-hidden="true">
                 <img
@@ -155,7 +161,8 @@ const steps = [
                     stroke="currentColor"
                     stroke-width="3"
                     stroke-linecap="round"
-                    stroke-linejoin="round"></path>
+                    stroke-linejoin="round"
+                  ></path>
                 </svg>
                 Approved
               </span>
@@ -169,19 +176,17 @@ const steps = [
     </div>
   </div>
 
-  {
-    !compact && (
-      <div class="container container--wide hgw__steps">
-        {steps.map((s) => (
-          <article class="hgw__step">
-            <span class="hgw__stepn mono">{s.n}</span>
-            <h3 class="hgw__steptitle">{s.title}</h3>
-            <p class="hgw__stepbody">{s.body}</p>
-          </article>
-        ))}
-      </div>
-    )
-  }
+  {!compact && (
+    <div class="container container--wide hgw__steps">
+      {steps.map((s) => (
+        <article class="hgw__step">
+          <span class="hgw__stepn mono">{s.n}</span>
+          <h3 class="hgw__steptitle">{s.title}</h3>
+          <p class="hgw__stepbody">{s.body}</p>
+        </article>
+      ))}
+    </div>
+  )}
 </section>
 
 <style>

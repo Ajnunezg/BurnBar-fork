@@ -183,7 +183,7 @@ export const deleteDomainData = async (domainId: string): Promise<DeleteDomainDa
       (code === "functions/failed-precondition" || code === "functions/permission-denied") &&
       /high-risk|trusted-device|nonce/i.test(message);
     if (isStepUpRejection) {
-      throw new Error(DOMAIN_DELETE_TRUSTED_DEVICE_MESSAGE);
+      throw new Error(DOMAIN_DELETE_TRUSTED_DEVICE_MESSAGE, { cause: err });
     }
     throw err;
   }

@@ -1,5 +1,5 @@
 // ── ktlint enforcement for Android Kotlin sources ───────────────────────────
-// ktlint-gradle 12.3.0 wires its per-source-set check/format tasks from
+// ktlint-gradle 12.x wired its per-source-set check/format tasks from
 // `kotlin.sourceSets`. Under AGP 9's *built-in Kotlin* that container is empty
 // (the Android source sets live under the `android` extension instead), so the
 // plugin silently lints only `.kts` build scripts — never `src/**/*.kt`. That
@@ -15,10 +15,19 @@
 // (UniFFI bindings, schema-sync / data-domains / design-token generated output)
 // report clean without being reformatted.
 //
-// When ktlint-gradle (or AGP) gains built-in-Kotlin source-set discovery, this
-// shim can be deleted in favour of the plugin's native tasks.
+// ktlint-gradle 14.1+ discovers built-in-Kotlin source sets natively, and 13+
+// defaults its own engine to ktlint 1.5. Pin the plugin to this shim's engine
+// so its native tasks, this shim and the standalone android-ktlint workflow
+// all judge with one ktlint version. Deleting the shim in favour of the native
+// tasks is a separate change (the workflow drift check reads this file).
 
 val ktlintCliVersion = "1.0.1"
+
+// Script plugins can't see the plugin's KtlintExtension type, so set its
+// `version` property through the Groovy builder.
+extensions.getByName("ktlint").withGroovyBuilder {
+    "getVersion"()!!.withGroovyBuilder { "set"(ktlintCliVersion) }
+}
 
 val ktlintCli =
     configurations.create("ktlintCli") {

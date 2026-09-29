@@ -65,7 +65,7 @@ export function PasskeyEnrollmentActions({
       )}
       {message && <p className="text-xs leading-5 text-content-mute">{message}</p>}
       {error && (
-        <p className="text-xs leading-5 text-[color:var(--color-seal-crimson)]">{error}</p>
+        <p className="text-xs leading-5 text-seal-crimson">{error}</p>
       )}
     </div>
   );
@@ -79,7 +79,7 @@ export function PasskeyEnrollmentCard({ className }: { className?: string }) {
           className="grid size-10 place-items-center border border-glass-line bg-mercury-wash"
           aria-hidden
         >
-          <KeyRound className="size-4 text-[color:var(--accent-deep)]" />
+          <KeyRound className="size-4 text-(--accent-deep)" />
         </div>
         <div>
           <p className="eyebrow eyebrow--accent">Passkey sign-in</p>

@@ -126,7 +126,7 @@ export function ProfileProviderMix({
                     type="button"
                     onClick={() => onToggleProvider(p.provider)}
                     aria-pressed={activeProviders.includes(p.provider)}
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-0.5 text-left text-sm transition-colors outline-none hover:bg-mercury-wash focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-0.5 text-left text-sm transition-colors outline-hidden hover:bg-mercury-wash focus-visible:ring-2 focus-visible:ring-(--accent)"
                     title={`${formatCompact(p.totalTokens)} tok · ${formatCompact(p.totalRequests)} runs · ${formatUsd(p.totalCost)}${eventSourced ? " (bounded events)" : ""} — click to filter`}
                   >
                     <BrandLogo id={p.provider} label={p.provider} size={18} />
@@ -142,7 +142,7 @@ export function ProfileProviderMix({
                     onClick={() => onInspectProvider(p.provider)}
                     title={`Inspect ${providerDisplayName(p.provider)} in the inspector`}
                     aria-label={`Inspect ${providerDisplayName(p.provider)} in the inspector`}
-                    className="shrink-0 rounded border border-glass-line px-token-2 py-0.5 text-[0.68rem] text-content-mute transition-colors hover:border-accent hover:text-content-bright focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+                    className="shrink-0 rounded border border-glass-line px-token-2 py-0.5 text-[0.68rem] text-content-mute transition-colors hover:border-accent hover:text-content-bright focus-visible:ring-2 focus-visible:ring-(--accent)"
                   >
                     Inspect
                   </button>
@@ -218,7 +218,7 @@ export function ProfileInsightsPanel({
                   type="button"
                   onClick={() => onToggleModel(topModel.model)}
                   title={`Filter by this model${eventSourced ? " (bounded events)" : ""}`}
-                  className="inline-flex items-center gap-2 rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+                  className="inline-flex items-center gap-2 rounded-sm underline-offset-2 outline-hidden hover:underline focus-visible:ring-2 focus-visible:ring-(--accent)"
                 >
                   <BrandLogo
                     id={topModel.provider}
@@ -232,7 +232,7 @@ export function ProfileInsightsPanel({
                   onClick={() => onInspectModel(topModel.model)}
                   title={`Inspect ${modelDisplayName(topModel.model)} in the inspector`}
                   aria-label={`Inspect ${modelDisplayName(topModel.model)} in the inspector`}
-                  className="rounded border border-glass-line px-token-2 py-0.5 text-[0.68rem] text-content-mute transition-colors hover:border-accent hover:text-content-bright focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+                  className="rounded border border-glass-line px-token-2 py-0.5 text-[0.68rem] text-content-mute transition-colors hover:border-accent hover:text-content-bright focus-visible:ring-2 focus-visible:ring-(--accent)"
                 >
                   Inspect
                 </button>

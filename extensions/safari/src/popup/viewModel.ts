@@ -2,14 +2,14 @@ import { agentsForMode, type PopupSnapshot } from '../shared/messages';
 import type { BridgeAgentOption, SafariMode } from '../shared/protocol';
 import type { PopupLocalState } from './state';
 
-export interface PopupModeOption {
+interface PopupModeOption {
   id: SafariMode;
   label: string;
   accessibleLabel: string;
   description: string;
 }
 
-export interface PopupAgentGroup {
+interface PopupAgentGroup {
   label: string;
   agents: BridgeAgentOption[];
 }

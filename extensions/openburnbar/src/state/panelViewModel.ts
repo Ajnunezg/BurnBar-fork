@@ -5,7 +5,7 @@ import type { BurnBarWorkspaceCapabilities } from '../workspace/types';
 // View model types
 // ---------------------------------------------------------------------------
 
-export interface OpenBurnBarPanelModelOption {
+interface OpenBurnBarPanelModelOption {
   id: string;
   displayName: string;
   providerName: string;
@@ -25,7 +25,7 @@ export interface OpenBurnBarPanelRunCard {
   isSelected: boolean;
 }
 
-export interface OpenBurnBarPanelCapabilityChip {
+interface OpenBurnBarPanelCapabilityChip {
   label: string;
   kind: 'ready' | 'locked' | 'warning';
 }
@@ -38,7 +38,7 @@ export interface OpenBurnBarPanelApprovalState {
   requestedAt: string;
 }
 
-export interface OpenBurnBarPanelSelectedRunDetail {
+interface OpenBurnBarPanelSelectedRunDetail {
   summary: string;
   responseText?: string;
   usageText?: string;

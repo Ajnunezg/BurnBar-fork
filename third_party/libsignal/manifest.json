@@ -2,36 +2,36 @@
   "name": "official-signal-libsignal",
   "upstreamRepository": "https://github.com/signalapp/libsignal",
   "license": "AGPL-3.0-only",
-  "pinnedTag": "v0.94.4",
-  "pinnedTagObject": "03c449017b57eccbda715b8b018dce5dff603ac6",
-  "pinnedCommit": "46d867c986f66201e34e7ae20ce423eec742bf3f",
+  "pinnedTag": "v0.103.0",
+  "pinnedTagObject": "6c573a122a5e1055408d7de00388ac9d6e7dfdf4",
+  "pinnedCommit": "ba133bd3457f556fbf56db0a5ab985de0af79da6",
   "artifacts": {
     "node": {
       "package": "@signalapp/libsignal-client",
-      "version": "0.94.4",
-      "integrity": "sha512-ZkZN3Vy+yK4X+qx13nrW+Ve4ofIvxW9QQ22YS7uL76Cls5y2tcrXWQJc5l8lFVOZ7zctsGHp38ikbcJOMeHwxg=="
+      "version": "0.103.0",
+      "integrity": "sha512-eTPT0ebDsoriIjeMjuB882H51UpFXnWDIu43VX0uBSM6iryKmCa0zxabncrS6xG0KJqAc+Modjkhk0nk+w2k+A=="
     },
     "android": [
       {
         "group": "org.signal",
         "artifact": "libsignal-client",
-        "version": "0.94.4",
+        "version": "0.103.0",
         "repository": "https://build-artifacts.signal.org/libraries/maven/"
       },
       {
         "group": "org.signal",
         "artifact": "libsignal-android",
-        "version": "0.94.4",
+        "version": "0.103.0",
         "repository": "https://build-artifacts.signal.org/libraries/maven/"
       }
     ],
     "swift": {
       "sourceSubdirectory": "swift",
-      "buildDocumentation": "https://github.com/signalapp/libsignal/tree/v0.94.4/swift"
+      "buildDocumentation": "https://github.com/signalapp/libsignal/tree/v0.103.0/swift"
     },
     "rust": {
       "sourceSubdirectory": "rust",
-      "buildDocumentation": "https://github.com/signalapp/libsignal/tree/v0.94.4/rust"
+      "buildDocumentation": "https://github.com/signalapp/libsignal/tree/v0.103.0/rust"
     }
   },
   "burnbarIntegration": {
@@ -42,14 +42,13 @@
   "submoduleFork": {
     "path": "Vendor/libsignal",
     "forkRepository": "https://github.com/Ajnunezg/libsignal",
-    "forkCommit": "fc81268b27d83be7dd961a2ccd5e0f5fed554188",
-    "basedOnOfficialCommit": "46d867c986f66201e34e7ae20ce423eec742bf3f",
+    "forkCommit": "2c39c2601ce5e8c73326db037007fd294121e239",
+    "basedOnOfficialCommit": "ba133bd3457f556fbf56db0a5ab985de0af79da6",
     "allowedDivergentFiles": [
       "swift/Package.swift",
       "swift/Sources/LibSignalClient/AsyncUtils.swift",
-      "swift/Sources/LibSignalClient/TokioAsyncContext.swift",
-      "swift/Sources/LibSignalClient/chat/UnauthUsernamesService.swift"
+      "swift/Sources/LibSignalClient/TokioAsyncContext.swift"
     ],
-    "rationale": "Security remediation M-6. The Vendor/libsignal git submodule is the OFFICIAL signalapp/libsignal v0.94.4 tree (basedOnOfficialCommit) plus reviewed Swift-only OpenBurnBar integration commits: XCFramework packaging for the OpenBurnBar Signal FFI and Swift 6 sendability adaptations in the Swift binding layer. It MUST NOT diverge from official in any crypto-core file (rust/, java/, node/, etc.). scripts/ci/verify-libsignal-submodule-delta.sh enforces the exact forkCommit and this allow-list in CI so a crypto-core change can never enter via the personal fork unnoticed."
+    "rationale": "Security remediation M-6. The Vendor/libsignal git submodule is the OFFICIAL signalapp/libsignal v0.103.0 tree (basedOnOfficialCommit) plus reviewed Swift-only OpenBurnBar integration commits: XCFramework packaging for the OpenBurnBar Signal FFI and Swift 6 sendability adaptations in the Swift binding layer. It MUST NOT diverge from official in any crypto-core file (rust/, java/, node/, etc.). scripts/ci/verify-libsignal-submodule-delta.sh enforces the exact forkCommit and this allow-list in CI so a crypto-core change can never enter via the personal fork unnoticed."
   }
 }

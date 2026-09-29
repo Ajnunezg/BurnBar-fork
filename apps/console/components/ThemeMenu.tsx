@@ -80,7 +80,7 @@ export function ThemeMenu({ direction = "down" }: { direction?: "up" | "down" })
               >
                 <ChipPreview colors={t.preview} />
                 <span className="flex-1">{t.label}</span>
-                {active && <Check size={14} aria-hidden className="text-[color:var(--accent-deep)]" />}
+                {active && <Check size={14} aria-hidden className="text-(--accent-deep)" />}
               </button>
             );
           })}

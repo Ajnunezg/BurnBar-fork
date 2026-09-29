@@ -1,17 +1,17 @@
 import type { BurnBarCatalog, BurnBarHealthResponse, OpenBurnBarState } from "../../src/types";
 import type { BurnBarWorkspaceCapabilities } from "../../src/workspace/types";
 
-export interface ReplayStepResult<T> {
+interface ReplayStepResult<T> {
   result: T;
 }
 
-export interface ReplayStepError {
+interface ReplayStepError {
   error: string;
 }
 
 export type ReplayStep<T> = ReplayStepResult<T> | ReplayStepError;
 
-export interface ReplayAction {
+interface ReplayAction {
   type: "refresh" | "repair";
   label: string;
 }
@@ -31,7 +31,7 @@ export interface ReplayScenario {
   actions: ReplayAction[];
 }
 
-export interface ReplayCheckpoint {
+interface ReplayCheckpoint {
   label: string;
   snapshot: OpenBurnBarState;
   healthRows: Array<{

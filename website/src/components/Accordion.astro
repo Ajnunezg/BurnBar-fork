@@ -9,21 +9,19 @@ const { items, open } = Astro.props;
 ---
 
 <div class="accordion">
-  {
-    items.map((item) => (
-      <details name="faq" id={item.id} data-category={item.category} open={open === item.id}>
-        <summary>
-          <span class="acc__q">{item.question}</span>
-          <span class="acc__chev" aria-hidden="true" />
-        </summary>
-        <div class="acc__body">
-          {item.answer.split("\n\n").map((p) => (
-            <p>{p}</p>
-          ))}
-        </div>
-      </details>
-    ))
-  }
+  {items.map((item) => (
+    <details name="faq" id={item.id} data-category={item.category} open={open === item.id}>
+      <summary>
+        <span class="acc__q">{item.question}</span>
+        <span class="acc__chev" aria-hidden="true" />
+      </summary>
+      <div class="acc__body">
+        {item.answer.split("\n\n").map((p) => (
+          <p>{p}</p>
+        ))}
+      </div>
+    </details>
+  ))}
 </div>
 
 <style>

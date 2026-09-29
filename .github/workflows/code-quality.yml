@@ -311,12 +311,16 @@ jobs:
           # the old '|| true' + warning masked a task-not-found failure on
           # every run this lane ever had. projectHealth is the real per-module
           # task; verified green locally on plugin 2.19.0.
-          # Single-JVM compile: the multi-variant analysis otherwise spawns a
-          # 3g Kotlin daemon per variant alongside Gradle's 4g and OOMs even
-          # 16GB runners. In-process strategy shares one 6g heap.
-          ./gradlew :app:projectHealth --no-daemon --max-workers=2 \
+          # Single-JVM compile: compile Kotlin inside Gradle's 6g heap instead
+          # of the shared Kotlin daemon (gradle.properties caps it at 3g). KGP
+          # only reads the strategy as a Gradle property (-P); the old
+          # -Dkotlin.compiler.execution.strategy system property was silently
+          # ignored, so every variant compiled in the 3g daemon and died with
+          # "GC overhead limit exceeded" wrapped as backend codegen errors.
+          # One worker keeps a single variant's compiler on the heap at a time.
+          ./gradlew :app:projectHealth --no-daemon --max-workers=1 \
             -Dorg.gradle.jvmargs=-Xmx6g \
-            -Dkotlin.compiler.execution.strategy=in-process \
+            -Pkotlin.compiler.execution.strategy=in-process \
             2>&1 | tee ../android-dep-health.txt || true
           if grep -qE "^BUILD FAILED" ../android-dep-health.txt; then
             echo "::error::Android dependency-analysis buildHealth FAILED. Review android-dep-health artifact."

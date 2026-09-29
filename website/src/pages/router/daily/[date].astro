@@ -45,8 +45,8 @@ const taskCount = rundown.taskRankings.length;
         Frozen snapshot. A board of language models ran research and analysis tasks over the same
         daily data, then BurnBar reduced the result to deterministic selections with source
         citations. Benchmark signals are
-        <strong>advisory</strong> — runtime constraints (provider-family mode, Exact Model Failover's
-        canonical-ID gate, pinning, auth, quota, safety, availability) always win.
+        <strong>advisory</strong> — runtime constraints (provider-family mode, Exact Model
+        Failover's canonical-ID gate, pinning, auth, quota, safety, availability) always win.
       </p>
 
       <ul class="pagehead__chips mono" aria-label="Page summary">
@@ -64,29 +64,25 @@ const taskCount = rundown.taskRankings.length;
       </ul>
 
       <nav class="archive-nav" aria-label="Adjacent days">
-        {
-          older && (
-            <a class="archive-nav__btn" href={`/router/daily/${older.date}`}>
-              <>
-                <span class="mono">←</span>
-                <span>{older.date}</span>
-              </>
-            </a>
-          )
-        }
-        <a class="archive-nav__btn archive-nav__btn--latest" href="/router/daily"
-          >all dated rundowns</a
-        >
-        {
-          newer && (
-            <a class="archive-nav__btn" href={`/router/daily/${newer.date}`}>
-              <>
-                <span>{newer.date}</span>
-                <span class="mono">→</span>
-              </>
-            </a>
-          )
-        }
+        {older && (
+          <a class="archive-nav__btn" href={`/router/daily/${older.date}`}>
+            <>
+              <span class="mono">←</span>
+              <span>{older.date}</span>
+            </>
+          </a>
+        )}
+        <a class="archive-nav__btn archive-nav__btn--latest" href="/router/daily">
+          all dated rundowns
+        </a>
+        {newer && (
+          <a class="archive-nav__btn" href={`/router/daily/${newer.date}`}>
+            <>
+              <span>{newer.date}</span>
+              <span class="mono">→</span>
+            </>
+          </a>
+        )}
       </nav>
     </div>
   </section>
@@ -106,15 +102,20 @@ const taskCount = rundown.taskRankings.length;
         canonical model.
       </p>
       <div class="endcta__ctas">
-        <a class="btn btn--ember" href="/download"
-          >Download for macOS <span class="btn-arrow" aria-hidden="true">→</span></a
-        >
+        <a class="btn btn--ember" href="/download">
+          Download for macOS{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
         <a
           class="btn btn--ghost"
           href={`${SITE.github}/blob/main/docs/ROUTED_CLIENT_GATEWAY.md`}
           target="_blank"
-          rel="noopener noreferrer">Read the gateway doc</a
+          rel="noopener noreferrer"
         >
+          Read the gateway doc
+        </a>
       </div>
     </div>
   </section>

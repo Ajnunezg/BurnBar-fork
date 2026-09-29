@@ -10,7 +10,7 @@
  *      anchor of the seam that Swift (SignalEnvelopeAAD.swift) and Kotlin must also
  *      match; if Node drifts, every cross-language KAT breaks.
  *   B. Real libsignal at-rest HPKE seal -> open round-trip (RFC 9180, libsignal
- *      0.94.4) + fail-closed negatives: wrong binding (relocation), wrong recipient
+ *      0.103.0) + fail-closed negatives: wrong binding (relocation), wrong recipient
  *      key, tampered ciphertext, and reserved-char binding injection all throw.
  *   C. Contract recognizer fail-closed: sanitizeCloudVaultSignalEnvelope rejects a
  *      relocated/mode-confused/transport envelope.
