@@ -203,6 +203,49 @@ final class BurnBarProjectCodeMemoryHelperProcessTests: XCTestCase {
         )
     }
 
+    func test_git_ignored_paths_is_not_hidden_by_show_untracked_files_no() throws {
+        let root = try makeRepository(ignoring: "*.generated.swift\n")
+        defer { try? FileManager.default.removeItem(at: root) }
+        _ = BurnBarProjectCodeMemoryStore.gitOutput(root: root, arguments: ["config", "status.showUntrackedFiles", "no"])
+        FileManager.default.createFile(atPath: root.appendingPathComponent("A.generated.swift").path, contents: nil)
+
+        XCTAssertEqual(BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root), ["A.generated.swift"])
+    }
+
+    func test_a_broken_repository_falls_back_to_gitignore_patterns() throws {
+        // `.git` exists but git can't read it: status and check-ignore both
+        // fail, and every batch must still be filtered by the patterns.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("helper-process-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("gitdir: /nonexistent\n".utf8).write(to: root.appendingPathComponent(".git"))
+        try Data("*.generated.swift\n".utf8).write(to: root.appendingPathComponent(".gitignore"))
+        for index in 0..<20 {
+            FileManager.default.createFile(atPath: root.appendingPathComponent("\(index).generated.swift").path, contents: nil)
+        }
+        FileManager.default.createFile(atPath: root.appendingPathComponent("Kept.swift").path, contents: nil)
+
+        let files = BurnBarProjectCodeMemoryStore.enumerateIndexableFiles(root: root, maxFiles: 100, batchSize: 4)
+
+        XCTAssertEqual(files.map(\.lastPathComponent), ["Kept.swift"])
+    }
+
+    func test_pending_directories_are_capped_instead_of_held_without_bound() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("helper-process-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        for index in 0..<10 {
+            let directory = root.appendingPathComponent("d\(index)", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: directory.appendingPathComponent("F.swift").path, contents: nil)
+        }
+
+        let files = BurnBarProjectCodeMemoryStore.enumerateIndexableFiles(root: root, maxFiles: 100, maxPendingDirectories: 3)
+
+        XCTAssertEqual(files.count, 3)
+    }
+
     private func makeRepository(ignoring patterns: String) throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("helper-process-\(UUID().uuidString)", isDirectory: true)

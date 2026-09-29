@@ -167,10 +167,17 @@ extension BurnBarProjectCodeMemoryStore {
     /// Walks the tree breadth-first, streaming each directory's children and
     /// resolving ignores `batchSize` entries at a time, so memory is bounded
     /// by the batch rather than by how wide a directory is, and each batch is
-    /// one git call when git has to be asked.
-    static func enumerateIndexableFiles(root: URL, maxFiles: Int, batchSize: Int = 4_096) -> [URL] {
+    /// one git call when git has to be asked. At most `maxPendingDirectories`
+    /// directories wait to be walked; like `maxFiles`, directories past that
+    /// cap are skipped rather than held in memory.
+    static func enumerateIndexableFiles(
+        root: URL,
+        maxFiles: Int,
+        batchSize: Int = 4_096,
+        maxPendingDirectories: Int = 16_384
+    ) -> [URL] {
         let canonicalRoot = root.resolvingSymlinksInPath().standardizedFileURL
-        let ignoreRules = IgnoreRules(root: canonicalRoot, patterns: gitignorePatterns(root: root))
+        var ignoreRules = IgnoreRules(root: canonicalRoot, patterns: gitignorePatterns(root: root))
         var files: [URL] = []
         var directories = [root]
         var nextDirectory = 0
@@ -180,7 +187,9 @@ extension BurnBarProjectCodeMemoryStore {
             let ignored = ignoreRules.ignored(batch)
             for entry in batch where ignored.contains(entry.relativePath) == false {
                 if entry.isDirectory {
-                    directories.append(entry.url)
+                    if directories.count - nextDirectory < maxPendingDirectories {
+                        directories.append(entry.url)
+                    }
                     continue
                 }
                 guard files.count < maxFiles,
@@ -235,12 +244,14 @@ extension BurnBarProjectCodeMemoryStore {
     /// one `git status` listing when it fits under the helper output cap,
     /// otherwise one `git check-ignore` call per enumeration batch. The root
     /// .gitignore patterns are only the last resort, outside a worktree or
-    /// when git itself fails.
+    /// when git itself fails; one failed check-ignore sticks for the rest of
+    /// the walk so a hung git costs one timeout, not one per batch.
     struct IgnoreRules {
         let root: URL
         let patterns: [String]
         let isRepository: Bool
         let statusIgnored: Set<String>?
+        private var checkIgnoreFailed = false
 
         init(root: URL, patterns: [String]) {
             self.root = root
@@ -249,18 +260,20 @@ extension BurnBarProjectCodeMemoryStore {
             statusIgnored = isRepository ? BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root) : nil
         }
 
-        func ignored(_ entries: [IgnoreCandidate]) -> Set<String> {
+        mutating func ignored(_ entries: [IgnoreCandidate]) -> Set<String> {
             guard entries.isEmpty == false else { return [] }
             if let statusIgnored {
-                return Set(entries.lazy.filter {
+                return Set(entries.filter {
                     BurnBarProjectCodeMemoryStore.isGitIgnored($0.relativePath, isDirectory: $0.isDirectory, ignoredPaths: statusIgnored)
                 }.map(\.relativePath))
             }
-            if isRepository,
-               let checked = BurnBarProjectCodeMemoryStore.gitCheckIgnore(root: root, paths: entries.map(\.relativePath)) {
-                return checked
+            if isRepository, checkIgnoreFailed == false {
+                if let checked = BurnBarProjectCodeMemoryStore.gitCheckIgnore(root: root, paths: entries.map(\.relativePath)) {
+                    return checked
+                }
+                checkIgnoreFailed = true
             }
-            return Set(entries.lazy.filter {
+            return Set(entries.filter {
                 BurnBarProjectCodeMemoryStore.isIgnored($0.relativePath, isDirectory: $0.isDirectory, patterns: patterns)
             }.map(\.relativePath))
         }
@@ -980,11 +993,12 @@ extension BurnBarProjectCodeMemoryStore {
         guard isGitWorktree(root: root) else { return nil }
         let process = hardenedGitProcess(
             root: root,
-            // Default untracked mode: a fully ignored tree (node_modules/,
+            // Normal untracked mode: a fully ignored tree (node_modules/,
             // .build/) is one `!! dir/` entry, which isGitIgnored matches by
             // prefix, instead of one entry per file. Ignored files inside
             // untracked directories are still listed individually.
-            arguments: ["status", "--ignored", "--porcelain=v1", "-z"]
+            // Explicit, so status.showUntrackedFiles=no can't hide them.
+            arguments: ["status", "--ignored", "--porcelain=v1", "-z", "--untracked-files=normal"]
         )
         guard let data = runHelperProcess(process),
               process.terminationStatus == 0 else {
