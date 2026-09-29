@@ -112,6 +112,12 @@ function pathExists(baseDir, evidencePath) {
   return existsSync(resolved);
 }
 
+// scripts/capture-commercial-launch-evidence.mjs stores what it captured as
+// { capturedAt, kind, ..., payload }; judge the captured payload, not the wrapper.
+function capturedPayload(json) {
+  return isRecord(json) && typeof json.capturedAt === "string" && isRecord(json.payload) ? json.payload : json;
+}
+
 function readJSONAt(baseDir, evidencePath, errors, label) {
   const resolved = resolveEvidencePath(baseDir, evidencePath);
   if (!resolved || /^https?:\/\//.test(resolved)) {
@@ -119,7 +125,7 @@ function readJSONAt(baseDir, evidencePath, errors, label) {
     return null;
   }
   try {
-    return JSON.parse(readFileSync(resolved, "utf8"));
+    return capturedPayload(JSON.parse(readFileSync(resolved, "utf8")));
   } catch (error) {
     fail(errors, `${label}: cannot read JSON (${error.message})`);
     return null;
@@ -134,7 +140,8 @@ function validateLaunchGate(manifest, baseDir, errors) {
   if (!isRecord(manifest.launchGate)) return fail(errors, "launchGate must be an object");
   if (!pathExists(baseDir, manifest.launchGate.path)) fail(errors, "launchGate.path must reference an existing artifact");
   const gate = readJSONAt(baseDir, manifest.launchGate.path, errors, "launchGate.path");
-  const status = gate?.verdict?.status ?? manifest.launchGate.status;
+  // Only the gate's own output counts; a status typed into the manifest does not.
+  const status = gate?.verdict?.status;
   if (!["READY_FOR_LIVE_PAID_PROOF", "READY_FOR_CANARY", "READY_FOR_PUBLIC_RELEASE", "LAUNCH_DONE"].includes(status)) {
     fail(errors, "launchGate status must be a launch-ready status");
   }

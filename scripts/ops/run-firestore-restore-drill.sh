@@ -4,6 +4,15 @@
 # Default mode uses PITR clone because it exercises the live point-in-time
 # recovery path without restoring over production. Set FIRESTORE_DRILL_MODE=backup
 # to restore from the newest READY backup instead.
+#
+# The drill verifies the restored data, not only the restore operation: it
+# counts each collection group in FIRESTORE_DRILL_COLLECTION_GROUPS (default
+# entitlements,cloud_vault_key_wrappers,usage) in the source at the snapshot
+# time and in the restored database. Every run that gets past preflight writes
+# a redaction-safe receipt (docs/schemas/firestore-restore-drill-receipt.schema.json)
+# to ${EVIDENCE_DIR}/firestore-restore-drill-<ts>.json and
+# latest-firestore-restore-drill.json, which scripts/commercial-launch-gate.mjs
+# requires. The script exits non-zero unless that receipt is ok.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -15,6 +24,7 @@ DRILL_TS="${FIRESTORE_DRILL_TS:-$(date -u +%Y%m%d%H%M%S)}"
 RESTORE_DATABASE_ID="${FIRESTORE_RESTORE_DATABASE_ID:-dr-drill-${DRILL_TS}}"
 EVIDENCE_DIR="${FIRESTORE_DRILL_EVIDENCE_DIR:-launch-evidence}"
 CLEANUP="${FIRESTORE_DRILL_CLEANUP:-1}"
+VERIFY="scripts/ops/firestore-restore-drill-verify.mjs"
 
 positive_integer_env() {
   local name="$1"
@@ -34,6 +44,7 @@ positive_integer_env() {
 
 validate_timeout_environment() {
   positive_integer_env FIRESTORE_DRILL_CLEANUP_TIMEOUT_SECONDS 900 86400 >/dev/null
+  positive_integer_env FIRESTORE_DRILL_CLEANUP_POLL_SECONDS 30 3600 >/dev/null
   positive_integer_env FIRESTORE_DRILL_WAIT_TIMEOUT_SECONDS 14400 604800 >/dev/null
   positive_integer_env FIRESTORE_DRILL_WAIT_POLL_SECONDS 30 3600 >/dev/null
 }
@@ -56,6 +67,7 @@ operation_path="${EVIDENCE_DIR}/firestore-restore-drill-${DRILL_TS}.operation.js
 database_path="${EVIDENCE_DIR}/firestore-restore-drill-${DRILL_TS}.database.json"
 indexes_path="${EVIDENCE_DIR}/firestore-restore-drill-${DRILL_TS}.indexes.json"
 posture_path="${EVIDENCE_DIR}/firestore-restore-drill-${DRILL_TS}.posture.json"
+counts_path="${EVIDENCE_DIR}/firestore-restore-drill-${DRILL_TS}.counts.json"
 summary_path="${EVIDENCE_DIR}/firestore-restore-drill-${DRILL_TS}.json"
 latest_path="${EVIDENCE_DIR}/latest-firestore-restore-drill.json"
 
@@ -97,6 +109,9 @@ if (!Array.isArray(backups)) {
 const backupDatabase = (backup) => (typeof backup.database === "string" ? backup.database : "");
 const backupName = (backup) => (typeof backup.name === "string" ? backup.name : "");
 const readyForSource = (backup) => backup.state === "READY" && backupDatabase(backup) === sourceDatabase;
+// Prints "<name>\t<snapshotTime>": the drill counts the source at the backup's snapshot time.
+const printSelected = (backup) =>
+  console.log(`${backupName(backup)}\t${typeof backup.snapshotTime === "string" ? backup.snapshotTime : ""}`);
 if (requested) {
   const match = backups.find((backup) => backupName(backup) === requested);
   if (!match) {
@@ -113,7 +128,7 @@ if (requested) {
     );
     process.exit(2);
   }
-  console.log(requested);
+  printSelected(match);
   process.exit(0);
 }
 const candidates = backups
@@ -124,7 +139,7 @@ if (candidates.length === 0) {
   console.error(`FAIL: no READY Firestore backup found for ${sourceDatabase}.`);
   process.exit(2);
 }
-console.log(backupName(candidates[0]));
+printSelected(candidates[0]);
 NODE
 }
 
@@ -137,6 +152,8 @@ portable_snapshot_time() {
   date -u -v-5M +%Y-%m-%dT%H:%M:00Z 2>/dev/null || date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:00Z
 }
 
+# Succeeds only when this drill deleted its database: that is exactly what the
+# receipt's cleanup.databaseDeleted claims.
 cleanup_drill_database() {
   if [[ "$CLEANUP" != "1" ]]; then
     return
@@ -146,7 +163,9 @@ cleanup_drill_database() {
     return 1
   fi
   local cleanup_timeout
+  local cleanup_poll_seconds
   cleanup_timeout="$(positive_integer_env FIRESTORE_DRILL_CLEANUP_TIMEOUT_SECONDS 900 86400)"
+  cleanup_poll_seconds="$(positive_integer_env FIRESTORE_DRILL_CLEANUP_POLL_SECONDS 30 3600)"
   local cleanup_deadline=$(( $(date +%s) + cleanup_timeout ))
   while gcloud firestore databases describe --database="$RESTORE_DATABASE_ID" --project="$PROJECT" >/dev/null 2>&1; do
     gcloud firestore databases update \
@@ -165,8 +184,10 @@ cleanup_drill_database() {
       echo "FAIL: timed out cleaning up drill database ${RESTORE_DATABASE_ID}" >&2
       return 1
     fi
-    sleep 30
+    sleep "$cleanup_poll_seconds"
   done
+  echo "==> drill database ${RESTORE_DATABASE_ID} not found; nothing was deleted" >&2
+  return 1
 }
 
 wait_firestore_operation() {
@@ -246,18 +267,61 @@ if [[ "${FIRESTORE_DRILL_VALIDATE_OPERATION_WAIT_ONLY:-0}" == "1" ]]; then
   exit 0
 fi
 
-cleanup_completed=false
-trap 'if [[ "$cleanup_completed" != "true" ]]; then cleanup_drill_database; fi' EXIT
-
-echo "==> verify production Firestore DR posture"
-FIRESTORE_DR_JSON_ONLY=1 \
-  GCLOUD_PROJECT="$PROJECT" \
-  FIRESTORE_DATABASE_ID="$DATABASE_ID" \
-  bash scripts/ops/verify-firestore-disaster-recovery.sh >"$posture_path"
+if ! command -v gcloud >/dev/null 2>&1; then
+  echo "FAIL: gcloud CLI is required to run the Firestore restore drill" >&2
+  exit 1
+fi
 
 case "$MODE" in
   clone)
     SNAPSHOT_TIME="${SNAPSHOT_TIME:-$(portable_snapshot_time)}"
+    ;;
+  backup)
+    selected_backup="$(select_ready_backup_for_source_database "$BACKUP_NAME")"
+    IFS=$'\t' read -r BACKUP_NAME SNAPSHOT_TIME <<<"$selected_backup"
+    ;;
+  *)
+    echo "Unknown FIRESTORE_DRILL_MODE: ${MODE}; expected clone or backup" >&2
+    exit 64
+    ;;
+esac
+
+# Reject a bad collection-group list, API base, database ID or snapshot time
+# now rather than after a multi-hour restore.
+node "$VERIFY" preflight \
+  --mode "$MODE" \
+  --source-database "$DATABASE_ID" \
+  --restore-database "$RESTORE_DATABASE_ID" \
+  --snapshot-time "$SNAPSHOT_TIME"
+
+phase_status=0
+
+# Run one drill phase in a subshell with errexit on and record its exit status
+# instead of aborting, so a failed phase still ends in a receipt. Call it as a
+# plain command: inside an `if` or `||` list bash ignores errexit in the phase.
+run_phase() {
+  set +e
+  ( set -e; "$@" )
+  phase_status=$?
+  set -e
+  if [[ "$phase_status" -ne 0 ]]; then
+    echo "FAIL: drill phase $1 exited ${phase_status}; the receipt records it" >&2
+  fi
+}
+
+phase_passed() {
+  if [[ "$phase_status" -eq 0 ]]; then echo true; else echo false; fi
+}
+
+verify_source_posture() {
+  FIRESTORE_DR_JSON_ONLY=1 \
+    GCLOUD_PROJECT="$PROJECT" \
+    FIRESTORE_DATABASE_ID="$DATABASE_ID" \
+    bash scripts/ops/verify-firestore-disaster-recovery.sh >"$posture_path"
+}
+
+start_restore() {
+  if [[ "$MODE" == "clone" ]]; then
     echo "==> PITR clone ${SOURCE_DATABASE_RESOURCE} @ ${SNAPSHOT_TIME} -> ${RESTORE_DATABASE_ID}"
     gcloud firestore databases clone \
       --project="$PROJECT" \
@@ -266,96 +330,98 @@ case "$MODE" in
       --snapshot-time="$SNAPSHOT_TIME" \
       --format=json \
       >"$operation_path"
-    ;;
-  backup)
-    if [[ -z "$BACKUP_NAME" ]]; then
-      BACKUP_NAME="$(select_ready_backup_for_source_database)"
-    else
-      BACKUP_NAME="$(select_ready_backup_for_source_database "$BACKUP_NAME")"
-    fi
-    echo "==> backup restore ${BACKUP_NAME} -> ${RESTORE_DATABASE_ID}"
+  else
+    echo "==> backup restore ${BACKUP_NAME} (snapshot ${SNAPSHOT_TIME:-unknown}) -> ${RESTORE_DATABASE_ID}"
     gcloud firestore databases restore \
       --project="$PROJECT" \
       --source-backup="$BACKUP_NAME" \
       --destination-database="$RESTORE_DATABASE_ID" \
       --format=json \
       >"$operation_path"
-    ;;
-  *)
-    echo "Unknown FIRESTORE_DRILL_MODE: ${MODE}; expected clone or backup" >&2
-    exit 64
-    ;;
-esac
+  fi
+}
 
-RESTORE_OPERATION="$(
-  node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).name)' "$operation_path"
-)"
-echo "==> wait for ${RESTORE_OPERATION}"
-wait_firestore_operation "$RESTORE_OPERATION" "$operation_path"
+wait_for_restore() {
+  local operation
+  operation="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).name)' "$operation_path")"
+  echo "==> wait for ${operation}"
+  wait_firestore_operation "$operation" "$operation_path"
+}
 
-echo "==> capture restored database and indexes"
-gcloud firestore databases describe --database="$RESTORE_DATABASE_ID" \
-  --project="$PROJECT" \
-  --format=json \
-  >"$database_path"
+capture_restored_database() {
+  gcloud firestore databases describe --database="$RESTORE_DATABASE_ID" \
+    --project="$PROJECT" \
+    --format=json \
+    >"$database_path"
+  gcloud firestore indexes composite list \
+    --project="$PROJECT" \
+    --database="$RESTORE_DATABASE_ID" \
+    --format=json \
+    >"$indexes_path"
+}
 
-gcloud firestore indexes composite list \
-  --project="$PROJECT" \
-  --database="$RESTORE_DATABASE_ID" \
-  --format=json \
-  >"$indexes_path"
+# The token reaches node through the environment only, never argv.
+count_collection_groups() {
+  local access_token
+  access_token="$(gcloud auth print-access-token)"
+  FIRESTORE_DRILL_ACCESS_TOKEN="$access_token" node "$VERIFY" counts \
+    --project "$PROJECT" \
+    --mode "$MODE" \
+    --source-database "$DATABASE_ID" \
+    --restore-database "$RESTORE_DATABASE_ID" \
+    --snapshot-time "$SNAPSHOT_TIME" \
+    --out "$counts_path"
+}
 
-export PROJECT DATABASE_ID RESTORE_DATABASE_ID DRILL_TS SNAPSHOT_TIME BACKUP_NAME MODE
-export operation_path database_path indexes_path posture_path
-node - <<'NODE' >"$summary_path"
-const fs = require("fs");
-const env = process.env;
-const operation = JSON.parse(fs.readFileSync(env.operation_path, "utf8"));
-const database = JSON.parse(fs.readFileSync(env.database_path, "utf8"));
-const indexes = JSON.parse(fs.readFileSync(env.indexes_path, "utf8"));
-const posture = JSON.parse(fs.readFileSync(env.posture_path, "utf8"));
-console.log(JSON.stringify({
-  generatedAt: new Date().toISOString(),
-  project: env.PROJECT,
-  mode: env.MODE,
-  sourceDatabase: env.DATABASE_ID,
-  restoreDatabase: env.RESTORE_DATABASE_ID,
-  snapshotTime: env.SNAPSHOT_TIME || null,
-  backupName: env.BACKUP_NAME || null,
-  operationName: operation.name,
-  operationDone: operation.done === true,
-  restoredDatabaseLocation: database.locationId,
-  restoredDatabaseType: database.type,
-  restoredDeleteProtectionState: database.deleteProtectionState || null,
-  compositeIndexCount: Array.isArray(indexes) ? indexes.length : 0,
-  sourcePostureOk: posture.ok === true,
-  rtoTargetHours: 4,
-  rpoTargetHours: 1,
-  pitrRetentionWindowHours: 168,
-  cleanupRequested: process.env.FIRESTORE_DRILL_CLEANUP !== "0"
-}, null, 2));
-NODE
+cleanup_completed=false
+trap 'if [[ "$cleanup_completed" != "true" ]]; then cleanup_drill_database || true; fi' EXIT
 
-cleanup_succeeded=false
+echo "==> verify production Firestore DR posture"
+run_phase verify_source_posture
+posture_ok="$(phase_passed)"
+
+operation_done=false
+capture_ok=false
+elapsed_seconds=""
+restore_started_at="$(date +%s)"
+run_phase start_restore
+restore_started="$(phase_passed)"
+if [[ "$restore_started" == "true" ]]; then
+  run_phase wait_for_restore
+  operation_done="$(phase_passed)"
+fi
+
+if [[ "$operation_done" == "true" ]]; then
+  elapsed_seconds=$(( $(date +%s) - restore_started_at ))
+  echo "==> capture restored database and indexes"
+  run_phase capture_restored_database
+  capture_ok="$(phase_passed)"
+  echo "==> count collection groups in the source snapshot and the restored database"
+  rm -f "$counts_path"
+  run_phase count_collection_groups
+fi
+
+cleanup_requested=false
+database_deleted=false
 if [[ "$CLEANUP" == "1" ]]; then
-  cleanup_drill_database
-  cleanup_succeeded=true
+  cleanup_requested=true
+  run_phase cleanup_drill_database
+  database_deleted="$(phase_passed)"
 fi
 cleanup_completed=true
 
-export summary_path cleanup_succeeded
-node - <<'NODE'
-const fs = require("fs");
-const summaryPath = process.env.summary_path;
-const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
-summary.cleanup = {
-  requested: summary.cleanupRequested === true,
-  databaseDeleted: process.env.cleanup_succeeded === "true",
-  completedAt: new Date().toISOString(),
-};
-fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
-NODE
-
-cp "$summary_path" "$latest_path"
-echo "==> wrote ${summary_path}"
-cat "$summary_path"
+node "$VERIFY" receipt \
+  --mode "$MODE" \
+  --source-database "$DATABASE_ID" \
+  --snapshot-time "$SNAPSHOT_TIME" \
+  --restore-database "$RESTORE_DATABASE_ID" \
+  --posture-ok "$posture_ok" \
+  --restore-started "$restore_started" \
+  --operation-done "$operation_done" \
+  --elapsed-seconds "$elapsed_seconds" \
+  --capture-ok "$capture_ok" \
+  --counts "$counts_path" \
+  --cleanup-requested "$cleanup_requested" \
+  --database-deleted "$database_deleted" \
+  --out "$summary_path" \
+  --latest "$latest_path"

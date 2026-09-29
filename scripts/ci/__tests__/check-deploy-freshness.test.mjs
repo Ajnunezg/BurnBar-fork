@@ -54,6 +54,27 @@ test("stale fixture (~24-day-old deploys) fails with exit 1 and 6/18 freeze mess
   assert.equal(code, 1);
   assert.match(stderr, /FAIL/);
   assert.match(stderr, /6\/18 freeze/);
+  assert.match(stderr, /Next step \(stale\): ship a production release through deploy-production\.yml/);
+  assert.doesNotMatch(stderr, /Next step \(error\)/);
+});
+
+test("an unreadable surface fails with a read-failure next step, not a freeze step", () => {
+  const dir = mkdtempSync(join(tmpdir(), "deploy-freshness-"));
+  try {
+    const fixture = join(dir, "error.json");
+    writeFileSync(fixture, JSON.stringify({
+      now: "2026-07-14T12:00:00.000Z",
+      hostedMcp: { name: "services/openburnbar-hosted-mcp", updateTime: "2026-07-13T12:00:00.000Z" },
+      errors: { cloudFunctions: "HTTP 403 PERMISSION_DENIED" },
+    }));
+    const { code, stderr } = run({ DEPLOY_FRESHNESS_FIXTURE: fixture });
+    assert.equal(code, 1);
+    assert.match(stderr, /cloudFunctions:error/);
+    assert.match(stderr, /Next step \(error\): a read failure is not a freeze/);
+    assert.doesNotMatch(stderr, /Next step \(stale\)/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 // ---------------------------------------------------------------------------

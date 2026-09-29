@@ -28,6 +28,7 @@ on:
       - "scripts/ops/check-billing-budget-drift.*"
       - "governance/ops-billing-budget.json"
       - "scripts/ops/check-artifact-retention-drift.*"
+      - "scripts/ops/apply-artifact-retention.*"
       - "governance/ops-artifact-retention.json"
       - "scripts/ops/verify-github-governance.sh"
       - "governance/branch-protection.main.json"
@@ -69,6 +70,9 @@ jobs:
 
       - name: Artifact retention drift check — offline self-test
         run: node --test scripts/ops/check-artifact-retention-drift.test.mjs
+
+      - name: Artifact retention apply (plan, merge, post-apply verify) — offline tests
+        run: node --test scripts/ops/apply-artifact-retention.test.mjs
 
       - name: Syntax-check reworked GitHub governance verifier
         run: bash -n scripts/ops/verify-github-governance.sh
@@ -121,7 +125,7 @@ jobs:
           workload_identity_provider: ${{ vars.OPS_VERIFY_WIF_PROVIDER }}
           service_account: ${{ vars.OPS_VERIFY_SERVICE_ACCOUNT }}
 
-      # The three live checks below are independent planes; each runs whenever
+      # The four live checks below are independent planes; each runs whenever
       # authentication succeeded so one red surface never hides evidence about
       # another (same contract as the protected `verify` lane).
       - name: Branch-protection drift — live (ruleset + classic) vs committed source of truth

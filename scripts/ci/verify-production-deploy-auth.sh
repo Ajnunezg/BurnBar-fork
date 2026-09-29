@@ -486,7 +486,12 @@ def validate_production_functions(text: str) -> None:
         'git merge-base --is-ancestor "$commit" origin/main',
         'git checkout --detach "$commit"',
         "node scripts/ci/prepare-functions-runtime-package.mjs",
-        '--functions-dir "$stage/functions"',
+        '--functions-dir "$stage/$codebase"',
+        # Wave 3.5: build and stage every codebase the tag payload's
+        # firebase.json names, restricted to the reviewed codebase dirs.
+        "jq -er '.functions | if type == \"array\" then . else [.] end | .[].source' firebase.json",
+        "functions|functions-identity|functions-sync|functions-media) ;;",
+        "bash scripts/build-functions-all.sh",
     ):
         if marker not in prepare_job:
             fail(f"{path} prepare-functions-deploy is missing release tag provenance guard marker {marker!r}")
@@ -512,6 +517,8 @@ def validate_production_functions(text: str) -> None:
         "find \"$stage\" -type f -links +1",
         "chmod 0700 sentry-cli/node_modules/@sentry/cli/bin/sentry-cli",
         "OPENBURNBAR_SOURCE_COMMIT: ${{ needs.prepare-functions-deploy.outputs.commit }}",
+        # Wave 3.5: every staged codebase gets its reviewed production env.
+        '} > "${codebase}/.env.burnbar"',
     ):
         if marker not in deploy_job:
             fail(f"{path} deploy-functions is missing immutable deploy boundary marker {marker!r}")

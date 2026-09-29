@@ -380,6 +380,21 @@ if (anyStale || anyError) {
     `::error::Deploy freshness FAIL: ${failures}. ` +
       `This is the 6/18 freeze signature — a merged fix sitting undeployed.`,
   );
+  // Say what turns this green, so the page is actionable on its own.
+  if (anyStale) {
+    console.error(
+      "::error::Next step (stale): ship a production release through deploy-production.yml " +
+        "(docs/runbooks/LAUNCH_PACKET_CHECKLIST.md, production deploy step). " +
+        "This check goes green on the first run after every stale surface is redeployed.",
+    );
+  }
+  if (anyError) {
+    console.error(
+      "::error::Next step (error): a read failure is not a freeze. A 403 means the ops-verifier " +
+        "identity lacks a viewer role (governance/ops-plane-verifier-sa.json); fix the grant, then re-run " +
+        "`gh workflow run ops-confidence.yml`.",
+    );
+  }
   process.exit(1);
 }
 

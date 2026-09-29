@@ -70,8 +70,9 @@ jobs:
     # W0-5: viewer-identity drift check. No `environment:` — this job authenticates
     # as the read-only ops-verifier WIF (governance/ops-plane-verifier-sa.json),
     # not as a production deploy identity, so it must not enter the protected
-    # environment. It fails CLOSED when the federation vars are absent (red by
-    # design until human queue items 7-9 provision them).
+    # environment. It fails CLOSED when the federation vars are absent. They were
+    # provisioned 2026-09-14, so a red run here is a real finding: the classify
+    # step and the check's "Next step" line say which.
     permissions:
       contents: read
       id-token: write

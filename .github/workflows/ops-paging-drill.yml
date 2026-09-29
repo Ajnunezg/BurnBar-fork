@@ -1,0 +1,37 @@
+name: Ops paging drill
+
+# Sends one clearly labelled DRILL page through OPS_PAGING_SLACK_WEBHOOK, the
+# route every P0 ops lane pages through (.github/actions/ops-failure-issue).
+# Slack's 2xx proves acceptance only; the human confirmation is recorded from
+# the release machine (docs/runbooks/alert-delivery-drill.md). Never deploys,
+# never touches production, never opens issues.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ops-paging-drill
+  cancel-in-progress: false
+
+jobs:
+  send-drill-page:
+    name: Send ops paging drill page
+    runs-on: ubuntu-latest
+    # reason: repo policy floor for checkout-bearing jobs; the drill itself is one POST.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Send drill page (fails if the webhook is unset or rejects it)
+        env:
+          OPS_PAGING_SLACK_WEBHOOK: ${{ secrets.OPS_PAGING_SLACK_WEBHOOK }}
+        run: node scripts/ops/ops-paging-drill.mjs

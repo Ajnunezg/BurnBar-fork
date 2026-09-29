@@ -45,20 +45,23 @@ credentialed step writes runtime env and deploys with the direct Firebase binary
 against the generated config. The health gate runs afterward in a separate job
 without WIF credentials.
 
-### Product preflight: owner-emergency profile
+### Product preflight: signed counsel (owner-emergency profile is an open decision)
 
-`deploy-production.yml` runs `check_burnbar_release_preflight.py` with
-`--allow-owner-emergency-approval --allow-owner-emergency-runtime-hold
---expected-release-tag <tag>` (same flags as `release.yml`). Source integrity
-is always enforced; the legal + runtime holds are satisfied by the validated
-per-release-train owner packet while libsignal runtime cutover and signed
-counsel approval are pending. Without this profile the Functions lane demands
-full product-launch readiness on every tag push and deadlocks (every
-v1.0.40+repair.40/.41 tag push failed in "BurnBar product release preflight").
-The engagement is recorded in the run summary as
-`product-preflight=owner-emergency (tag <tag>)`. The signed-counsel packet
-remains the default gate; removing this profile is the Wave 5 counsel
-sign-off item.
+`deploy-production.yml` runs `check_burnbar_release_preflight.py` with no
+owner-emergency flags, so a real tag deploy needs the signed external-counsel
+legal packet. `scripts/ci/verify-release-provenance-boundaries.mjs` (enforced in
+workflow-lint) forbids the owner-emergency profile in this workflow. That is why
+every v1.0.40+repair.40/.41 tag push failed in "BurnBar product release
+preflight": the packet is the owner-attested soft approval that `release.yml`'s
+app train accepts with `--allow-owner-emergency-approval
+--allow-owner-emergency-runtime-hold --expected-release-tag <tag>`.
+
+The owner-emergency profile for this lane is parked as a ready change on branch
+`remediation/diligence-85-ops-owner-emergency-option` (workflow step, verifier
+allowance bound to `steps.tag.outputs.tag`, and the contract test
+`scripts/ci/verify-deploy-production-preflight.test.mjs`). Until the owner either
+lands it or signs the counsel packet, that contract test stays red and unwired.
+Source integrity is enforced in both cases.
 
 ### Nightly health scoreboard
 
@@ -87,11 +90,26 @@ checks the latest non-dry-run `deploy-production.yml` run and probes
 or retries a tag. The generated `deploy-lane-health.json` artifact is the
 machine-readable scoreboard.
 
-- **Green:** both the latest deploy and both public probes are successful.
+- **Production freshness:** the Functions lane also compares the commit the
+  fleet runs with `main`. The anchor is the latest successful deploy that was
+  not a break-glass retry (break-glass runs carry
+  `existing-tag-retry-break-glass` in their run name and ship only
+  `healthReady`/`healthLive`/`healthCheck`, so `healthReady.source.commit` can
+  move while every other function keeps older code); `healthReady` is the
+  fallback. The report always prints how many commits production is behind
+  main and whether Functions paths changed; it turns red (`behind-main`) when
+  Functions-relevant changes are unshipped and the deployed commit is older than
+  `DEPLOY_LANE_BEHIND_MAX_DAYS` (default 14, the deploy-freshness window). An
+  unknown commit or a failed/truncated comparison fails closed. The weekly
+  `ops-confidence.yml` `deploy-freshness` job remains the per-function
+  `updateTime` check (it needs the ops-verifier WIF).
+- **Green:** both the latest deploy and both public probes are successful and
+  production is not stale per the freshness rule above.
 - **Red or unavailable:** the workflow exits non-zero, records a
   `deploy-health` issue, and pages through the shared ops action with
-  `repage-until-green` when the configured webhook is available: every red
-  run re-pages until a green run closes the issue and re-arms the alarm.
+  `repage-until-green`: every red run re-pages until a green run closes the
+  issue and re-arms the alarm. A missing or failing webhook fails the job and
+  labels the issue `paging:undelivered` (see [the alert delivery drill](alert-delivery-drill.md)).
   A `known-red-named-blocker` still suppresses paging. A missing deploy run,
   skipped/cancelled run, API error, or failed probe is an explicit
   infrastructure blocker, not a green/no-op result. A failed deploy conclusion

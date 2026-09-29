@@ -7,7 +7,25 @@
 # Requires gcloud auth (or GOOGLE_APPLICATION_CREDENTIALS) and either
 # GCLOUD_PROJECT / GOOGLE_CLOUD_PROJECT / OPENBURNBAR_FIREBASE_PROJECT.
 #
+# --receipt <file>  On a full pass only, also write a redaction-safe JSON
+#                   receipt (services and modes, DeviceCheck key present; no
+#                   project number, app ID or key ID). For the launch packet:
+#   GCLOUD_PROJECT=burnbar bash scripts/ops/verify-firestore-app-check-enforcement.sh \
+#     --receipt "launch-evidence/app-check-enforcement-$(date -u +%F).json"
+#
 set -euo pipefail
+
+RECEIPT=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --receipt) RECEIPT="${2:?--receipt needs a file}"; shift 2 ;;
+    --receipt=*) RECEIPT="${1#*=}"; shift ;;
+    *) echo "ERROR: unknown argument: $1 (usage: $0 [--receipt <file>])" >&2; exit 64 ;;
+  esac
+done
+if [[ -n "$RECEIPT" && "$RECEIPT" != /* ]]; then
+  RECEIPT="$PWD/$RECEIPT"
+fi
 
 cd "$(dirname "$0")/../.."
 
@@ -57,6 +75,8 @@ fi
 
 timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 failed=0
+enforced_services=()
+device_check_key_set=false
 
 for service in "${services[@]}"; do
   service_name="projects/${project_number}/services/${service}"
@@ -99,6 +119,7 @@ print(json.dumps({
     failed=1
   else
     echo "PASS: ${service} App Check enforcementMode=ENFORCED for project ${PROJECT}."
+    enforced_services+=("$service")
   fi
 done
 
@@ -148,6 +169,7 @@ print(json.dumps({
       failed=1
     else
       echo "PASS: Apple DeviceCheck provider has a key for Firebase app ${apple_app_id}."
+      device_check_key_set=true
     fi
   fi
 elif [[ "${FIREBASE_APP_CHECK_REQUIRE_DEVICECHECK_CONFIG:-0}" == "1" ]]; then
@@ -156,5 +178,34 @@ elif [[ "${FIREBASE_APP_CHECK_REQUIRE_DEVICECHECK_CONFIG:-0}" == "1" ]]; then
 fi
 
 if [[ "$failed" -ne 0 ]]; then
+  [[ -z "$RECEIPT" ]] || echo "No receipt written: enforcement is not fully verified." >&2
   exit 1
+fi
+
+if [[ -n "$RECEIPT" ]]; then
+  mkdir -p "$(dirname "$RECEIPT")"
+  receipt_tmp="$(mktemp "${RECEIPT}.tmp.XXXXXX")"
+  trap 'rm -f "$receipt_tmp"' EXIT
+  python3 - "$receipt_tmp" "$PROJECT" "$timestamp" "$device_check_key_set" "${enforced_services[@]}" <<'PY'
+import json
+import sys
+
+output, project, verified_at, device_check_key_set, *services = sys.argv[1:]
+receipt = {
+    "schema": "openburnbar.app-check-enforcement-receipt.v1",
+    "schemaVersion": 1,
+    "generatedAt": verified_at,
+    "mode": "live",
+    "ok": True,
+    "project": project,
+    "services": [{"service": service, "enforcementMode": "ENFORCED"} for service in services],
+    "appleDeviceCheckKeySet": device_check_key_set == "true",
+}
+with open(output, "w", encoding="utf-8") as handle:
+    json.dump(receipt, handle, indent=2)
+    handle.write("\n")
+PY
+  mv "$receipt_tmp" "$RECEIPT"
+  trap - EXIT
+  echo "RECEIPT: ${RECEIPT}"
 fi
