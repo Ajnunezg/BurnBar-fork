@@ -156,6 +156,38 @@ final class BurnBarProjectCodeMemoryHelperProcessTests: XCTestCase {
         ))
     }
 
+    func test_over_cap_fallback_keeps_git_semantics_for_negations_nested_rules_and_excludes() throws {
+        // The root-.gitignore pattern matcher drops `!` negations and never
+        // sees nested .gitignore files or .git/info/exclude; the fallback has
+        // to ask git.
+        setenv("OPENBURNBAR_CODE_HELPER_MAX_OUTPUT_BYTES", "16384", 1)
+        defer { unsetenv("OPENBURNBAR_CODE_HELPER_MAX_OUTPUT_BYTES") }
+        let root = try makeRepository(ignoring: "*.generated.swift\ngenerated/**\n!generated/Kept.swift\n")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fileManager = FileManager.default
+        let name = String(repeating: "g", count: 40)
+        for index in 0..<1_000 {
+            fileManager.createFile(atPath: root.appendingPathComponent("\(name)-\(index).generated.swift").path, contents: nil)
+        }
+        for directory in ["generated", "sub"] {
+            try fileManager.createDirectory(at: root.appendingPathComponent(directory), withIntermediateDirectories: true)
+        }
+        try Data("*.tmp.swift\n".utf8).write(to: root.appendingPathComponent("sub/.gitignore"))
+        try Data("Excluded.swift\n".utf8).write(
+            to: root.appendingPathComponent(".git/info/exclude"),
+            options: .atomic
+        )
+        for path in ["Real.swift", "Excluded.swift", "generated/Kept.swift", "generated/Gen.swift", "sub/Real.swift", "sub/a.tmp.swift"] {
+            fileManager.createFile(atPath: root.appendingPathComponent(path).path, contents: Data("let x = 1\n".utf8))
+        }
+
+        XCTAssertNil(BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root))
+        let files = BurnBarProjectCodeMemoryStore.enumerateIndexableFiles(root: root, maxFiles: 5_000)
+            .compactMap { BurnBarProjectCodeMemoryStore.relativePath($0, root: root) }
+
+        XCTAssertEqual(Set(files), ["Real.swift", "generated/Kept.swift", "sub/Real.swift"])
+    }
+
     private func makeRepository(ignoring patterns: String) throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("helper-process-\(UUID().uuidString)", isDirectory: true)

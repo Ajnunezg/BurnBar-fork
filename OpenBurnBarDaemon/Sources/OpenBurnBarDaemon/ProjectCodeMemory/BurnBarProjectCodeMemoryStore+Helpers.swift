@@ -164,46 +164,85 @@ extension BurnBarProjectCodeMemoryStore {
         }
     }
 
+    /// Walks the tree one directory level at a time so each level's ignore
+    /// decisions can be asked of git in a single batch.
     static func enumerateIndexableFiles(root: URL, maxFiles: Int) -> [URL] {
-        let patterns = gitignorePatterns(root: root)
         let canonicalRoot = root.resolvingSymlinksInPath().standardizedFileURL
-        // nil when git could not answer (not a worktree, failed, timed out, or
-        // over the output cap): fall back to .gitignore patterns rather than
-        // treat that as "nothing ignored".
-        let gitIgnored = gitIgnoredPaths(root: canonicalRoot)
-        let useGitIgnore = gitIgnored != nil
-        guard let enumerator = FileManager.default.enumerator(
-            at: root,
-            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
-
+        let ignoreRules = IgnoreRules(root: canonicalRoot, patterns: gitignorePatterns(root: root))
         var files: [URL] = []
-        for case let url as URL in enumerator {
-            if files.count >= maxFiles { break }
-            guard let relativePath = relativePath(url, root: canonicalRoot) else {
-                if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
-                    enumerator.skipDescendants()
+        var level = [root]
+        while level.isEmpty == false, files.count < maxFiles {
+            var entries: [IgnoreCandidate] = []
+            for directory in level {
+                let children = (try? FileManager.default.contentsOfDirectory(
+                    at: directory,
+                    includingPropertiesForKeys: [.isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                )) ?? []
+                for url in children {
+                    guard let relativePath = relativePath(url, root: canonicalRoot) else { continue }
+                    let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+                    if isDirectory, ignoredDirectories.contains(url.lastPathComponent) { continue }
+                    entries.append(IgnoreCandidate(url: url, relativePath: relativePath, isDirectory: isDirectory))
                 }
-                continue
             }
-            if let resource = try? url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey]),
-               resource.isDirectory == true {
-                if ignoredDirectories.contains(url.lastPathComponent)
-                    || isGitIgnored(relativePath, isDirectory: true, ignoredPaths: gitIgnored ?? [])
-                    || (useGitIgnore == false && isIgnored(relativePath, isDirectory: true, patterns: patterns)) {
-                    enumerator.skipDescendants()
+            let ignored = ignoreRules.ignored(entries)
+            level = []
+            for entry in entries where ignored.contains(entry.relativePath) == false {
+                if entry.isDirectory {
+                    level.append(entry.url)
+                    continue
                 }
-                continue
+                guard files.count < maxFiles,
+                      indexedExtensions.contains(entry.url.pathExtension.lowercased()),
+                      isWithinRoot(entry.url.resolvingSymlinksInPath().standardizedFileURL, root: canonicalRoot)
+                else { continue }
+                files.append(entry.url)
             }
-            if isGitIgnored(relativePath, isDirectory: false, ignoredPaths: gitIgnored ?? [])
-                || (useGitIgnore == false && isIgnored(relativePath, isDirectory: false, patterns: patterns)) { continue }
-            let ext = url.pathExtension.lowercased()
-            guard indexedExtensions.contains(ext) else { continue }
-            guard isWithinRoot(url.resolvingSymlinksInPath().standardizedFileURL, root: canonicalRoot) else { continue }
-            files.append(url)
         }
         return files
+    }
+
+    struct IgnoreCandidate {
+        let url: URL
+        let relativePath: String
+        let isDirectory: Bool
+    }
+
+    /// Git's own ignore semantics (nested .gitignore files, negations,
+    /// .git/info/exclude, the global excludes file), bounded in memory:
+    /// one `git status` listing when it fits under the helper output cap,
+    /// otherwise a `git check-ignore` batch per directory level. The root
+    /// .gitignore patterns are only the last resort, outside a worktree or
+    /// when git itself fails.
+    struct IgnoreRules {
+        let root: URL
+        let patterns: [String]
+        let isRepository: Bool
+        let statusIgnored: Set<String>?
+
+        init(root: URL, patterns: [String]) {
+            self.root = root
+            self.patterns = patterns
+            isRepository = BurnBarProjectCodeMemoryStore.isGitWorktree(root: root)
+            statusIgnored = isRepository ? BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root) : nil
+        }
+
+        func ignored(_ entries: [IgnoreCandidate]) -> Set<String> {
+            guard entries.isEmpty == false else { return [] }
+            if let statusIgnored {
+                return Set(entries.lazy.filter {
+                    BurnBarProjectCodeMemoryStore.isGitIgnored($0.relativePath, isDirectory: $0.isDirectory, ignoredPaths: statusIgnored)
+                }.map(\.relativePath))
+            }
+            if isRepository,
+               let checked = BurnBarProjectCodeMemoryStore.gitCheckIgnore(root: root, paths: entries.map(\.relativePath)) {
+                return checked
+            }
+            return Set(entries.lazy.filter {
+                BurnBarProjectCodeMemoryStore.isIgnored($0.relativePath, isDirectory: $0.isDirectory, patterns: patterns)
+            }.map(\.relativePath))
+        }
     }
 
     static func language(for fileURL: URL) -> String? {
@@ -936,6 +975,23 @@ extension BurnBarProjectCodeMemoryStore {
             let ignoredPath = String(entry.dropFirst(3)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             return ignoredPath.isEmpty ? nil : ignoredPath
         })
+    }
+
+    /// The subset of `paths` git ignores, or nil when git can't answer. The
+    /// answer is a subset of the input, so its size is bounded by the batch.
+    static func gitCheckIgnore(root: URL, paths: [String]) -> Set<String>? {
+        let process = hardenedGitProcess(root: root, arguments: ["check-ignore", "-z", "--stdin"])
+        var payload = Data()
+        for path in paths {
+            payload.append(contentsOf: path.utf8)
+            payload.append(0)
+        }
+        // Exit 1 means "nothing ignored"; 128 is a fatal error.
+        guard let data = runHelperProcess(process, stdin: payload, maxOutputBytes: payload.count + 1),
+              process.terminationStatus == 0 || process.terminationStatus == 1 else {
+            return nil
+        }
+        return Set(data.split(separator: 0).map { String(decoding: $0, as: UTF8.self) })
     }
 
     static func isGitIgnored(_ relativePath: String, isDirectory: Bool, ignoredPaths: Set<String>) -> Bool {
