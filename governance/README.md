@@ -117,11 +117,58 @@ trigger.
 
 ## Drift Check
 
-The scheduled/dispatch ops verification lane runs
-[`scripts/ops/check-branch-protection-drift.mjs`](../scripts/ops/check-branch-protection-drift.mjs).
+The `branch-protection-drift` job in
+[`ops-plane-verify.yml`](../.github/workflows/ops-plane-verify.yml) runs
+[`scripts/ops/check-branch-protection-drift.mjs`](../scripts/ops/check-branch-protection-drift.mjs)
+against live GitHub on the weekly schedule and on dispatch, and a red result opens the ops-plane
+standing-failure issue. It reads classic protection and ruleset bypass actors, which needs a
+repository `Administration: read` token that `GITHUB_TOKEN` cannot hold, so it uses the
+`GOVERNANCE_READ_TOKEN` secret and fails closed (`governance-token-not-provisioned`) until that secret
+exists. Before 2026-09-28 the live check ran only inside the GCP-WIF-gated `alert-plane-drift` job and
+the approval-gated `verify` job, so it never executed and the drift below went unreported.
 The PR lane runs the same drift logic's offline self-tests through the required Fast Feedback
 aggregate gate, so edits to the checker are merge-blocking even though live GitHub/GCP credentials are
 not exposed to PRs.
+
+### Live drift (read-only readout, 2026-09-28)
+
+`node scripts/ops/check-branch-protection-drift.mjs` (GET-only `gh api` calls) against live `main`:
+
+```text
+DRIFT: live branch protection diverges from governance/branch-protection.main.json
+  [CRITICAL] enforceAdmins: desired=true live=false
+  [CRITICAL] ruleset pull_request rule drift: ... "requireCodeOwnerReviews":false, ... "requireLastPushApproval":false ...
+  [CRITICAL] bypass actors ADDED live (must be zero): ["User:125839313:always"]
+  [drift] requireCodeOwnerReviews: desired=true live=false
+  [drift] requireLastPushApproval: desired=true live=false
+```
+
+Classic protection has `require_code_owner_reviews: false` and `require_last_push_approval: false`;
+ruleset `19396995` ("Main native merge queue") has the same two flags off and `Ajnunezg` as an
+`always` bypass actor, which is what the checker reports as admin enforcement off. This file still
+wins. To converge live state to it (operator-only, not run by automation):
+
+```bash
+gh api -X PATCH repos/Imagine-That-Ai/BurnBar/branches/main/protection/required_pull_request_reviews \
+  -F dismiss_stale_reviews=true -F require_code_owner_reviews=true \
+  -F require_last_push_approval=true -F required_approving_review_count=1
+
+gh api repos/Imagine-That-Ai/BurnBar/rulesets/19396995 \
+  | jq '{name, target, enforcement, conditions, bypass_actors: [],
+         rules: [.rules[] | if .type == "pull_request"
+           then (.parameters.require_code_owner_review = true
+                 | .parameters.require_last_push_approval = true)
+           else . end]}' > /tmp/ruleset-19396995.json
+gh api -X PUT repos/Imagine-That-Ai/BurnBar/rulesets/19396995 --input /tmp/ruleset-19396995.json
+
+node scripts/ops/check-branch-protection-drift.mjs   # must print MATCH
+```
+
+Feeding the live snapshots with exactly those edits to the checker's `--live-classic` /
+`--live-ruleset` mode prints `MATCH`. CODEOWNERS lists both `@Ajnunezg` and `@emilio3435`, so
+code-owner review is satisfiable; an approval from a non-code-owner stops counting once it is on. If
+the intended policy is the live one instead, change this file in the same PR and record why; do not
+leave the two disagreeing.
 
 Workflow lint also runs
 [`scripts/ci/verify-merge-queue-workflows.mjs`](../scripts/ci/verify-merge-queue-workflows.mjs),
