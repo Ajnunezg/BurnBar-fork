@@ -180,7 +180,7 @@ function selfTest() {
     return 1;
   }
   const [firstProject] = committed.projects;
-  const mutate = (apply) => { const snapshot = faithfulSnapshot(committed); apply(snapshot[firstProject].cleanupPolicies); return snapshot; };
+  const mutate = (apply) => { const snapshot = faithfulSnapshot(committed); apply(snapshot[firstProject].cleanupPolicies, snapshot); return snapshot; };
   const controls = [
     ["faithful snapshot", faithfulSnapshot(committed), true],
     // Floors, not exact values: more retention still matches.
@@ -196,14 +196,9 @@ function selfTest() {
     ["7-day condition missing", mutate((policies) => { delete policies[window].condition; }), false],
     ["7-day action flipped to DELETE", mutate((policies) => { policies[window].action = "DELETE"; }), false],
     ["7-day window scoped to tagged images", mutate((policies) => { policies[window].condition.tagState = "TAGGED"; }), false],
+    ["cleanupPolicies block missing", mutate((policies, snapshot) => { delete snapshot[firstProject].cleanupPolicies; }), false],
+    ["project describe missing", mutate((policies, snapshot) => { delete snapshot[firstProject]; }), false],
   ];
-  const noBlock = faithfulSnapshot(committed);
-  delete noBlock[firstProject].cleanupPolicies;
-  controls.push(["cleanupPolicies block missing", noBlock, false]);
-  const missingProject = faithfulSnapshot(committed);
-  delete missingProject[firstProject];
-  controls.push(["project describe missing", missingProject, false]);
-
   const failures = [];
   for (const [label, live, expectOk] of controls) {
     const result = diffRetentionPolicies(committed, live);

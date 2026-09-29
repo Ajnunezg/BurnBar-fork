@@ -16,10 +16,10 @@ const CLI = join(dirname(fileURLToPath(import.meta.url)), "check-artifact-retent
 const committed = loadCommitted();
 const [firstProject] = committed.projects;
 
-/** Diff a faithful snapshot after `apply(policies)` mutates the first project's live policy map. */
+/** Diff a faithful snapshot after `apply(policies, snapshot)` mutates the first project's live state. */
 function diffAfter(apply) {
   const snapshot = faithfulSnapshot(committed);
-  apply(snapshot[firstProject].cleanupPolicies);
+  apply(snapshot[firstProject].cleanupPolicies, snapshot);
   return diffRetentionPolicies(committed, snapshot);
 }
 
@@ -86,9 +86,7 @@ test("a floor scoped to a subset of images drifts", () => {
 
 test("keepCount above the floor still matches; missing project drifts", () => {
   assert.equal(diffAfter((policies) => { policies["rollback-retention"].mostRecentVersions.keepCount = 10; }).ok, true);
-  const missingProject = faithfulSnapshot(committed);
-  delete missingProject[firstProject];
-  assert.equal(diffRetentionPolicies(committed, missingProject).ok, false);
+  assert.equal(diffAfter((policies, snapshot) => { delete snapshot[firstProject]; }).ok, false);
 });
 
 test("extra live policies beyond the contract do not drift", () => {

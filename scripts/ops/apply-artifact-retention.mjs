@@ -54,7 +54,7 @@ const MOST_RECENT_KEYS = new Set(["packageNamePrefixes", "keepCount"]);
  * field this script does not know would be dropped by the rewrite, so it is
  * refused instead.
  */
-export function toPolicyFileEntry(id, policy) {
+function toPolicyFileEntry(id, policy) {
   const unknown = [
     ...Object.keys(policy ?? {}).filter((key) => !POLICY_KEYS.has(key)),
     ...Object.keys(policy?.condition ?? {}).filter((key) => !CONDITION_KEYS.has(key)).map((key) => `condition.${key}`),
@@ -91,7 +91,7 @@ export function planProject(committed, repository) {
 }
 
 /** Keeps the repository's cleanup mode: `--no-dry-run` leaves deletion on, `--dry-run` leaves it off. */
-export function setCleanupPoliciesArgs(committed, project, policyFile, dryRun) {
+function setCleanupPoliciesArgs(committed, project, policyFile, dryRun) {
   return [
     "artifacts", "repositories", "set-cleanup-policies", committed.repository,
     `--project=${project}`, `--location=${committed.location}`, `--policy=${policyFile}`,
@@ -99,14 +99,14 @@ export function setCleanupPoliciesArgs(committed, project, policyFile, dryRun) {
   ];
 }
 
-const canonical = (value) => JSON.stringify(value, (key, inner) => (
+const canonical = (value) => JSON.stringify(value, (_, inner) => (
   inner && typeof inner === "object" && !Array.isArray(inner)
     ? Object.fromEntries(Object.entries(inner).sort(([left], [right]) => left.localeCompare(right)))
     : inner
 ));
 
 /** After a set: the contract matches live, carried-over policies are untouched, the dry-run mode held. */
-export function verifyApplied(committed, project, plan, before, after) {
+function verifyApplied(committed, project, plan, before, after) {
   const { differences } = diffRetentionPolicies({ ...committed, projects: [project] }, { [project]: after });
   for (const id of plan.carriedOver) {
     if (canonical(after?.cleanupPolicies?.[id]) !== canonical(before.cleanupPolicies[id])) {
@@ -153,18 +153,18 @@ export function reconcile({ committed, projects, apply, readLive, run = runGclou
       continue;
     }
     const directory = mkdtempSync(join(tmpdir(), "artifact-retention-"));
-    let set;
+    let applied;
     try {
       const file = join(directory, fileName);
       writeFileSync(file, policyJson);
       const args = setCleanupPoliciesArgs(committed, project, file, plan.dryRun);
       log(`==> gcloud ${args.join(" ")}`);
-      set = run(args);
+      applied = run(args);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
-    if (set.status !== 0) {
-      warn(`${target}: set-cleanup-policies failed: ${set.stderr || set.stdout || set.error?.message || "gcloud failed"}`);
+    if (applied.status !== 0) {
+      warn(`${target}: set-cleanup-policies failed: ${applied.stderr || applied.stdout || applied.error?.message || "gcloud failed"}`);
       return 2;
     }
     const after = readLive(project);

@@ -262,8 +262,9 @@ rejects() {
 }
 
 # The validator must reject what the schema forbids, or its passes mean nothing.
-python3 - "$tmp_root/fixture-receipt.json" <<'PY'
+python3 - "$tmp_root" <<'PY'
 import json
+import os
 import sys
 
 drill = {"kind": "cloud-run-revision-pin", "serviceName": "healthready", "region": "us-central1",
@@ -283,7 +284,7 @@ variants = {
     "traffic-not-restored": {**base, "drill": drill, "checks": {**checks, "trafficRestored": False}},
 }
 for name, receipt in variants.items():
-    with open(sys.argv[1].replace("fixture-receipt", f"variant-{name}"), "w") as handle:
+    with open(os.path.join(sys.argv[1], f"variant-{name}.json"), "w") as handle:
         json.dump(receipt, handle)
 PY
 check validator-accepts-a-complete-live-receipt validate "$tmp_root/variant-good.json"
