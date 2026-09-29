@@ -2,11 +2,16 @@
   "schemaVersion": 1,
   "generatedFrom": [
     "project.yml",
+    "docs/TECHNICAL_READINESS.md",
     "docs/status/release-status.input.json",
     "docs/status/surfaces.json",
     "docs/mobile-parity/mobile-parity-ledger.json",
     "docs/windows-port/WINDOWS_PARITY_LEDGER.yml"
   ],
+  "launchVerdict": {
+    "value": "source-ready-with-blockers",
+    "evidence": "docs/TECHNICAL_READINESS.md"
+  },
   "macOS": {
     "marketingVersion": "1.0.40",
     "evidence": "project.yml"

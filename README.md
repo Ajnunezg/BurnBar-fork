@@ -6,7 +6,7 @@
   > A native macOS app that watches your AI coding agents so you don't have to wonder where all your money went.
 
 <!-- release-status:start -->
-**Status:** Commercial launch candidate — macOS `1.0.40` is the committed product version; mobile parity claim is `false` (mobile parity remediation in progress); Mac App Store review: operator-asserted (last confirmed 2026-09-01) — UNSET; iOS review: operator-asserted (last confirmed 2026-09-01) — UNSET; manual release: operator-asserted (last confirmed 2026-09-01) — UNSET; Windows channel: operator-asserted (last confirmed 2026-09-01) — UNSET.
+**Status:** Source-ready with named launch blockers; no commercial GO yet (docs/TECHNICAL_READINESS.md) — macOS `1.0.40` is the committed product version; mobile parity claim is `false` (mobile parity remediation in progress); Mac App Store review: operator-asserted (last confirmed 2026-09-01) — UNSET; iOS review: operator-asserted (last confirmed 2026-09-01) — UNSET; manual release: operator-asserted (last confirmed 2026-09-01) — UNSET; Windows channel: operator-asserted (last confirmed 2026-09-01) — UNSET.
 <!-- release-status:end -->
 
 </div>

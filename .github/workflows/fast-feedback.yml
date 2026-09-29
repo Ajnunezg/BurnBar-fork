@@ -1,9 +1,11 @@
-name: Fast Feedback (<5 min)
+name: Fast Feedback
 
-# Lightweight pre-check that gates every PR in under 5 minutes.
-# Runs parallel jobs covering lint, type-check, shell validation, schema drift,
-# and non-Swift unit tests so agents get actionable signal before the 45-min
-# macOS build completes.
+# Lightweight pre-check that gates every PR. The target is under 5 minutes of
+# wall clock; the last 10 successful runs before 2026-09-28 took 2.0-11.4 min
+# (p50 7.2), so the gate job below reports the measured time instead of
+# claiming the target. Runs parallel jobs covering lint, type-check, shell
+# validation, schema drift, and non-Swift unit tests so agents get actionable
+# signal before the macOS build completes.
 #
 # This workflow is the PRIMARY CI feedback signal for PRs.
 # The full macOS build (openburnbar-pr-harness.yml) provides deeper coverage
@@ -155,7 +157,8 @@ jobs:
         run: npm run test:guards --prefix functions
 
       - name: Summarize
-        if: always()
+        # Success-only: with `if: always()` this printed three checkmarks even
+        # when TypeScript, ESLint or the unit tests had failed.
         run: |
           {
             echo "### Functions Fast Check"
@@ -1043,23 +1046,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (node24-native; June 16 forced-runtime fuse)
 
-      - name: Check that referenced scripts exist
+      - name: Agent contracts cite only paths that exist
+        # Every tracked AGENTS.md / CLAUDE.md / SKILL.md: markdown links and
+        # inline repo paths must resolve in the tracked tree. Replaces a check
+        # that read only the first `scripts/...` span per AGENTS.md line.
         run: |
-          set -euo pipefail
-          ERRORS=0
-          while IFS= read -r line; do
-            if [[ "$line" =~ \`(scripts/[^[:space:]\`]+)\` ]]; then
-              script="${BASH_REMATCH[1]}"
-              if [[ ! -f "$script" && ! -f "${script}.sh" ]]; then
-                echo "::error::AGENTS.md references missing script: $script"
-                ERRORS=$((ERRORS + 1))
-              fi
-            fi
-          done < AGENTS.md
-          if [[ $ERRORS -gt 0 ]]; then
-            exit 1
-          fi
-          echo "All AGENTS.md script references valid."
+          node --test scripts/ci/check-agent-contract-paths.test.mjs
+          node scripts/ci/check-agent-contract-paths.mjs
+
+      - name: README status headline matches the TECHNICAL_READINESS.md verdict
+        # Also the only CI caller of render-release-status.mjs --check.
+        run: node --test scripts/release/render-release-status.test.mjs
 
       - name: Self-test agent memory source policy
         run: node scripts/ci/verify-agent-memory-source-policy.test.mjs
@@ -1792,6 +1789,9 @@ jobs:
   # ── Fast summary gate ──────────────────────────────────────────────────────
   fast-feedback-gate:
     name: Fast Feedback Gate
+    permissions:
+      contents: read
+      actions: read # read this run's start time for the wall-clock line
     needs:
       - classify
       - vendor-checksums
@@ -1835,6 +1835,7 @@ jobs:
           MACOS_REQUIRED: ${{ needs.classify.outputs.macos }}
           WEB_REQUIRED: ${{ needs.classify.outputs.web }}
           CONSOLE_REQUIRED: ${{ needs.classify.outputs.console }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           failed=$(printf '%s\n' "$NEEDS_JSON" | python3 -c "
@@ -1870,4 +1871,28 @@ jobs:
             echo "$failed"
             exit 1
           fi
-          echo "### Fast Feedback: All checks passed in under 5 minutes" >> "$GITHUB_STEP_SUMMARY"
+          # Report the measured wall clock (run start -> now), never an
+          # assumed one: the old banner claimed "under 5 minutes" from job
+          # results alone.
+          started_at=""
+          if [[ -n "${GITHUB_REPOSITORY:-}" && -n "${GITHUB_RUN_ID:-}" ]]; then
+            started_at="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --jq .run_started_at 2>/dev/null || true)"
+          fi
+          elapsed="$(STARTED_AT="$started_at" python3 -c "
+          import datetime, os
+          raw = os.environ.get('STARTED_AT', '')
+          try:
+              start = datetime.datetime.fromisoformat(raw.replace('Z', '+00:00'))
+          except ValueError:
+              print('')
+          else:
+              print(round((datetime.datetime.now(datetime.timezone.utc) - start).total_seconds() / 60, 1))
+          ")"
+          if [[ -z "$elapsed" ]]; then
+            echo "### Fast Feedback: all selected jobs passed (wall clock unavailable)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Fast Feedback: all selected jobs passed in ${elapsed} min (target < 5 min)" >> "$GITHUB_STEP_SUMMARY"
+            if python3 -c "import sys; sys.exit(0 if float('$elapsed') > 5 else 1)"; then
+              echo "::notice::Fast Feedback took ${elapsed} min, over its 5-minute target."
+            fi
+          fi

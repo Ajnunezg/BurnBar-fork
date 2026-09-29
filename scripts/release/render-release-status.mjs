@@ -31,6 +31,24 @@ const WINDOWS_LEDGER_PATH = path.join(
   REPO_ROOT,
   "docs/windows-port/WINDOWS_PARITY_LEDGER.yml",
 );
+const READINESS_PATH = path.join(REPO_ROOT, "docs/TECHNICAL_READINESS.md");
+const FINAL_LAUNCH_EVIDENCE_PATH = path.join(REPO_ROOT, "launch-evidence/final-launch-evidence.json");
+// The README headline is derived from the readiness page's verdict sentence so
+// the two can never disagree (diligence 2026-09-28: README said "Commercial
+// launch candidate" while TECHNICAL_READINESS.md said "Commercial GO is not
+// present"). Exactly one of these markers must appear on the readiness page.
+export const LAUNCH_VERDICTS = Object.freeze([
+  Object.freeze({
+    value: "source-ready-with-blockers",
+    marker: "**Commercial GO is not present:**",
+    headline: "Source-ready with named launch blockers; no commercial GO yet (docs/TECHNICAL_READINESS.md)",
+  }),
+  Object.freeze({
+    value: "commercial-go",
+    marker: "**Commercial GO is present:**",
+    headline: "Commercial launch; GO recorded in launch-evidence/final-launch-evidence.json",
+  }),
+]);
 const START_MARKER = "<!-- release-status:start -->";
 const END_MARKER = "<!-- release-status:end -->";
 const REQUIRED_INPUT_FIELDS = [
@@ -66,6 +84,19 @@ function oneLine(value, label) {
     throw new Error(`${label} must be a single line without backticks`);
   }
   return value.trim().replace(/\s+/g, " ");
+}
+
+export function readLaunchVerdict(readinessText, { finalEvidenceExists = false } = {}) {
+  const found = LAUNCH_VERDICTS.filter((verdict) => readinessText.includes(verdict.marker));
+  if (found.length !== 1) {
+    throw new Error(
+      `docs/TECHNICAL_READINESS.md must state exactly one commercial verdict (${LAUNCH_VERDICTS.map((verdict) => verdict.marker).join(" or ")}); found ${found.length}`,
+    );
+  }
+  if (found[0].value === "commercial-go" && !finalEvidenceExists) {
+    throw new Error("a commercial GO verdict requires launch-evidence/final-launch-evidence.json");
+  }
+  return found[0];
 }
 
 function readMarketingVersion() {
@@ -141,6 +172,9 @@ function buildReleaseStatus() {
     "mobile parity ledger semantics.programStatus",
   );
   const windowsSchemaVersion = readWindowsLedgerSchemaVersion();
+  const launchVerdict = readLaunchVerdict(readText(READINESS_PATH), {
+    finalEvidenceExists: fs.existsSync(FINAL_LAUNCH_EVIDENCE_PATH),
+  });
 
   const storeFacing = Object.fromEntries(
     REQUIRED_INPUT_FIELDS.map((field) => [
@@ -156,11 +190,16 @@ function buildReleaseStatus() {
     schemaVersion: 1,
     generatedFrom: [
       "project.yml",
+      "docs/TECHNICAL_READINESS.md",
       "docs/status/release-status.input.json",
       "docs/status/surfaces.json",
       "docs/mobile-parity/mobile-parity-ledger.json",
       "docs/windows-port/WINDOWS_PARITY_LEDGER.yml",
     ],
+    launchVerdict: {
+      value: launchVerdict.value,
+      evidence: "docs/TECHNICAL_READINESS.md",
+    },
     macOS: {
       marketingVersion: version,
       evidence: "project.yml",
@@ -184,7 +223,7 @@ function renderBlock(status) {
     `${status.storeFacing[field].claim} — ${status.storeFacing[field].value}`;
   return [
     START_MARKER,
-    `**Status:** Commercial launch candidate — macOS \`${status.macOS.marketingVersion}\` is the committed product version; mobile parity claim is \`${status.mobileParity.productParityClaim}\` (${status.mobileParity.programStatus}); Mac App Store review: ${asserted("macAppStoreReviewState")}; iOS review: ${asserted("iosReviewState")}; manual release: ${asserted("manualReleaseEnabled")}; Windows channel: ${asserted("windowsChannelClaim")}.`,
+    `**Status:** ${LAUNCH_VERDICTS.find((verdict) => verdict.value === status.launchVerdict.value).headline} — macOS \`${status.macOS.marketingVersion}\` is the committed product version; mobile parity claim is \`${status.mobileParity.productParityClaim}\` (${status.mobileParity.programStatus}); Mac App Store review: ${asserted("macAppStoreReviewState")}; iOS review: ${asserted("iosReviewState")}; manual release: ${asserted("manualReleaseEnabled")}; Windows channel: ${asserted("windowsChannelClaim")}.`,
     END_MARKER,
   ].join("\n");
 }
@@ -235,4 +274,4 @@ function main() {
   console.log("Wrote docs/status/release-status.json and README.md release-status block");
 }
 
-main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) main();
