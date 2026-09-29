@@ -42,7 +42,7 @@ Cloud sync is **disabled by default**. You can disable it at any time in Setting
 
 ### Optional Text Expansion Snippets
 
-Text expansion snippets are user-authored phrases that expand from `&&name` triggers. Static snippets can contain whatever you type into them, so treat them like local notes. When cloud sync is enabled, OpenBurnBar stores snippet title, trigger, body, and scope as Cloud Vault encrypted fields in Firestore, plus a keyed trigger hash used for duplicate matching. Firestore rules reject plaintext snippet fields.
+Text expansion snippets are user-authored phrases that expand from `&&name` triggers. Static snippets can contain whatever you type into them, so treat them like local notes. Snippet sync is off by default and needs its own opt-in: on the Mac it runs only while both Cloud sync (**Settings → Devices & Sync**) and **Settings → Text Expansion → Sync snippets across devices** are on. The iPhone, iPad, and Android apps have no separate Cloud sync switch, so their snippet-sync switch alone decides; it is off for new installs and stays on only for an upgraded device that was already syncing snippets. When snippet sync is on, OpenBurnBar stores snippet title, trigger, body, and scope as Cloud Vault encrypted fields in Firestore, plus a keyed trigger hash used for duplicate matching. Firestore rules reject plaintext snippet fields.
 
 LLM rewrite snippets are previewed before insertion and use only OpenBurnBar-owned thread context. Global macOS expansion, iOS keyboard expansion, and Android IME expansion insert static snippets only.
 

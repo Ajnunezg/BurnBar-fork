@@ -60,10 +60,7 @@ class TextExpansionSyncManager(
         }
     }
 
-    private fun isCloudSyncEnabled(): Boolean {
-        val prefs = context.getSharedPreferences("text_expansion_settings", Context.MODE_PRIVATE)
-        return prefs.getBoolean("cloud_sync_enabled", true)
-    }
+    private fun isCloudSyncEnabled(): Boolean = TextExpansionCloudSyncPreference.resolve(TextExpansionCloudSyncPreference.prefs(context), dao)
 
     private suspend fun uploadPendingSnippets(uid: String, vaultKey: ByteArray, keypair: AndroidCloudVaultDeviceKeypair) {
         val unsynced = dao.getUnsynced(limit = 200)

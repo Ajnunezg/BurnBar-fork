@@ -292,7 +292,7 @@ struct TextExpansionSettingsView: View {
                 Divider().padding(.leading, 48)
                 SettingsToggle(
                     title: "Sync snippets across devices",
-                    subtitle: "Encrypted end-to-end. Uses your Cloud Vault key to sync via Firestore.",
+                    subtitle: "Off until you turn it on, and only while Cloud sync is on in Devices & Sync. Snippets are sealed with your Cloud Vault key before upload.",
                     icon: "icloud",
                     isOn: binding(\.cloudSyncEnabled)
                 )

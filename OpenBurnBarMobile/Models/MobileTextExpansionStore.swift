@@ -19,6 +19,9 @@ final class MobileTextExpansionStore {
     private var firestoreListener: ListenerRegistration?
     private var cachedVaultKey: Data?
     private var cachedUID: String?
+    /// False when the snapshot exists but could not be read, so the one-time
+    /// snippet-sync decision is never settled from a failed read.
+    private var localSnapshotIsReadable = true
 
     /// Darwin notification name for cross-process snippet updates.
     /// The keyboard extension listens for this to reload instantly.
@@ -33,17 +36,33 @@ final class MobileTextExpansionStore {
     func load() {
         guard let url = TextExpansionSnapshotStore.snapshotURL() else {
             snippets = []
+            localSnapshotIsReadable = false
             return
         }
         do {
             snippets = try TextExpansionSnapshotStore.read(from: url).snippets
+            localSnapshotIsReadable = true
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            // Normal on first launch: nothing has been saved yet.
+            snippets = []
+            localSnapshotIsReadable = true
         } catch {
-            // A missing snapshot is normal on first launch; a corrupt one is a
-            // real read failure — log it, cloud sync repopulates either way.
+            // A corrupt snapshot is a real read failure — log it; cloud sync
+            // (when enabled) repopulates.
             Self.log.warning("load: snapshot read failed, starting empty: \(error.localizedDescription, privacy: .public)")
             snippets = []
+            localSnapshotIsReadable = false
         }
         ingestInbox()
+    }
+
+    /// Snippet sync is opt-in (see `TextExpansionCloudSyncPreference`) and gates
+    /// every cloud path here: uploads, delete tombstones, and the realtime listener.
+    private var isCloudSyncEnabled: Bool {
+        TextExpansionCloudSyncPreference.resolve(
+            localSnippets: localSnapshotIsReadable ? snippets : nil,
+            defaults: .standard
+        )
     }
 
     /// Drains snippets created in the iOS keyboard extension and merges them into
@@ -121,7 +140,7 @@ final class MobileTextExpansionStore {
     }
 
     func syncCloud() async {
-        guard UserDefaults.standard.object(forKey: "textExpansion.cloudSyncEnabled") as? Bool ?? true else { return }
+        guard isCloudSyncEnabled else { return }
         do {
             guard let uid = Auth.auth().currentUser?.uid else { return }
             let key = try await unlockOrCreateCloudVaultKey(uid: uid)
@@ -188,6 +207,7 @@ final class MobileTextExpansionStore {
     }
 
     private func uploadTombstone(_ snippet: TextExpansionSnippet) async {
+        guard isCloudSyncEnabled else { return }
         do {
             guard let uid = Auth.auth().currentUser?.uid else { return }
             let key = try await unlockOrCreateCloudVaultKey(uid: uid)
@@ -294,7 +314,7 @@ final class MobileTextExpansionStore {
     /// any device (Mac, other iPhones) are reflected on this device within seconds.
     private func startRealtimeListener() {
         guard firestoreListener == nil else { return }
-        guard UserDefaults.standard.object(forKey: "textExpansion.cloudSyncEnabled") as? Bool ?? true else { return }
+        guard isCloudSyncEnabled else { return }
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         let collection = Firestore.firestore()

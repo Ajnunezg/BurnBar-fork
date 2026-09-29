@@ -90,6 +90,9 @@ public enum TextExpansionInboxError: LocalizedError, Equatable {
 /// snippet into the shared snapshot (instant availability), and queues it in the
 /// inbox for the app to sync.
 public enum TextExpansionKeyboardComposer {
+    /// The `sourceDeviceID` the iOS keyboard stamps on snippets it creates.
+    public static let keyboardSourceDeviceID = "iOSKeyboard"
+
     public enum ComposeError: LocalizedError, Equatable {
         case invalidTrigger(String)
         case emptyBody
