@@ -16,6 +16,7 @@ scan_paths=(
   packages/functions-shared/src
   firestore.rules
 )
+command -v rg >/dev/null || { echo "FAIL: ripgrep (rg) is required; the boundary would go unscanned" >&2; exit 1; }
 for scan_path in "${scan_paths[@]}"; do
   if [[ ! -e "$scan_path" ]]; then
     echo "FAIL: scan path ${scan_path} does not exist (moved?); the boundary would go unscanned" >&2

@@ -1398,6 +1398,10 @@ jobs:
       - name: Verify explicit Android PendingIntents
         run: node scripts/ci/verify-android-explicit-pending-intents.mjs
 
+      # ubuntu-latest ships no ripgrep; without it the boundary scan cannot run.
+      - name: Install ripgrep for the credential-transfer boundary scan
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ripgrep
+
       - name: Verify credential-transfer secret boundary
         run: bash scripts/ci/verify-credential-transfer-secret-boundary.sh
 
