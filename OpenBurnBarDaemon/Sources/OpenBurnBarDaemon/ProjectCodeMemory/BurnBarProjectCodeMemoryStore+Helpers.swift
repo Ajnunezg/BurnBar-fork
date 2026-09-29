@@ -470,18 +470,10 @@ extension BurnBarProjectCodeMemoryStore {
         guard let payload = try? JSONEncoder().encode(request) else { return nil }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: helperPath)
-        let input = Pipe()
-        let output = Pipe()
-        let stderr = Pipe()
-        process.standardInput = input
-        process.standardOutput = output
-        process.standardError = stderr
-        guard runHelperProcess(process, input: input, payload: payload) else {
+        guard let outputData = runHelperProcess(process, stdin: payload),
+              process.terminationStatus == 0 else {
             return nil
         }
-        guard process.terminationStatus == 0 else { return nil }
-        let outputData = output.fileHandleForReading.readDataToEndOfFile()
-        guard outputData.count <= codeHelperMaxOutputBytes() else { return nil }
         guard let line = String(data: outputData, encoding: .utf8)?
             .split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: true)
             .first,
@@ -491,7 +483,6 @@ extension BurnBarProjectCodeMemoryStore {
             response.filePath == relativePath,
             response.errors.isEmpty
         else {
-            _ = stderr.fileHandleForReading.readDataToEndOfFile()
             return nil
         }
         let language = response.language
@@ -601,14 +592,8 @@ extension BurnBarProjectCodeMemoryStore {
 
     static func gitOutput(root: URL, arguments: [String]) -> String? {
         let process = hardenedGitProcess(root: root, arguments: arguments)
-        let output = Pipe()
-        process.standardInput = FileHandle.nullDevice
-        process.standardOutput = output
-        process.standardError = Pipe()
-        guard runHelperProcess(process) else { return nil }
-        guard process.terminationStatus == 0 else { return nil }
-        let outputData = output.fileHandleForReading.readDataToEndOfFile()
-        guard outputData.count <= codeHelperMaxOutputBytes(),
+        guard let outputData = runHelperProcess(process),
+              process.terminationStatus == 0,
               let value = String(data: outputData, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
               value.isEmpty == false else {
@@ -641,34 +626,78 @@ extension BurnBarProjectCodeMemoryStore {
         return environment
     }
 
-    /// Runs a helper to completion (bounded by `codeHelperTimeoutSeconds`).
-    /// Callers read `terminationStatus` and drain output afterwards. When
-    /// `input` is set, `payload` plus a trailing newline goes to the helper's
-    /// stdin; a helper that exits without reading it must not take the host
-    /// down with SIGPIPE, so the write end refuses the signal and a failed
-    /// write is left for the exit status to judge.
-    static func runHelperProcess(_ process: Process, input: Pipe? = nil, payload: Data = Data()) -> Bool {
+    /// Runs a helper to completion (bounded by `codeHelperTimeoutSeconds`) and
+    /// returns everything it wrote to stdout, or nil when it could not launch,
+    /// timed out, or wrote more than `maxOutputBytes`. Callers read
+    /// `terminationStatus` afterwards.
+    ///
+    /// stdout and stderr are drained while the helper runs: a pipe holds only
+    /// ~64 KB, and a helper blocked writing to a full one never exits. stderr
+    /// is discarded. When `stdin` is set, it plus a trailing newline is written
+    /// from another thread so a helper that answers before it has read all of
+    /// its input cannot deadlock against us; otherwise stdin is /dev/null.
+    static func runHelperProcess(
+        _ process: Process,
+        stdin payload: Data? = nil,
+        maxOutputBytes: Int = codeHelperMaxOutputBytes()
+    ) -> Data? {
+        let input = payload.map { _ in Pipe() }
+        let output = Pipe()
+        let errorOutput = Pipe()
+        process.standardInput = input ?? FileHandle.nullDevice
+        process.standardOutput = output
+        process.standardError = errorOutput
         do {
             try process.run()
         } catch {
-            return false
+            return nil
         }
-        if let input {
-            writeHelperInput(payload + Data("\n".utf8), to: input.fileHandleForWriting)
-        }
-        let deadline = Date().addingTimeInterval(codeHelperTimeoutSeconds())
-        while process.isRunning, Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.01)
-        }
-        if process.isRunning {
-            process.terminate()
-            Thread.sleep(forTimeInterval: 0.05)
-            if process.isRunning {
-                process.interrupt()
+        if let input, let payload {
+            DispatchQueue.global(qos: .utility).async {
+                writeHelperInput(payload + Data("\n".utf8), to: input.fileHandleForWriting)
             }
-            return false
         }
-        return true
+
+        let deadline = Date().addingTimeInterval(codeHelperTimeoutSeconds())
+        var streams = [
+            pollfd(fd: output.fileHandleForReading.fileDescriptor, events: Int16(POLLIN), revents: 0),
+            pollfd(fd: errorOutput.fileHandleForReading.fileDescriptor, events: Int16(POLLIN), revents: 0)
+        ]
+        var collected = Data()
+        var buffer = [UInt8](repeating: 0, count: 64 * 1_024)
+        // Run until the helper has exited and both streams hit EOF, so no
+        // output written just before exit is lost.
+        while process.isRunning || streams.contains(where: { $0.fd >= 0 }) {
+            guard Date() < deadline else {
+                stopHelper(process)
+                return nil
+            }
+            guard poll(&streams, nfds_t(streams.count), 10) > 0 else { continue }
+            for index in streams.indices where streams[index].fd >= 0 && streams[index].revents != 0 {
+                let count = read(streams[index].fd, &buffer, buffer.count)
+                if count > 0 {
+                    guard index == 0 else { continue }
+                    collected.append(contentsOf: buffer[0..<count])
+                    if collected.count > maxOutputBytes {
+                        stopHelper(process)
+                        return nil
+                    }
+                } else if count == 0 || errno != EINTR {
+                    // EOF (or a broken stream): a negative fd makes poll skip it.
+                    streams[index].fd = -1
+                }
+            }
+        }
+        return collected
+    }
+
+    private static func stopHelper(_ process: Process) {
+        guard process.isRunning else { return }
+        process.terminate()
+        Thread.sleep(forTimeInterval: 0.05)
+        if process.isRunning {
+            process.interrupt()
+        }
     }
 
     /// Writes to a helper's stdin pipe without ever raising SIGPIPE. EPIPE
@@ -890,13 +919,12 @@ extension BurnBarProjectCodeMemoryStore {
             root: root,
             arguments: ["status", "--ignored", "--porcelain=v1", "-z", "--untracked-files=all"]
         )
-        let output = Pipe()
-        process.standardInput = FileHandle.nullDevice
-        process.standardOutput = output
-        process.standardError = Pipe()
-        guard runHelperProcess(process) else { return [] }
-        guard process.terminationStatus == 0 else { return [] }
-        let data = output.fileHandleForReading.readDataToEndOfFile()
+        // `-uall` lists every file under an ignored node_modules or .build, so
+        // this listing is routinely megabytes; it was never capped.
+        guard let data = runHelperProcess(process, maxOutputBytes: .max),
+              process.terminationStatus == 0 else {
+            return []
+        }
         return Set(data.split(separator: 0).compactMap { raw -> String? in
             let entry = String(decoding: raw, as: UTF8.self)
             guard entry.hasPrefix("!! ") else { return nil }

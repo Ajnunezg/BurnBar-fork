@@ -967,16 +967,8 @@ final class BurnBarProjectCodeMemoryStore: @unchecked Sendable {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["python3", "-c", script, filePath]
-        let input = Pipe()
-        let output = Pipe()
-        process.standardInput = input
-        process.standardOutput = output
-        process.standardError = Pipe()
-        let payload = Data(text.utf8)
-        guard Self.runHelperProcess(process, input: input, payload: payload),
+        guard let outputData = Self.runHelperProcess(process, stdin: Data(text.utf8)),
               process.terminationStatus == 0,
-              let outputData = Optional(output.fileHandleForReading.readDataToEndOfFile()),
-              outputData.count <= Self.codeHelperMaxOutputBytes(),
               let firstLine = String(data: outputData, encoding: .utf8)?
                 .split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: true)
                 .first

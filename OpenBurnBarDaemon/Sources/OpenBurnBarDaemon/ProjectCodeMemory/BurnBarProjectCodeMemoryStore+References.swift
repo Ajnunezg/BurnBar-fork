@@ -121,17 +121,10 @@ extension BurnBarProjectCodeMemoryStore {
         guard let payload = try? JSONEncoder().encode(request) else { return [] }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: helperPath)
-        let input = Pipe()
-        let output = Pipe()
-        process.standardInput = input
-        process.standardOutput = output
-        process.standardError = Pipe()
-        guard Self.runHelperProcess(process, input: input, payload: payload) else {
+        guard let outputData = Self.runHelperProcess(process, stdin: payload),
+              process.terminationStatus == 0 else {
             return []
         }
-        guard process.terminationStatus == 0 else { return [] }
-        let outputData = output.fileHandleForReading.readDataToEndOfFile()
-        guard outputData.count <= Self.codeHelperMaxOutputBytes() else { return [] }
         guard let line = String(data: outputData, encoding: .utf8)?
             .split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: true)
             .first,
