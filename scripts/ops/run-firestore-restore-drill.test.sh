@@ -356,12 +356,13 @@ firestore_port="$(cat "$port_file")"
 
 snapshot="2026-09-28T11:55:00Z"
 matched_counts='{"entitlements":4,"cloud_vault_key_wrappers":2,"usage":9}'
+matched="{\"source\":${matched_counts},\"restored\":${matched_counts}}"
 
 # run_drill <want-exit> <label> <scenario-json> [VAR=value ...]
 run_drill() {
   local want="$1"
   local label="$2"
-  local evidence="$tmp_root/drill-$2"
+  local evidence="$tmp_root/drill-$label"
   printf '%s\n' "$3" >"$scenario"
   shift 3
   : >"$request_log"
@@ -388,8 +389,8 @@ check_receipt() {
     node "$tmp_root/check-receipt.mjs" "$tmp_root/drill-$1" "$1" "$request_log" "$2"
 }
 
-# expect_file_check <label> <description> <command...>: extra assertion on a drill's side effects.
-expect_file_check() {
+# expect_side_effect <label> <description> <command...>: extra assertion on what a drill left behind.
+expect_side_effect() {
   local label="$1"
   local description="$2"
   shift 2
@@ -402,9 +403,9 @@ expect_file_check() {
   fi
 }
 
-run_drill 0 happy-clone "{\"source\":${matched_counts},\"restored\":${matched_counts}}"
+run_drill 0 happy-clone "$matched"
 check_receipt happy-clone "{\"ok\":true,\"counts\":[[\"entitlements\",4,4],[\"cloud_vault_key_wrappers\",2,2],[\"usage\",9,9]],\"sourceReadTimes\":[\"${snapshot}\"]}"
-expect_file_check happy-clone "drill database deleted" test ! -e "$tmp_root/drill-happy-clone/state/dr-drill-happy-clone"
+expect_side_effect happy-clone "drill database deleted" test ! -e "$tmp_root/drill-happy-clone/state/dr-drill-happy-clone"
 
 run_drill 1 mismatch "{\"source\":${matched_counts},\"restored\":{\"entitlements\":4,\"cloud_vault_key_wrappers\":2,\"usage\":8}}"
 check_receipt mismatch '{"ok":false,"failure":"usage: restored count 8 does not match the source count 9"}'
@@ -416,24 +417,24 @@ check_receipt all-vacuous '{"ok":false,"failure":"every collection group was emp
 index_error='{"code":400,"status":"FAILED_PRECONDITION","message":"The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/drill-test/firestore/indexes?create_composite=Cg"}'
 run_drill 1 api-error "{\"source\":${matched_counts},\"restored\":${matched_counts},\"errors\":{\"restored:usage\":${index_error}}}"
 check_receipt api-error '{"ok":false,"failure":"usage: restored count failed: FAILED_PRECONDITION \\(a collection-group index is missing"}'
-expect_file_check api-error "Firestore's own message reaches the operator log" grep -q "create_composite" "$tmp_root/drill-api-error.out"
+expect_side_effect api-error "Firestore's own message reaches the operator log" grep -q "create_composite" "$tmp_root/drill-api-error.out"
 
-run_drill 1 cleanup-disabled "{\"source\":${matched_counts},\"restored\":${matched_counts}}" FIRESTORE_DRILL_CLEANUP=0
+run_drill 1 cleanup-disabled "$matched" FIRESTORE_DRILL_CLEANUP=0
 check_receipt cleanup-disabled '{"ok":false,"cleanupRequested":false,"databaseDeleted":false,"failure":"^cleanup-disabled: "}'
-expect_file_check cleanup-disabled "drill database kept for incident inspection" test -e "$tmp_root/drill-cleanup-disabled/state/dr-drill-cleanup-disabled"
+expect_side_effect cleanup-disabled "drill database kept for incident inspection" test -e "$tmp_root/drill-cleanup-disabled/state/dr-drill-cleanup-disabled"
 
-run_drill 1 delete-failure "{\"source\":${matched_counts},\"restored\":${matched_counts}}" \
+run_drill 1 delete-failure "$matched" \
   FAKE_DRILL_DELETE=fail FIRESTORE_DRILL_CLEANUP_TIMEOUT_SECONDS=1 FIRESTORE_DRILL_CLEANUP_POLL_SECONDS=1
 check_receipt delete-failure '{"ok":false,"databaseDeleted":false,"failure":"^the drill database was not deleted"}'
 
-run_drill 1 restore-error "{\"source\":${matched_counts},\"restored\":${matched_counts}}" FAKE_DRILL_OPERATION=error
+run_drill 1 restore-error "$matched" FAKE_DRILL_OPERATION=error
 check_receipt restore-error '{"ok":false,"counts":[],"failure":"the restore operation did not finish cleanly"}'
 
 # The index listing after the failed describe succeeds: the phase must still fail.
-run_drill 1 capture-failure "{\"source\":${matched_counts},\"restored\":${matched_counts}}" FAKE_DRILL_CAPTURE=fail
+run_drill 1 capture-failure "$matched" FAKE_DRILL_CAPTURE=fail
 check_receipt capture-failure '{"ok":false,"failure":"^could not describe the restored database"}'
 
-run_drill 1 posture-failure "{\"source\":${matched_counts},\"restored\":${matched_counts}}" FAKE_DRILL_POSTURE=pitr-disabled
+run_drill 1 posture-failure "$matched" FAKE_DRILL_POSTURE=pitr-disabled
 check_receipt posture-failure '{"ok":false,"failure":"source DR posture check failed"}'
 
 backup_list='[{"name":"projects/drill-test/locations/nam5/backups/daily-1","database":"projects/drill-test/databases/(default)","state":"READY","snapshotTime":"2026-09-28T03:17:42.123456Z"}]'

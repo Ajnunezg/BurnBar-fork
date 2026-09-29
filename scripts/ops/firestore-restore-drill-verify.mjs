@@ -24,19 +24,15 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
-export const RECEIPT_SCHEMA = "openburnbar.firestore-restore-drill-receipt.v1";
-export const RECEIPT_SCHEMA_PATH = "docs/schemas/firestore-restore-drill-receipt.schema.json";
-export const DEFAULT_COLLECTION_GROUPS = Object.freeze([
-  "entitlements",
-  "cloud_vault_key_wrappers",
-  "usage",
-]);
-export const DEFAULT_FIRESTORE_API_BASE = "https://firestore.googleapis.com/v1";
+export const DEFAULT_COLLECTION_GROUPS = Object.freeze(["entitlements", "cloud_vault_key_wrappers", "usage"]);
 export const RESTORE_DRILL_COMMAND =
   "GCLOUD_PROJECT=burnbar bash scripts/ops/run-firestore-restore-drill.sh";
 /** The launch gate's receipt TTL: fresh for launch, well inside the quarterly cadence. */
 export const DEFAULT_RESTORE_DRILL_TTL_DAYS = 30;
 
+const RECEIPT_SCHEMA = "openburnbar.firestore-restore-drill-receipt.v1";
+const RECEIPT_SCHEMA_PATH = "docs/schemas/firestore-restore-drill-receipt.schema.json";
+const FIRESTORE_API_BASE = "https://firestore.googleapis.com/v1";
 const COUNT_ALIAS = "count";
 const COLLECTION_GROUP_PATTERN = /^[A-Za-z0-9_-]{1,100}$/u;
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
@@ -46,7 +42,7 @@ const DAY_MS = 24 * 60 * MINUTE_MS;
 const FUTURE_SKEW_MS = 5 * MINUTE_MS;
 const RFC3339 = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$/u;
 
-/** Bad drill configuration: the CLI exits 64 before anything is restored. */
+/** Bad drill configuration, flags or environment: the CLI exits 64. */
 class UsageError extends Error {}
 
 /** A failed count. `message` is redaction-safe; `detail` is Firestore's text, for the log only. */
@@ -77,7 +73,7 @@ export function parseCollectionGroups(raw) {
  * Firestore itself makes a live drill.
  */
 export function resolveApiBase(raw) {
-  const base = (raw || DEFAULT_FIRESTORE_API_BASE).replace(/\/+$/u, "");
+  const base = (raw || FIRESTORE_API_BASE).replace(/\/+$/u, "");
   let url;
   try {
     url = new URL(base);
@@ -227,10 +223,10 @@ export async function collectDrillCounts({
     if (readTimes === null) {
       errors.push(`${collectionGroup}: the source snapshot time is unknown, so the source was not counted`);
     } else {
-      const counts = [];
-      for (const readTime of readTimes) counts.push(await count(`source at ${readTime}`, sourceDatabaseId, readTime));
-      if (!counts.includes(null)) {
-        sourceCount = mode === "clone" ? counts[0] : { floor: counts[0], ceil: counts.at(-1) };
+      const reads = [];
+      for (const readTime of readTimes) reads.push(await count(`source at ${readTime}`, sourceDatabaseId, readTime));
+      if (!reads.includes(null)) {
+        sourceCount = mode === "clone" ? reads[0] : { floor: reads[0], ceil: reads.at(-1) };
       }
     }
     const restoredCount = await count("restored", restoreDatabaseId);
@@ -348,26 +344,9 @@ export function createFirestoreRestoreDrillReceipt(facts, { live, now = new Date
 
 const SCHEMA_ANNOTATIONS = new Set(["$schema", "$id", "title", "description"]);
 const SCHEMA_KEYWORDS = new Set([
-  "type",
-  "const",
-  "enum",
-  "required",
-  "properties",
-  "additionalProperties",
-  "items",
-  "minItems",
-  "maxItems",
-  "contains",
-  "minimum",
-  "minLength",
-  "maxLength",
-  "pattern",
-  "format",
-  "oneOf",
-  "allOf",
-  "if",
-  "then",
-  "else",
+  "type", "const", "enum", "required", "properties", "additionalProperties", "items", "minItems",
+  "maxItems", "contains", "minimum", "minLength", "maxLength", "pattern", "format", "oneOf",
+  "allOf", "if", "then", "else",
 ]);
 
 function isObject(value) {
@@ -551,21 +530,9 @@ export function readFirestoreRestoreDrillEvidence(path, options = {}) {
 
 const CLI_OPTIONS = Object.fromEntries(
   [
-    "mode",
-    "project",
-    "source-database",
-    "restore-database",
-    "snapshot-time",
-    "posture-ok",
-    "restore-started",
-    "operation-done",
-    "elapsed-seconds",
-    "capture-ok",
-    "counts",
-    "cleanup-requested",
-    "database-deleted",
-    "out",
-    "latest",
+    "mode", "project", "source-database", "restore-database", "snapshot-time", "posture-ok",
+    "restore-started", "operation-done", "elapsed-seconds", "capture-ok", "counts",
+    "cleanup-requested", "database-deleted", "out", "latest",
   ].map((name) => [name, { type: "string" }]),
 );
 
@@ -639,13 +606,9 @@ async function main(argv, env = process.env) {
     if (!token) {
       throw new UsageError("FIRESTORE_DRILL_ACCESS_TOKEN is required; the drill script passes gcloud's token through the environment");
     }
-    const { mode, sourceDatabaseId, restoreDatabaseId, snapshotTime } = drillIdentity(values);
     const counts = await collectDrillCounts({
-      mode,
+      ...drillIdentity(values),
       project: requiredFlag(values, "project"),
-      sourceDatabaseId,
-      restoreDatabaseId,
-      snapshotTime,
       collectionGroups: parseCollectionGroups(env.FIRESTORE_DRILL_COLLECTION_GROUPS),
       api,
       token,
