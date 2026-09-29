@@ -65,7 +65,7 @@ assert_code "RC signal_envelope_v4_enabled read in runtime code (B3)" \
   "signal_envelope_v4_enabled" functions/src/signalEnvelopeRollout.ts
 # The compile-time fail-closed default that remains the baseline production lever:
 assert_code "empty HERMES_GATEWAY_PRODUCTION_SIGNAL_ENVELOPE_VERSIONS (baseline lever)" \
-  "HERMES_GATEWAY_PRODUCTION_SIGNAL_ENVELOPE_VERSIONS *= *new Set<number>\\(\\)" functions/src/hermesGatewayEnvelope.ts
+  "HERMES_GATEWAY_PRODUCTION_SIGNAL_ENVELOPE_VERSIONS *= *new Set<number>\\(\\)" packages/functions-shared/src/hermesGatewayEnvelope.ts
 
 log "Step 2/5 — disable per-domain at-rest Signal (registry sealingScheme stays cloudvault)"
 if [[ "$LIVE" == "true" ]]; then
@@ -81,7 +81,7 @@ fi
 
 log "Step 3/5 — set SIGNAL_ENVELOPE_V4_DISABLED for agents/clients/server capability"
 # HONEST STATUS (remediation B3): SIGNAL_ENVELOPE_V4_DISABLED is now WIRED — read
-# synchronously in functions/src/hermesGateway.ts (gatewaySignalEnvelopeV4Disabled)
+# synchronously in packages/functions-shared/src/hermesGatewayEnvelope.ts
 # and short-circuits productionGatewaySignalEnvelopeVersions() to an EMPTY set,
 # overriding everything (RC flag + Signal-required mode). This is the authoritative
 # <60s hard kill: it needs no RC fetch and force-disables v4 on the server write /
@@ -94,7 +94,7 @@ else
 fi
 # Assert the env HARD kill is actually read by runtime code (B3 wiring):
 assert_code "SIGNAL_ENVELOPE_V4_DISABLED read in runtime code (B3)" \
-  "SIGNAL_ENVELOPE_V4_DISABLED" functions/src/hermesGateway.ts
+  "SIGNAL_ENVELOPE_V4_DISABLED" packages/functions-shared/src/hermesGatewayEnvelope.ts
 
 log "Step 4/5 — keep dual-read OPEN (do NOT delete Signal rows on rollback)"
 note "policy assertion only: rollback never deletes Signal-sealed rows; legacy + Signal both stay readable"

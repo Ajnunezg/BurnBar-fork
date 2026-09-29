@@ -118,7 +118,13 @@ jobs:
       # (tools/gen-rules-entitlements.mjs); fail red if firestore.rules
       # diverges from a regenerate or the catalog drifts from its fixture.
       - name: Entitlement catalog tests (node --test)
-        run: node --test packages/entitlements/lib/
+        # `node --test <dir>/` runs the directory as ONE module, not its test
+        # files: this step used to report 1 passing pseudo-test while the 17
+        # catalog tests never ran. Name the test files, then the package's
+        # cross-surface Wand cap parity check (its `npm test` companion).
+        run: |
+          node --test packages/entitlements/lib/*.test.js
+          node tools/test-wand-cap-parity.mjs
 
       - name: firestore.rules entitlement allowlists are generated (no drift)
         run: node tools/gen-rules-entitlements.mjs --check
@@ -1445,9 +1451,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (node24-native; June 16 forced-runtime fuse)
         with:
           filter: blob:none
+          # OpenBurnBarCore is a peer root the gate compares against; without it
+          # in the sparse checkout the Mac/Core half matched zero files.
           sparse-checkout: |
             AgentLens
             OpenBurnBarMobile
+            OpenBurnBarCore
             docs/LINT_RATIONALE.md
             scripts/ci/check-twin-basenames.sh
             scripts/ci/check-twin-basenames.test.sh
@@ -1489,6 +1498,9 @@ jobs:
           filter: blob:none
           sparse-checkout: |
             functions/.env.burnbar.production
+            functions-identity/.env.burnbar.production
+            functions-sync/.env.burnbar.production
+            functions-media/.env.burnbar.production
             scripts/ci/check-env-no-secrets.sh
             scripts/ci/check-env-no-secrets.test.sh
 
