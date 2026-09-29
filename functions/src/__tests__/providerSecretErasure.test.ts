@@ -38,8 +38,9 @@ vi.mock("../../../packages/functions-shared/src/auth.js", () => ({
   assertAppCheck: vi.fn(),
 }));
 
+import { db } from "../../../packages/functions-shared/src/adminRuntime.js";
 import { fakeSecretManager } from "./fakeSecretManager.js";
-import { callableRequest, callableRunner, pathKeyedFirestore, quotaFirestore, seedDoc } from "./bola/callableBolaHarness.js";
+import { callableRequest, callableRunner, quotaFirestore, seedDoc } from "./bola/callableBolaHarness.js";
 import {
   CredentialErasureIncompleteError,
   destroyCredentialSecret,
@@ -132,14 +133,11 @@ async function seedLegacyVersions(accountID: string, provider: string, count: nu
 }
 
 function pendingDocs(): PendingProviderSecretErasureDoc[] {
-  const db = pathKeyedFirestore(env.store);
+  // `db` is the production handle (mocked onto the harness above), so its refs
+  // carry the real DocumentReference type the reconciler's transactions take.
   return [...env.store.entries()]
     .filter(([path, data]) => path.startsWith("provider_account_secret_refs/") && typeof data.erasureRetryAfter === "string")
-    .map(([path, data]) => ({
-      // The harness's structural doc ref satisfies every call the reconciler makes.
-      ref: db.doc(path) as unknown as PendingProviderSecretErasureDoc["ref"],
-      get: (field: string) => data[field],
-    }));
+    .map(([path, data]) => ({ ref: db.doc(path), get: (field: string) => data[field] }));
 }
 
 async function expectUnavailable(promise: Promise<unknown>): Promise<unknown> {
