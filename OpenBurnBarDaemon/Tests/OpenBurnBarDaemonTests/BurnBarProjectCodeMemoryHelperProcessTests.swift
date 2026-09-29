@@ -98,24 +98,49 @@ final class BurnBarProjectCodeMemoryHelperProcessTests: XCTestCase {
     }
 
     func test_git_ignored_paths_reads_a_status_listing_past_the_pipe_buffer() throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("helper-process-\(UUID().uuidString)", isDirectory: true)
-        let modules = root.appendingPathComponent("node_modules", isDirectory: true)
-        try FileManager.default.createDirectory(at: modules, withIntermediateDirectories: true)
+        let root = try makeRepository(ignoring: "*.log\n")
         defer { try? FileManager.default.removeItem(at: root) }
-        _ = BurnBarProjectCodeMemoryStore.gitOutput(root: root, arguments: ["init", "-q"])
-        XCTAssertTrue(BurnBarProjectCodeMemoryStore.isGitWorktree(root: root))
-        try Data("node_modules/\n".utf8).write(to: root.appendingPathComponent(".gitignore"))
-        // 2,000 entries of ~70 bytes each is ~140 KB of porcelain output.
+        // 2,000 entries of ~50 bytes each is ~100 KB of porcelain output.
         let name = String(repeating: "m", count: 40)
         for index in 0..<2_000 {
-            FileManager.default.createFile(atPath: modules.appendingPathComponent("\(name)-\(index).js").path, contents: nil)
+            FileManager.default.createFile(atPath: root.appendingPathComponent("\(name)-\(index).log").path, contents: nil)
         }
 
         let ignored = BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root)
 
         XCTAssertEqual(ignored.count, 2_000)
-        XCTAssertTrue(ignored.contains("node_modules/\(name)-1999.js"))
+        XCTAssertTrue(ignored.contains("\(name)-1999.log"))
+    }
+
+    func test_git_ignored_paths_collapses_an_ignored_tree_to_its_directory() throws {
+        // `-uall` listed every file under node_modules on every index poll;
+        // the directory entry alone must still prune the whole tree.
+        let root = try makeRepository(ignoring: "node_modules/\n")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let nested = root.appendingPathComponent("node_modules/pkg/lib", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        for index in 0..<500 {
+            FileManager.default.createFile(atPath: nested.appendingPathComponent("\(index).js").path, contents: nil)
+        }
+
+        let ignored = BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root)
+
+        XCTAssertEqual(ignored, ["node_modules"])
+        XCTAssertTrue(BurnBarProjectCodeMemoryStore.isGitIgnored(
+            "node_modules/pkg/lib/7.js",
+            isDirectory: false,
+            ignoredPaths: ignored
+        ))
+    }
+
+    private func makeRepository(ignoring patterns: String) throws -> URL {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("helper-process-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        _ = BurnBarProjectCodeMemoryStore.gitOutput(root: root, arguments: ["init", "-q"])
+        XCTAssertTrue(BurnBarProjectCodeMemoryStore.isGitWorktree(root: root))
+        try Data(patterns.utf8).write(to: root.appendingPathComponent(".gitignore"))
+        return root
     }
 
     private func shellHelper(_ script: String) -> Process {

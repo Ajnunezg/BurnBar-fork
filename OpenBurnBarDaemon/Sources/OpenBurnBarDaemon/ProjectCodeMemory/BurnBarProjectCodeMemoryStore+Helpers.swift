@@ -917,11 +917,13 @@ extension BurnBarProjectCodeMemoryStore {
         guard isGitWorktree(root: root) else { return [] }
         let process = hardenedGitProcess(
             root: root,
-            arguments: ["status", "--ignored", "--porcelain=v1", "-z", "--untracked-files=all"]
+            // Default untracked mode: a fully ignored tree (node_modules/,
+            // .build/) is one `!! dir/` entry, which isGitIgnored matches by
+            // prefix, instead of one entry per file. Ignored files inside
+            // untracked directories are still listed individually.
+            arguments: ["status", "--ignored", "--porcelain=v1", "-z"]
         )
-        // `-uall` lists every file under an ignored node_modules or .build, so
-        // this listing is routinely megabytes; it was never capped.
-        guard let data = runHelperProcess(process, maxOutputBytes: .max),
+        guard let data = runHelperProcess(process),
               process.terminationStatus == 0 else {
             return []
         }
