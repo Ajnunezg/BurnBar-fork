@@ -164,33 +164,23 @@ extension BurnBarProjectCodeMemoryStore {
         }
     }
 
-    /// Walks the tree one directory level at a time so each level's ignore
-    /// decisions can be asked of git in a single batch.
-    static func enumerateIndexableFiles(root: URL, maxFiles: Int) -> [URL] {
+    /// Walks the tree breadth-first, streaming each directory's children and
+    /// resolving ignores `batchSize` entries at a time, so memory is bounded
+    /// by the batch rather than by how wide a directory is, and each batch is
+    /// one git call when git has to be asked.
+    static func enumerateIndexableFiles(root: URL, maxFiles: Int, batchSize: Int = 4_096) -> [URL] {
         let canonicalRoot = root.resolvingSymlinksInPath().standardizedFileURL
         let ignoreRules = IgnoreRules(root: canonicalRoot, patterns: gitignorePatterns(root: root))
         var files: [URL] = []
-        var level = [root]
-        while level.isEmpty == false, files.count < maxFiles {
-            var entries: [IgnoreCandidate] = []
-            for directory in level {
-                let children = (try? FileManager.default.contentsOfDirectory(
-                    at: directory,
-                    includingPropertiesForKeys: [.isDirectoryKey],
-                    options: [.skipsHiddenFiles]
-                )) ?? []
-                for url in children {
-                    guard let relativePath = relativePath(url, root: canonicalRoot) else { continue }
-                    let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
-                    if isDirectory, ignoredDirectories.contains(url.lastPathComponent) { continue }
-                    entries.append(IgnoreCandidate(url: url, relativePath: relativePath, isDirectory: isDirectory))
-                }
-            }
-            let ignored = ignoreRules.ignored(entries)
-            level = []
-            for entry in entries where ignored.contains(entry.relativePath) == false {
+        var directories = [root]
+        var nextDirectory = 0
+        var batch: [IgnoreCandidate] = []
+
+        func resolveBatch() {
+            let ignored = ignoreRules.ignored(batch)
+            for entry in batch where ignored.contains(entry.relativePath) == false {
                 if entry.isDirectory {
-                    level.append(entry.url)
+                    directories.append(entry.url)
                     continue
                 }
                 guard files.count < maxFiles,
@@ -198,6 +188,37 @@ extension BurnBarProjectCodeMemoryStore {
                       isWithinRoot(entry.url.resolvingSymlinksInPath().standardizedFileURL, root: canonicalRoot)
                 else { continue }
                 files.append(entry.url)
+            }
+            batch.removeAll(keepingCapacity: true)
+        }
+
+        while files.count < maxFiles {
+            guard nextDirectory < directories.count else {
+                // Pending entries may still hold directories to walk.
+                guard batch.isEmpty == false else { break }
+                resolveBatch()
+                continue
+            }
+            let directory = directories[nextDirectory]
+            nextDirectory += 1
+            if nextDirectory >= 1_024 {
+                directories.removeFirst(nextDirectory)
+                nextDirectory = 0
+            }
+            guard let children = FileManager.default.enumerator(
+                at: directory,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]
+            ) else { continue }
+            for case let url as URL in children {
+                guard let relativePath = relativePath(url, root: canonicalRoot) else { continue }
+                let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+                if isDirectory, ignoredDirectories.contains(url.lastPathComponent) { continue }
+                batch.append(IgnoreCandidate(url: url, relativePath: relativePath, isDirectory: isDirectory))
+                if batch.count >= batchSize {
+                    resolveBatch()
+                    if files.count >= maxFiles { break }
+                }
             }
         }
         return files
@@ -212,7 +233,7 @@ extension BurnBarProjectCodeMemoryStore {
     /// Git's own ignore semantics (nested .gitignore files, negations,
     /// .git/info/exclude, the global excludes file), bounded in memory:
     /// one `git status` listing when it fits under the helper output cap,
-    /// otherwise a `git check-ignore` batch per directory level. The root
+    /// otherwise one `git check-ignore` call per enumeration batch. The root
     /// .gitignore patterns are only the last resort, outside a worktree or
     /// when git itself fails.
     struct IgnoreRules {
@@ -512,7 +533,7 @@ extension BurnBarProjectCodeMemoryStore {
         guard let payload = try? JSONEncoder().encode(request) else { return nil }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: helperPath)
-        guard let outputData = runHelperProcess(process, stdin: payload),
+        guard let outputData = runHelperProcess(process, stdin: payload + Data("\n".utf8)),
               process.terminationStatus == 0 else {
             return nil
         }
@@ -675,8 +696,8 @@ extension BurnBarProjectCodeMemoryStore {
     ///
     /// stdout and stderr are drained while the helper runs: a pipe holds only
     /// ~64 KB, and a helper blocked writing to a full one never exits. stderr
-    /// is discarded. When `stdin` is set, it plus a trailing newline is written
-    /// from another thread so a helper that answers before it has read all of
+    /// is discarded. When `stdin` is set, it is written verbatim (line
+    /// protocols add their own newline) from another thread so a helper that answers before it has read all of
     /// its input cannot deadlock against us; otherwise stdin is /dev/null.
     static func runHelperProcess(
         _ process: Process,
@@ -696,7 +717,7 @@ extension BurnBarProjectCodeMemoryStore {
         }
         if let input, let payload {
             DispatchQueue.global(qos: .utility).async {
-                writeHelperInput(payload + Data("\n".utf8), to: input.fileHandleForWriting)
+                writeHelperInput(payload, to: input.fileHandleForWriting)
             }
         }
 
@@ -987,7 +1008,7 @@ extension BurnBarProjectCodeMemoryStore {
             payload.append(0)
         }
         // Exit 1 means "nothing ignored"; 128 is a fatal error.
-        guard let data = runHelperProcess(process, stdin: payload, maxOutputBytes: payload.count + 1),
+        guard let data = runHelperProcess(process, stdin: payload, maxOutputBytes: payload.count),
               process.terminationStatus == 0 || process.terminationStatus == 1 else {
             return nil
         }

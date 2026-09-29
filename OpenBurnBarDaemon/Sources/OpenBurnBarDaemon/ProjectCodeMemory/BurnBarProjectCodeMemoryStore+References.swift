@@ -121,7 +121,7 @@ extension BurnBarProjectCodeMemoryStore {
         guard let payload = try? JSONEncoder().encode(request) else { return [] }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: helperPath)
-        guard let outputData = Self.runHelperProcess(process, stdin: payload),
+        guard let outputData = Self.runHelperProcess(process, stdin: payload + Data("\n".utf8)),
               process.terminationStatus == 0 else {
             return []
         }

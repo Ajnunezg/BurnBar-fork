@@ -84,7 +84,7 @@ final class BurnBarProjectCodeMemoryHelperProcessTests: XCTestCase {
         ))
 
         XCTAssertEqual(process.terminationStatus, 0)
-        XCTAssertEqual(output, payload + Data("\n".utf8))
+        XCTAssertEqual(output, payload)
     }
 
     func test_output_past_the_cap_is_rejected_and_the_helper_is_stopped_early() {
@@ -182,10 +182,25 @@ final class BurnBarProjectCodeMemoryHelperProcessTests: XCTestCase {
         }
 
         XCTAssertNil(BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root))
-        let files = BurnBarProjectCodeMemoryStore.enumerateIndexableFiles(root: root, maxFiles: 5_000)
+        // A small batch splits the wide root across many git calls and makes
+        // directories straddle batch boundaries.
+        let files = BurnBarProjectCodeMemoryStore.enumerateIndexableFiles(root: root, maxFiles: 5_000, batchSize: 50)
             .compactMap { BurnBarProjectCodeMemoryStore.relativePath($0, root: root) }
 
         XCTAssertEqual(Set(files), ["Real.swift", "generated/Kept.swift", "sub/Real.swift"])
+    }
+
+    func test_check_ignore_answers_a_batch_where_every_path_is_ignored() throws {
+        // Output equals input here, so a stray record (the newline stdin
+        // used to get) would overflow the cap and read as "git failed".
+        let root = try makeRepository(ignoring: "")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("*\n".utf8).write(to: root.appendingPathComponent(".git/info/exclude"), options: .atomic)
+
+        XCTAssertEqual(
+            BurnBarProjectCodeMemoryStore.gitCheckIgnore(root: root, paths: ["a.swift", "b/c.swift"]),
+            ["a.swift", "b/c.swift"]
+        )
     }
 
     private func makeRepository(ignoring patterns: String) throws -> URL {
