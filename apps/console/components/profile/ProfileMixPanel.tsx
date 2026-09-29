@@ -84,7 +84,7 @@ export function ProfileMixPanel({
                   <span className="min-w-0 flex-1">
                     <ProportionBar value={v / total} color={s.color} />
                   </span>
-                  <span className="min-w-[4rem] shrink-0 whitespace-nowrap text-right text-content-mute tabular-nums">
+                  <span className="min-w-16 shrink-0 whitespace-nowrap text-right text-content-mute tabular-nums">
                     {formatCompact(v)}
                   </span>
                 </li>

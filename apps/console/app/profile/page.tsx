@@ -762,7 +762,7 @@ export default function ProfilePage() {
             className="inline-flex items-center gap-1.5 rounded-full border border-glass-line px-3 py-1 text-xs text-content-dim transition-colors hover:border-accent hover:text-content-bright disabled:opacity-50"
             title="Re-read and compute usage rollups from cloud usage events"
           >
-            <RefreshCw className={cn("size-3", syncing && "animate-spin text-[color:var(--accent-deep)]")} />
+            <RefreshCw className={cn("size-3", syncing && "animate-spin text-(--accent-deep)")} />
             <span>{syncing ? "Syncing…" : "Sync Usage"}</span>
           </button>
         </div>
@@ -790,7 +790,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => reload(true)}
-            className="font-medium text-[color:var(--accent-deep)] underline-offset-2 hover:underline"
+            className="font-medium text-(--accent-deep) underline-offset-2 hover:underline"
           >
             Re-sync now
           </button>

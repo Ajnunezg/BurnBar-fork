@@ -160,7 +160,7 @@ export function DomainRow({
         </div>
       </div>
       {exportError && (
-        <p className="mt-token-2 text-xs text-[color:var(--color-seal-crimson)]">{exportError}</p>
+        <p className="mt-token-2 text-xs text-seal-crimson">{exportError}</p>
       )}
     </div>
   );

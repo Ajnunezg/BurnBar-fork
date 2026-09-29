@@ -1,4 +1,4 @@
-import { generateKeyPairSync, randomBytes, sign } from "node:crypto";
+import { generateKeyPairSync, type KeyObject, randomBytes, sign } from "node:crypto";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -143,8 +143,8 @@ async function issueChallenge(
 
 async function registerChallenge(
   challenge: Pick<ReturnType<typeof requireRouteChallenge>, "challengeId" | "canonicalPayloadBase64">,
-  transportPrivateKey: ReturnType<typeof generateKeyPairSync>["privateKey"],
-  authorityPrivateKey?: ReturnType<typeof generateKeyPairSync>["privateKey"],
+  transportPrivateKey: KeyObject,
+  authorityPrivateKey?: KeyObject,
 ) {
   const payload = Buffer.from(challenge.canonicalPayloadBase64, "base64");
   return invokeCallable(registerIrohControllerRoute, UID, {

@@ -167,7 +167,7 @@ function SettingLedgerRow({
 
 function LedgerIcon({ children }: { children: ReactNode }) {
   return (
-    <span className="mt-0.5 grid size-8 shrink-0 place-items-center border border-glass-line bg-mercury-wash text-[color:var(--accent-deep)]">
+    <span className="mt-0.5 grid size-8 shrink-0 place-items-center border border-glass-line bg-mercury-wash text-(--accent-deep)">
       {children}
     </span>
   );

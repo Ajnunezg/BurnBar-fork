@@ -44,7 +44,7 @@ function Meter({
           {label}
         </span>
         <span className="flex items-baseline gap-2">
-          <span className={over ? "font-mono text-[color:var(--color-seal-crimson)]" : "font-mono text-content-bright"}>
+          <span className={over ? "font-mono text-seal-crimson" : "font-mono text-content-bright"}>
             {format(used)} <span className="text-content-dim">/ {format(limit)}</span>
           </span>
           <span className="w-9 text-right font-mono text-xs text-content-dim">{pct}%</span>
@@ -92,7 +92,7 @@ export function PensieveDashboard() {
               onClick={() => setViewMode("explorer")}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors ${
                 viewMode === "explorer"
-                  ? "bg-mercury-wash text-content-bright shadow-sm"
+                  ? "bg-mercury-wash text-content-bright shadow-xs"
                   : "text-content-dim hover:text-content-mute"
               }`}
             >
@@ -103,7 +103,7 @@ export function PensieveDashboard() {
               onClick={() => setViewMode("feed")}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors ${
                 viewMode === "feed"
-                  ? "bg-mercury-wash text-content-bright shadow-sm"
+                  ? "bg-mercury-wash text-content-bright shadow-xs"
                   : "text-content-dim hover:text-content-mute"
               }`}
             >
@@ -114,7 +114,7 @@ export function PensieveDashboard() {
               onClick={() => setViewMode("diagnostics")}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors ${
                 viewMode === "diagnostics"
-                  ? "bg-mercury-wash text-content-bright shadow-sm"
+                  ? "bg-mercury-wash text-content-bright shadow-xs"
                   : "text-content-dim hover:text-content-mute"
               }`}
             >

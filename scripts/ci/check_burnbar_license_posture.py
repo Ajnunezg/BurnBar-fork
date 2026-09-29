@@ -216,7 +216,7 @@ def check_signal_agpl_evidence() -> list[Check]:
         "packages/libsignal-bridge/package.json": [
             '"name": "@openburnbar/libsignal-bridge"',
             '"license": "AGPL-3.0-only"',
-            '"@signalapp/libsignal-client": "0.94.4"',
+            '"@signalapp/libsignal-client": "0.103.0"',
         ],
         "packages/libsignal-protocol/package.json": [
             '"name": "@openburnbar/libsignal-protocol"',

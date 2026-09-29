@@ -420,7 +420,7 @@ export function installMemoryHook(options: InstallHookOptions = {}): string {
     throw new Error(`Hook install for harness "${harness}" is not yet supported; use the Mac daemon watch instead.`);
   }
 
-  let settings: Record<string, unknown> = {};
+  let settings: Record<string, unknown>;
   try {
     settings = JSON.parse(readFileSync(settingsPath, "utf8")) as Record<string, unknown>;
   } catch {

@@ -39,7 +39,7 @@ iOS, iPadOS, macOS, and Android.
 
 ## `libsignal-bridge/` — official Signal libsignal readiness
 
-Pins `@signalapp/libsignal-client@0.94.4` and verifies the required Signal
+Pins `@signalapp/libsignal-client@0.103.0` and verifies the required Signal
 Protocol symbols load from the official Signal-maintained package. The test
 harness also establishes a real Signal Protocol session, consumes one-time
 prekeys, marks Kyber prekeys used, decrypts out-of-order Whisper messages,

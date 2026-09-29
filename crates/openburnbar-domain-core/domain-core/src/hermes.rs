@@ -1,5 +1,5 @@
 use aes_gcm::aead::{Aead, Payload};
-use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
+use aes_gcm::{Aes256Gcm, KeyInit};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use hkdf::Hkdf;
@@ -211,7 +211,7 @@ pub fn hmac_sha256(key: &[u8], data: &[u8]) -> Result<Vec<u8>, HermesError> {
         return Err(HermesError::InputTooLarge);
     }
     let mut mac =
-        <Hmac<Sha256> as Mac>::new_from_slice(key).map_err(|_| HermesError::HmacFailure)?;
+        <Hmac<Sha256> as KeyInit>::new_from_slice(key).map_err(|_| HermesError::HmacFailure)?;
     mac.update(data);
     Ok(mac.finalize().into_bytes().to_vec())
 }
@@ -343,7 +343,9 @@ pub fn seal_combined(
     }
     let body = cipher
         .encrypt(
-            Nonce::from_slice(nonce),
+            nonce
+                .try_into()
+                .map_err(|_| HermesError::InvalidNonceLength)?,
             Payload {
                 msg: plaintext,
                 aad,
@@ -377,7 +379,12 @@ pub fn open_combined(combined: &[u8], key: &[u8], aad: &[u8]) -> Result<Vec<u8>,
     }
     let (nonce, body) = combined.split_at(GCM_NONCE_LEN);
     cipher(key)?
-        .decrypt(Nonce::from_slice(nonce), Payload { msg: body, aad })
+        .decrypt(
+            nonce
+                .try_into()
+                .map_err(|_| HermesError::InvalidCiphertext)?,
+            Payload { msg: body, aad },
+        )
         .map_err(|_| HermesError::AuthenticationFailed)
 }
 

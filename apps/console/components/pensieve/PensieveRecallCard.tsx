@@ -71,7 +71,7 @@ export function PensieveRecallCard() {
       <CardContent className="space-y-token-4">
         <div className="flex gap-token-2">
           <input
-            className="min-w-0 flex-1 rounded-md border border-glass-line bg-panel-subtle px-token-3 py-2 text-sm text-content-bright outline-none placeholder:text-content-dim"
+            className="min-w-0 flex-1 rounded-md border border-glass-line bg-panel-subtle px-token-3 py-2 text-sm text-content-bright outline-hidden placeholder:text-content-dim"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -84,7 +84,7 @@ export function PensieveRecallCard() {
             {busy ? "Searching..." : "Search"}
           </Button>
         </div>
-        {error && <p className="text-sm text-[color:var(--color-seal-crimson)]">{error}</p>}
+        {error && <p className="text-sm text-seal-crimson">{error}</p>}
         {hits.length > 0 && (
           <div className="space-y-token-3">
             {hits.map(({ hit, plaintext }) => (

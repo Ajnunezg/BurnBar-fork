@@ -27,7 +27,7 @@ export function ConsentBanner() {
       <div className="flex flex-col gap-token-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-token-4">
         <div className="flex min-w-0 flex-1 items-start gap-token-3">
           <span
-            className="mt-0.5 grid size-8 shrink-0 place-items-center border border-glass-line bg-mercury-wash text-[color:var(--accent-deep)]"
+            className="mt-0.5 grid size-8 shrink-0 place-items-center border border-glass-line bg-mercury-wash text-(--accent-deep)"
             aria-hidden
           >
             <BarChart3 className="size-4" />

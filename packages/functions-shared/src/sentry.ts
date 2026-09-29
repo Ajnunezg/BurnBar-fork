@@ -65,7 +65,21 @@ if (dsn) {
     // Attach extra error fields but never request bodies/headers. The
     // beforeSend sanitizer below is the final guard for copied extras.
     integrations: [Sentry.extraErrorDataIntegration({ depth: 5 })],
-    sendDefaultPii: false,
+    // Sentry 11 replaced `sendDefaultPii` with `dataCollection`, whose unset
+    // default collects MORE than v10 did (user info, cookies, headers, bodies,
+    // DB query data, queue args, GenAI I/O). Pin every category off; query
+    // params keep v10's IP/forwarding denylist and redactURLSecrets below.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: false,
+      httpBodies: [],
+      urlQueryParams: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
+      genAI: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      graphQL: { document: false, variables: false },
+    },
 
     // Filter events that are noise rather than actionable bugs.
     // Named export (sentryBeforeSend) so unit tests can drive the drop +

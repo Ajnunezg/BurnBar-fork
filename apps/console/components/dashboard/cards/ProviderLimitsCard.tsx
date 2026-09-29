@@ -82,7 +82,7 @@ export function ProviderLimitsCard({ data }: CardProps) {
                       </span>
                     )}
                   </div>
-                  <span className={`shrink-0 font-mono text-xs tabular-nums ${isExceeded ? "text-[color:var(--color-seal-crimson)] font-semibold" : "text-content-mute"}`}>
+                  <span className={`shrink-0 font-mono text-xs tabular-nums ${isExceeded ? "text-seal-crimson font-semibold" : "text-content-mute"}`}>
                     {bounded
                       ? `${formatCompact(b!.used)} / ${formatCompact(b!.limit)}`
                       : "no cap"}

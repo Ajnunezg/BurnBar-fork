@@ -108,17 +108,15 @@ const glyphs = missing
     ].join("");
 ---
 
-{
-  missing ? (
-    <span class:list={["ins-num ins-num--none", cls]} aria-label={a11y}>
-      {empty}
-    </span>
-  ) : (
-    <span class:list={["ins-num", `ins-num--${size}`, cls]}>
-      {/* Screen readers get the whole figure as one string; the split glyphs
+{missing ? (
+  <span class:list={["ins-num ins-num--none", cls]} aria-label={a11y}>
+    {empty}
+  </span>
+) : (
+  <span class:list={["ins-num", `ins-num--${size}`, cls]}>
+    {/* Screen readers get the whole figure as one string; the split glyphs
           are decoration for sighted reading. */}
-      <span class="ins-sr">{a11y}</span>
-      <span aria-hidden="true" set:html={glyphs} />
-    </span>
-  )
-}
+    <span class="ins-sr">{a11y}</span>
+    <span aria-hidden="true" set:html={glyphs} />
+  </span>
+)}

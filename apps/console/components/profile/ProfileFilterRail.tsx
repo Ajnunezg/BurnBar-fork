@@ -133,7 +133,7 @@ function FacetGroup({
               onChange={(e) => setQ(e.target.value)}
               placeholder={`Search ${label.toLowerCase()}…`}
               aria-label={`Search ${label}`}
-              className="w-full rounded-md bg-mercury-wash px-2 py-1 text-xs text-content-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+              className="w-full rounded-md bg-mercury-wash px-2 py-1 text-xs text-content-base outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)"
               style={{ border: "1px solid var(--color-glass-line)" }}
             />
           )}
@@ -236,7 +236,7 @@ export function ProfileFilterRail({
               onChange({ ...filters, from: e.target.value || null })
             }
             aria-label="Custom range start"
-            className="rounded-md bg-mercury-wash px-2 py-1 text-xs text-content-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+            className="rounded-md bg-mercury-wash px-2 py-1 text-xs text-content-base outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)"
             style={{ border: "1px solid var(--color-glass-line)" }}
           />
         </label>
@@ -248,7 +248,7 @@ export function ProfileFilterRail({
             min={filters.from ?? undefined}
             onChange={(e) => onChange({ ...filters, to: e.target.value || null })}
             aria-label="Custom range end"
-            className="rounded-md bg-mercury-wash px-2 py-1 text-xs text-content-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+            className="rounded-md bg-mercury-wash px-2 py-1 text-xs text-content-base outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)"
             style={{ border: "1px solid var(--color-glass-line)" }}
           />
         </label>

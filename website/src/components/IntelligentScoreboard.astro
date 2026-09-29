@@ -100,17 +100,15 @@ function isSourceID(value: string): value is SourceID {
   data-animate-onview=""
   aria-labelledby={`scoreboard-${heading.replace(/\W+/g, "-").toLowerCase()}`}
 >
-  {
-    variant === "full" && (
-      <header class="scoreboard__head">
-        <span class="scoreboard__eyebrow mono">model board running research</span>
-        <h3 id={`scoreboard-${heading.replace(/\W+/g, "-").toLowerCase()}`} class="scoreboard__h">
-          {heading}
-        </h3>
-        {sub && <p class="scoreboard__sub">{sub}</p>}
-      </header>
-    )
-  }
+  {variant === "full" && (
+    <header class="scoreboard__head">
+      <span class="scoreboard__eyebrow mono">model board running research</span>
+      <h3 id={`scoreboard-${heading.replace(/\W+/g, "-").toLowerCase()}`} class="scoreboard__h">
+        {heading}
+      </h3>
+      {sub && <p class="scoreboard__sub">{sub}</p>}
+    </header>
+  )}
 
   {/* SOURCE BANNER */}
   <ul
@@ -121,87 +119,79 @@ function isSourceID(value: string): value is SourceID {
       <span class="scoreboard__sourcestagdot" aria-hidden="true"></span>
       sources
     </li>
-    {
-      sources.map((s, i) => {
-        const meta = maybeSourceMeta(s.source);
-        const tone = statusTone(s.status);
-        return (
-          <li class={`srcchip srcchip--${tone}`} style={`--chip-idx:${i}`}>
-            {meta?.logo ? (
-              <img
-                class="srcchip__logo"
-                src={meta.logo}
-                alt=""
-                width="20"
-                height="20"
-                loading="lazy"
-              />
-            ) : (
-              <span class="srcchip__placeholder mono" aria-hidden="true">
-                {(meta?.shortLabel ?? "·").charAt(0)}
-              </span>
-            )}
-            <span class="srcchip__lab mono">{meta?.shortLabel ?? s.source}</span>
-            <span class={`srcchip__dot srcchip__dot--${tone}`} aria-hidden="true" />
-          </li>
-        );
-      })
-    }
+    {sources.map((s, i) => {
+      const meta = maybeSourceMeta(s.source);
+      const tone = statusTone(s.status);
+      return (
+        <li class={`srcchip srcchip--${tone}`} style={`--chip-idx:${i}`}>
+          {meta?.logo ? (
+            <img
+              class="srcchip__logo"
+              src={meta.logo}
+              alt=""
+              width="20"
+              height="20"
+              loading="lazy"
+            />
+          ) : (
+            <span class="srcchip__placeholder mono" aria-hidden="true">
+              {(meta?.shortLabel ?? "·").charAt(0)}
+            </span>
+          )}
+          <span class="srcchip__lab mono">{meta?.shortLabel ?? s.source}</span>
+          <span class={`srcchip__dot srcchip__dot--${tone}`} aria-hidden="true" />
+        </li>
+      );
+    })}
   </ul>
 
-  {
-    variant === "full" && showAdvisory && (
-      <p class="scoreboard__advisory">
-        A board of language models runs the daily research pass, then BurnBar reduces the findings
-        to a deterministic selection score. Runtime pins, auth, quota, safety, availability, and
-        exact-model failover rules still override the ranking.
-      </p>
-    )
-  }
+  {variant === "full" && showAdvisory && (
+    <p class="scoreboard__advisory">
+      A board of language models runs the daily research pass, then BurnBar reduces the findings to
+      a deterministic selection score. Runtime pins, auth, quota, safety, availability, and
+      exact-model failover rules still override the ranking.
+    </p>
+  )}
 
   {/* CANDIDATE ROWS */}
   <ol class="scoreboard__rows" aria-label="Ranked candidate models">
-    {
-      candidates.map((c, idx) => {
-        const widthPct = Math.max(2, Math.round(c.score * 100));
-        const isWinner = c.rank === 1;
-        return (
-          <li class={`scbrow ${isWinner ? "scbrow--winner" : ""}`} style={`--row-idx:${idx}`}>
-            <span class="scbrow__rank mono">#{c.rank}</span>
-            {c.providerLogo && (
-              <img
-                class="scbrow__logo"
-                src={c.providerLogo}
-                alt=""
-                width="28"
-                height="28"
-                loading="lazy"
-              />
-            )}
-            <span class="scbrow__id">
-              <strong class="scbrow__model">{c.modelDisplay}</strong>
-              <span class="scbrow__provider mono">{c.providerDisplay}</span>
-            </span>
-            {c.badge && <span class="scbrow__badge mono">{c.badge}</span>}
-            <span class="scbrow__bar" aria-hidden="true">
-              <span class="scbrow__barfill" style={`--target:${widthPct}%`} />
-            </span>
-            <span class="scbrow__score mono">{pct(c.score)}</span>
-            {isWinner && <span class="scbrow__stamp mono">selected</span>}
-          </li>
-        );
-      })
-    }
+    {candidates.map((c, idx) => {
+      const widthPct = Math.max(2, Math.round(c.score * 100));
+      const isWinner = c.rank === 1;
+      return (
+        <li class={`scbrow ${isWinner ? "scbrow--winner" : ""}`} style={`--row-idx:${idx}`}>
+          <span class="scbrow__rank mono">#{c.rank}</span>
+          {c.providerLogo && (
+            <img
+              class="scbrow__logo"
+              src={c.providerLogo}
+              alt=""
+              width="28"
+              height="28"
+              loading="lazy"
+            />
+          )}
+          <span class="scbrow__id">
+            <strong class="scbrow__model">{c.modelDisplay}</strong>
+            <span class="scbrow__provider mono">{c.providerDisplay}</span>
+          </span>
+          {c.badge && <span class="scbrow__badge mono">{c.badge}</span>}
+          <span class="scbrow__bar" aria-hidden="true">
+            <span class="scbrow__barfill" style={`--target:${widthPct}%`} />
+          </span>
+          <span class="scbrow__score mono">{pct(c.score)}</span>
+          {isWinner && <span class="scbrow__stamp mono">selected</span>}
+        </li>
+      );
+    })}
   </ol>
 
-  {
-    ctaURL && (
-      <a class="scoreboard__cta mono" href={ctaURL}>
-        <span>{ctaLabel}</span>
-        <span aria-hidden="true">→</span>
-      </a>
-    )
-  }
+  {ctaURL && (
+    <a class="scoreboard__cta mono" href={ctaURL}>
+      <span>{ctaLabel}</span>
+      <span aria-hidden="true">→</span>
+    </a>
+  )}
 </section>
 
 <style>

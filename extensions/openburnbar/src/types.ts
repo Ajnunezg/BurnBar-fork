@@ -41,7 +41,7 @@ export type BurnBarRPCMethod =
   | 'daemon.controller.project.list'
   | 'daemon.controller.project.get'
   | 'daemon.controller.project.upsert';
-export type BurnBarConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'repairing';
+type BurnBarConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'repairing';
 export type BurnBarRunPhase =
   | 'idle'
   | 'planning'
@@ -77,7 +77,7 @@ export interface BurnBarRPCRequestEnvelopeWithParams<Params> extends BurnBarRPCR
   params: Params;
 }
 
-export interface BurnBarRPCError {
+interface BurnBarRPCError {
   code: number;
   message: string;
 }
@@ -106,7 +106,7 @@ export interface BurnBarSearchQueryParams {
   resultLimit?: number;
 }
 
-export interface BurnBarIndexedSearchHit {
+interface BurnBarIndexedSearchHit {
   chunkID: string;
   sourceKind: string;
   sourceID: string;
@@ -130,7 +130,7 @@ export interface BurnBarSearchQueryDaemonResult {
   degradedMessage?: string | null;
 }
 
-export interface BurnBarCatalogModelPricing {
+interface BurnBarCatalogModelPricing {
   inputPerMToken: number;
   outputPerMToken: number;
   cacheReadPerMToken: number;
@@ -170,7 +170,7 @@ interface BurnBarProviderSettings {
   preferredModelIDs: string[];
 }
 
-export interface BurnBarProviderConfigurationSnapshot {
+interface BurnBarProviderConfigurationSnapshot {
   providers: BurnBarProviderSettings[];
 }
 
@@ -251,7 +251,7 @@ export interface BurnBarToolExecutionError {
   message: string;
 }
 
-export type BurnBarToolCallStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
+type BurnBarToolCallStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
 
 export interface BurnBarToolCallSnapshot {
   callID: string;
@@ -295,7 +295,7 @@ interface BurnBarAgentLoopDecision {
   message?: string | null;
 }
 
-export interface BurnBarAgentLoopState {
+interface BurnBarAgentLoopState {
   iterationCount: number;
   lastDecision?: BurnBarAgentLoopDecision | null;
   lastContextSnapshot?: BurnBarAgentContextSnapshot | null;
@@ -364,7 +364,7 @@ export interface OpenBurnBarApprovalRequest {
   requestedAt: string;
 }
 
-export interface OpenBurnBarApprovalResponse {
+interface OpenBurnBarApprovalResponse {
   approvalID: string;
   clientID: string;
   decision: OpenBurnBarApprovalDecision;
@@ -390,7 +390,7 @@ export interface BurnBarToolExecutionRequest {
   runID?: string;
 }
 
-export type BurnBarToolExecutionDisposition = 'dispatched' | 'no_pending_tool_call' | 'run_not_found';
+type BurnBarToolExecutionDisposition = 'dispatched' | 'no_pending_tool_call' | 'run_not_found';
 
 export interface BurnBarToolExecutionResponse {
   disposition: BurnBarToolExecutionDisposition;
@@ -421,7 +421,7 @@ export interface BurnBarRunProjection {
 }
 
 // Daemon canonical statuses: matches BurnBarMissionStatus in OpenBurnBarCore
-export type BurnBarMissionStatus =
+type BurnBarMissionStatus =
   | 'draft'
   | 'awaiting_approval'
   | 'approved'
@@ -431,11 +431,11 @@ export type BurnBarMissionStatus =
   | 'completed'
   | 'failed'
   | 'cancelled';
-export type BurnBarMissionRecommendation = 'proceed' | 'review' | 'pause';
-export type BurnBarMissionPacketStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
+type BurnBarMissionRecommendation = 'proceed' | 'review' | 'pause';
+type BurnBarMissionPacketStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
 type BurnBarMissionResultStatus = 'pending' | 'success' | 'failed' | 'partial';
 type BurnBarAutoTakeoverStatus = 'requested' | 'in_progress' | 'completed' | 'declined' | 'failed';
-export type BurnBarPRLinkageState = 'opened' | 'merged' | 'closed';
+type BurnBarPRLinkageState = 'opened' | 'merged' | 'closed';
 
 export interface BurnBarPRLinkageSnapshot {
   schemaVersion: number;
@@ -448,7 +448,7 @@ export interface BurnBarPRLinkageSnapshot {
   closedAt?: string;
 }
 
-export interface BurnBarMissionApprovalSnapshot {
+interface BurnBarMissionApprovalSnapshot {
   approved: boolean;
   approvedAt?: string;
   approvedBy?: string;
@@ -467,7 +467,7 @@ export interface BurnBarMissionPacketSnapshot {
   metadata: Record<string, unknown>;
 }
 
-export interface BurnBarMissionResultSnapshot {
+interface BurnBarMissionResultSnapshot {
   id: string;
   missionID: string;
   packetID?: string;
@@ -482,7 +482,7 @@ export interface BurnBarMissionResultSnapshot {
   metadata: Record<string, unknown>;
 }
 
-export interface BurnBarMissionBurnRecord {
+interface BurnBarMissionBurnRecord {
   id: string;
   label: string;
   amount: number;
@@ -490,7 +490,7 @@ export interface BurnBarMissionBurnRecord {
   recordedAt: string;
 }
 
-export interface BurnBarAutoTakeoverRecord {
+interface BurnBarAutoTakeoverRecord {
   id: string;
   projectSlug: string;
   missionID?: string;
@@ -548,24 +548,24 @@ export interface BurnBarMissionGetRequest {
 }
 
 // Question types
-export type BurnBarPendingQuestionStatus = 'pending' | 'answered' | 'dismissed';
-export type BurnBarPendingQuestionPriority = 'low' | 'normal' | 'high' | 'urgent';
+type BurnBarPendingQuestionStatus = 'pending' | 'answered' | 'dismissed';
+type BurnBarPendingQuestionPriority = 'low' | 'normal' | 'high' | 'urgent';
 
-export interface BurnBarQuestionOptionSnapshot {
+interface BurnBarQuestionOptionSnapshot {
   id: string;
   title: string;
   detail?: string;
   answer: string;
 }
 
-export interface BurnBarQuestionDeepLinkSnapshot {
+interface BurnBarQuestionDeepLinkSnapshot {
   kind: 'sessionLog' | 'project' | 'mission' | 'run';
   targetID: string;
   title: string;
   subtitle?: string;
 }
 
-export interface BurnBarQuestionTrackerSnapshot {
+interface BurnBarQuestionTrackerSnapshot {
   isUnread: boolean;
   surfacedAt?: string;
   firstNotifiedAt?: string;
@@ -573,7 +573,7 @@ export interface BurnBarQuestionTrackerSnapshot {
   notificationCount: number;
 }
 
-export interface BurnBarAnswerRecord {
+interface BurnBarAnswerRecord {
   answer: string;
   answeredBy: string;
   answeredAt: string;
@@ -637,7 +637,7 @@ interface BurnBarControllerCounts {
 
 type BurnBarProjectFreshness = 'fresh' | 'provisional' | 'stale';
 
-export interface BurnBarControllerSummary {
+interface BurnBarControllerSummary {
   activeProjectSlug?: string;
   counts: BurnBarControllerCounts;
   freshness: BurnBarProjectFreshness;

@@ -61,14 +61,12 @@ import {
         </p>
       </header>
       <ul class="featgroup__grid">
-        {
-          FEATURES_BY_CATEGORY.tracking.map((f) => (
-            <li class="feat glass-pane">
-              <h3>{f.title}</h3>
-              <p>{f.blurb}</p>
-            </li>
-          ))
-        }
+        {FEATURES_BY_CATEGORY.tracking.map((f) => (
+          <li class="feat glass-pane">
+            <h3>{f.title}</h3>
+            <p>{f.blurb}</p>
+          </li>
+        ))}
       </ul>
     </div>
   </section>
@@ -81,10 +79,10 @@ import {
         <h2>Same model in. Same model out. Two ways to recover.</h2>
         <p class="lead">
           The same daemon ships two postures. <strong>Provider-Family Failover</strong>
-          protects your model identity and extends capacity across every account in your library that
-          carries it inside the selected provider family. <strong>Exact Model Failover</strong>
-          can recover across providers or accounts only after the destination proves the same canonical
-          model ID. Benchmarks remain advisory signals — they never prove identity.
+          protects your model identity and extends capacity across every account in your library
+          that carries it inside the selected provider family. <strong>Exact Model Failover</strong>
+          can recover across providers or accounts only after the destination proves the same
+          canonical model ID. Benchmarks remain advisory signals — they never prove identity.
         </p>
       </header>
 
@@ -113,8 +111,8 @@ import {
           </header>
           <p>
             Let the router look beyond the selected provider family only when the next route can
-            prove the same canonical model. <span class="mono">gpt-5.6</span> may move to another provider's
-            real <span class="mono">gpt-5.6</span>; it cannot become
+            prove the same canonical model. <span class="mono">gpt-5.6</span> may move to another
+            provider's real <span class="mono">gpt-5.6</span>; it cannot become
             <span class="mono">gpt-5.6-mini</span>, <span class="mono">gpt-5.6-pro</span>, or a
             broad <span class="mono">openai:standard</span> substitute.
           </p>
@@ -129,7 +127,10 @@ import {
 
       <div class="routing__cta">
         <a class="btn btn--ember" href="/router">
-          Read how routing actually works <span class="btn-arrow" aria-hidden="true">→</span>
+          Read how routing actually works{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
       </div>
     </div>
@@ -148,14 +149,12 @@ import {
         </p>
       </header>
       <ul class="featgroup__grid">
-        {
-          FEATURES_BY_CATEGORY.assistant.map((f) => (
-            <li class="feat feat--mercury glass-pane">
-              <h3>{f.title}</h3>
-              <p>{f.blurb}</p>
-            </li>
-          ))
-        }
+        {FEATURES_BY_CATEGORY.assistant.map((f) => (
+          <li class="feat feat--mercury glass-pane">
+            <h3>{f.title}</h3>
+            <p>{f.blurb}</p>
+          </li>
+        ))}
       </ul>
     </div>
   </section>
@@ -172,14 +171,12 @@ import {
         </p>
       </header>
       <ul class="featgroup__grid">
-        {
-          FEATURES_BY_CATEGORY.control.map((f) => (
-            <li class="feat glass-pane">
-              <h3>{f.title}</h3>
-              <p>{f.blurb}</p>
-            </li>
-          ))
-        }
+        {FEATURES_BY_CATEGORY.control.map((f) => (
+          <li class="feat glass-pane">
+            <h3>{f.title}</h3>
+            <p>{f.blurb}</p>
+          </li>
+        ))}
       </ul>
     </div>
   </section>
@@ -197,28 +194,33 @@ import {
         <p class="cap-aside mono">
           <span class="tag tag--mercury tag--plain mono">{FLOO.statusLabel}</span>
           <span aria-hidden="true">·</span>
-          <span>{FLOO.name} — {FLOO.expansion} <em>(a.k.a. {FLOO.expansionWhimsical})</em></span>
+          <span>
+            {FLOO.name} — {FLOO.expansion} <em>(a.k.a. {FLOO.expansionWhimsical})</em>
+          </span>
         </p>
       </header>
       <ul class="featgroup__grid">
-        {
-          FLOO_CAPABILITIES.map((f) => (
-            <li class="feat feat--mercury glass-pane">
-              <h3>{f.title}</h3>
-              <p>{f.blurb}</p>
-            </li>
-          ))
-        }
+        {FLOO_CAPABILITIES.map((f) => (
+          <li class="feat feat--mercury glass-pane">
+            <h3>{f.title}</h3>
+            <p>{f.blurb}</p>
+          </li>
+        ))}
       </ul>
       <div class="promises glass-pane">
         <h3 class="promises__h">Safe by design</h3>
         <ul class="promises__list">
-          {FLOO_PROMISES.map((p) => <li>{p}</li>)}
+          {FLOO_PROMISES.map((p) => (
+            <li>{p}</li>
+          ))}
         </ul>
       </div>
       <div class="routing__cta">
         <a class="btn btn--ghost" href={FLOO.href}>
-          See everything {FLOO.name} does <span class="btn-arrow" aria-hidden="true">→</span>
+          See everything {FLOO.name} does{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
       </div>
     </div>
@@ -240,24 +242,27 @@ import {
         </p>
       </header>
       <ul class="featgroup__grid">
-        {
-          CONTROL_CAPABILITIES.map((f) => (
-            <li class="feat glass-pane">
-              <h3>{f.title}</h3>
-              <p>{f.blurb}</p>
-            </li>
-          ))
-        }
+        {CONTROL_CAPABILITIES.map((f) => (
+          <li class="feat glass-pane">
+            <h3>{f.title}</h3>
+            <p>{f.blurb}</p>
+          </li>
+        ))}
       </ul>
       <div class="promises glass-pane">
         <h3 class="promises__h">You're always in charge</h3>
         <ul class="promises__list">
-          {CONTROL_PROMISES.map((p) => <li>{p}</li>)}
+          {CONTROL_PROMISES.map((p) => (
+            <li>{p}</li>
+          ))}
         </ul>
       </div>
       <div class="routing__cta">
         <a class="btn btn--ghost" href={CONTROL.href}>
-          How {CONTROL.name} keeps you safe <span class="btn-arrow" aria-hidden="true">→</span>
+          How {CONTROL.name} keeps you safe{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
       </div>
     </div>
@@ -271,7 +276,9 @@ import {
         <h2>The screens it shows up on.</h2>
       </header>
       <ul class="surfaces__grid">
-        {SURFACES.map((s, i) => <SurfaceCard surface={s} index={i} />)}
+        {SURFACES.map((s, i) => (
+          <SurfaceCard surface={s} index={i} />
+        ))}
       </ul>
     </div>
   </section>
@@ -288,14 +295,12 @@ import {
         </p>
       </header>
       <ul class="featgroup__grid">
-        {
-          FEATURES_BY_CATEGORY.honesty.map((f) => (
-            <li class="feat glass-pane">
-              <h3>{f.title}</h3>
-              <p>{f.blurb}</p>
-            </li>
-          ))
-        }
+        {FEATURES_BY_CATEGORY.honesty.map((f) => (
+          <li class="feat glass-pane">
+            <h3>{f.title}</h3>
+            <p>{f.blurb}</p>
+          </li>
+        ))}
       </ul>
     </div>
   </section>
@@ -312,10 +317,15 @@ import {
         </p>
       </div>
       <div class="endcta__ctas">
-        <a class="btn btn--ember" href="/download"
-          >Download for macOS <span class="btn-arrow" aria-hidden="true">→</span></a
-        >
-        <a class="btn btn--ghost" href="/providers">See provider matrix</a>
+        <a class="btn btn--ember" href="/download">
+          Download for macOS{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
+        <a class="btn btn--ghost" href="/providers">
+          See provider matrix
+        </a>
       </div>
     </div>
   </section>

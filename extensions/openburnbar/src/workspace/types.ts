@@ -55,7 +55,7 @@ export interface BurnBarSearchBurnbarIndexRequest {
   resultLimit?: number;
 }
 
-export interface BurnBarIndexedSearchHit {
+interface BurnBarIndexedSearchHit {
   chunkID: string;
   sourceKind: string;
   sourceID: string;

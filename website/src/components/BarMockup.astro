@@ -10,7 +10,9 @@
 >
   <div class="bar-mockup__chrome" aria-hidden="true">
     <div class="bar-mockup__menubar">
-      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
       <span class="bar-mockup__menubar-spacer"></span>
       <img
         src="/brand/logo-64.png"
@@ -30,15 +32,19 @@
     <header class="popover__head">
       <img src="/brand/logo-256.png" alt="" width="22" height="22" class="popover__icon" />
       <span class="popover__name">OpenBurnBar</span>
-      <span class="popover__refresh" aria-hidden="true">↻</span>
-      <span class="popover__power" aria-hidden="true">⏻</span>
+      <span class="popover__refresh" aria-hidden="true">
+        ↻
+      </span>
+      <span class="popover__power" aria-hidden="true">
+        ⏻
+      </span>
     </header>
 
     <div class="popover__meta">
       <span class="popover__updated">Updated 4m ago</span>
-      <span class="popover__sessions mono"
-        ><span class="popover__sessions-dot" aria-hidden="true"></span>48 demo sessions</span
-      >
+      <span class="popover__sessions mono">
+        <span class="popover__sessions-dot" aria-hidden="true"></span>48 demo sessions
+      </span>
     </div>
 
     <div class="popover__sectionhead mono">QUOTAS</div>
@@ -59,12 +65,16 @@
             <span class="qrow__name">Anthropic</span>
             <div class="qline">
               <span class="qline__lbl mono">5h</span>
-              <div class="qbar"><div class="qfill qfill--anthropic" style="width:69%"></div></div>
+              <div class="qbar">
+                <div class="qfill qfill--anthropic" style="width:69%"></div>
+              </div>
               <span class="qline__pct mono">69%</span>
             </div>
             <div class="qline">
               <span class="qline__lbl mono">7d</span>
-              <div class="qbar"><div class="qfill qfill--anthropic" style="width:83%"></div></div>
+              <div class="qbar">
+                <div class="qfill qfill--anthropic" style="width:83%"></div>
+              </div>
               <span class="qline__pct mono">83%</span>
             </div>
           </div>
@@ -85,12 +95,16 @@
             <span class="qrow__name">Codex</span>
             <div class="qline">
               <span class="qline__lbl mono">5h</span>
-              <div class="qbar"><div class="qfill qfill--codex" style="width:57%"></div></div>
+              <div class="qbar">
+                <div class="qfill qfill--codex" style="width:57%"></div>
+              </div>
               <span class="qline__pct mono">57%</span>
             </div>
             <div class="qline">
               <span class="qline__lbl mono">7d</span>
-              <div class="qbar"><div class="qfill qfill--codex" style="width:34%"></div></div>
+              <div class="qbar">
+                <div class="qfill qfill--codex" style="width:34%"></div>
+              </div>
               <span class="qline__pct mono">34%</span>
             </div>
           </div>
@@ -125,27 +139,54 @@
         Synthetic · Local
       </div>
       <div class="popover__mission-grid mono">
-        <div><span class="lbl">Mission</span><span class="val">Needs approval</span></div>
-        <div><span class="lbl">Burn</span><span class="val">$42.18</span></div>
-        <div><span class="lbl">Tokens</span><span class="val">128K</span></div>
-      </div>
-      <div class="popover__mission-grid popover__mission-grid--two mono">
-        <div><span class="lbl">Questions</span><span class="val">0</span></div>
-        <div><span class="lbl">Followups</span><span class="val val--ember">2</span></div>
-        <div><span class="lbl">Mission</span><span class="val">Planned</span></div>
         <div>
-          <span class="lbl">Runtime</span><span class="val val--ember">Local inference</span>
+          <span class="lbl">Mission</span>
+          <span class="val">Needs approval</span>
+        </div>
+        <div>
+          <span class="lbl">Burn</span>
+          <span class="val">$42.18</span>
+        </div>
+        <div>
+          <span class="lbl">Tokens</span>
+          <span class="val">128K</span>
         </div>
       </div>
-      <a class="popover__mission-cta" href="#">Review mission approval →</a>
+      <div class="popover__mission-grid popover__mission-grid--two mono">
+        <div>
+          <span class="lbl">Questions</span>
+          <span class="val">0</span>
+        </div>
+        <div>
+          <span class="lbl">Followups</span>
+          <span class="val val--ember">2</span>
+        </div>
+        <div>
+          <span class="lbl">Mission</span>
+          <span class="val">Planned</span>
+        </div>
+        <div>
+          <span class="lbl">Runtime</span>
+          <span class="val val--ember">Local inference</span>
+        </div>
+      </div>
+      <a class="popover__mission-cta" href="#">
+        Review mission approval →
+      </a>
     </div>
 
     <div class="popover__footer">
       <button class="popover__btn popover__btn--ember" type="button">
-        <span class="popover__btn-icon" aria-hidden="true">▸</span> Dashboard
+        <span class="popover__btn-icon" aria-hidden="true">
+          ▸
+        </span>{" "}
+        Dashboard
       </button>
       <button class="popover__btn" type="button">
-        <span class="popover__btn-icon" aria-hidden="true">⚙</span> Settings
+        <span class="popover__btn-icon" aria-hidden="true">
+          ⚙
+        </span>{" "}
+        Settings
       </button>
     </div>
   </div>

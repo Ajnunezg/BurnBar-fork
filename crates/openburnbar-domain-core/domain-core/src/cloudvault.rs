@@ -1,6 +1,6 @@
 use aes_gcm::{
     aead::{Aead, Payload},
-    Aes256Gcm, KeyInit, Nonce,
+    Aes256Gcm, KeyInit,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use hkdf::Hkdf;
@@ -221,7 +221,7 @@ pub fn keyed_hash_hex(
         return Err(CloudVaultError::DerivationFailure);
     }
 
-    let mut mac = match <Hmac<Sha256> as Mac>::new_from_slice(&derived_key) {
+    let mut mac = match <Hmac<Sha256> as KeyInit>::new_from_slice(&derived_key) {
         Ok(mac) => mac,
         Err(_) => {
             derived_key.zeroize();
@@ -304,7 +304,9 @@ pub fn aes_gcm_seal_detached(
     let cipher = Aes256Gcm::new_from_slice(key).map_err(|_| CloudVaultError::InvalidKeyLength)?;
     let mut ciphertext_and_tag = cipher
         .encrypt(
-            Nonce::from_slice(nonce),
+            nonce
+                .try_into()
+                .map_err(|_| CloudVaultError::InvalidNonceLength)?,
             Payload {
                 msg: plaintext,
                 aad,
@@ -348,7 +350,9 @@ pub fn aes_gcm_open_detached(
     let cipher = Aes256Gcm::new_from_slice(key).map_err(|_| CloudVaultError::InvalidKeyLength)?;
     cipher
         .decrypt(
-            Nonce::from_slice(nonce),
+            nonce
+                .try_into()
+                .map_err(|_| CloudVaultError::InvalidNonceLength)?,
             Payload {
                 msg: &ciphertext_and_tag,
                 aad,
@@ -568,7 +572,7 @@ fn opaque_identifier_hmac(
     require_vault_key(key)?;
     require_data_bound(data)?;
     let derived_key = Zeroizing::new(derive_key_32(key, salt, info)?);
-    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(&*derived_key)
+    let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(&*derived_key)
         .map_err(|_| CloudVaultError::DerivationFailure)?;
     mac.update(data);
     Ok(mac.finalize().into_bytes().into())

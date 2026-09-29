@@ -8,11 +8,11 @@ const badgeVariants = cva(
     variants: {
       tier: {
         server_readable:
-          "border-[color:var(--color-tier-server-readable)]/40 text-[color:var(--color-tier-server-readable)] bg-[color:var(--color-tier-server-readable)]/10",
+          "border-tier-server-readable/40 text-tier-server-readable bg-tier-server-readable/10",
         zero_access:
-          "border-[color:var(--color-tier-zero-access)]/40 text-[color:var(--color-tier-zero-access)] bg-[color:var(--color-tier-zero-access)]/10",
+          "border-tier-zero-access/40 text-tier-zero-access bg-tier-zero-access/10",
         end_to_end:
-          "border-[color:var(--color-tier-end-to-end)]/40 text-[color:var(--color-tier-end-to-end)] bg-[color:var(--color-tier-end-to-end)]/10",
+          "border-tier-end-to-end/40 text-tier-end-to-end bg-tier-end-to-end/10",
         neutral: "border-glass-line text-content-mute bg-mercury-wash",
       },
     },

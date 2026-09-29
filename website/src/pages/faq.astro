@@ -31,7 +31,6 @@ const firstId = FAQ[0]?.id;
   description="Frequently asked questions about OpenBurnBar — data handling, accounts, API keys, cost accuracy, provider support, hosted quota sync, deletion, offline."
 >
   <script is:inline type="application/ld+json" set:html={JSON.stringify(faqLd)} />
-
   <section class="pagehead">
     <div class="container pagehead__inner">
       <span class="eyebrow eyebrow--ember">FAQ</span>
@@ -46,28 +45,26 @@ const firstId = FAQ[0]?.id;
         <button class="faqpill is-active" data-filter="all" aria-pressed="true">
           All <span class="faqpill__n mono">{FAQ.length}</span>
         </button>
-        {
-          groups.map((g) => (
-            <button class="faqpill" data-filter={g.id} aria-pressed="false">
-              {g.label} <span class="faqpill__n mono">{g.items.length}</span>
-            </button>
-          ))
-        }
+        {groups.map((g) => (
+          <button class="faqpill" data-filter={g.id} aria-pressed="false">
+            {g.label} <span class="faqpill__n mono">{g.items.length}</span>
+          </button>
+        ))}
       </div>
 
       <div class="faqgroups">
-        {
-          groups.map((g) => (
-            <section class="faqgroup" data-category={g.id} aria-label={g.label}>
-              <header class="faqgroup__head">
-                <h2 class="faqgroup__title">{g.label}</h2>
-                <p class="faqgroup__blurb">{g.blurb}</p>
-              </header>
-              <Accordion items={g.items} open={g.id === firstCategoryId ? firstId : undefined} />
-            </section>
-          ))
-        }
-        <p class="faqempty" hidden>No questions in this topic yet.</p>
+        {groups.map((g) => (
+          <section class="faqgroup" data-category={g.id} aria-label={g.label}>
+            <header class="faqgroup__head">
+              <h2 class="faqgroup__title">{g.label}</h2>
+              <p class="faqgroup__blurb">{g.blurb}</p>
+            </header>
+            <Accordion items={g.items} open={g.id === firstCategoryId ? firstId : undefined} />
+          </section>
+        ))}
+        <p class="faqempty" hidden>
+          No questions in this topic yet.
+        </p>
       </div>
     </div>
   </section>

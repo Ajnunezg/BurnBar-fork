@@ -58,7 +58,7 @@ function MixList({
             <span className="min-w-0 flex-1">
               <ProportionBar value={max > 0 ? r.tokens / max : 0} />
             </span>
-            <span className="min-w-[4rem] shrink-0 text-right text-content-mute tabular-nums">
+            <span className="min-w-16 shrink-0 text-right text-content-mute tabular-nums">
               {formatCompact(r.tokens)}
             </span>
           </li>

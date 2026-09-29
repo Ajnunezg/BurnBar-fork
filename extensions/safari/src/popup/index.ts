@@ -248,7 +248,7 @@ async function completePermissionSetup(): Promise<void> {
   // Safari requires permissions.request to begin synchronously inside the
   // user's click. Moving this call behind runtime.sendMessage loses the user
   // gesture and Safari rejects the request without presenting its sheet.
-  let websiteAccessGranted = false;
+  let websiteAccessGranted: boolean;
   permissionSheetOpen = true;
   scheduleRefresh();
   try {

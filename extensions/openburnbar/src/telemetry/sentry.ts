@@ -217,6 +217,20 @@ export async function initSentry(extensionVersion: string, environment: string):
     // Keep breadcrumbs terse — the extension logger already redacts PII.
     maxBreadcrumbs: 20,
 
+    // Sentry 11 collects user info, cookies, headers, bodies, DB query data,
+    // queue args and GenAI I/O unless told otherwise; pin every category off.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: false,
+      httpBodies: [],
+      urlQueryParams: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+      genAI: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      graphQL: { document: false, variables: false }
+    },
+
     // Strip secrets, local paths, and PII from breadcrumbs before egress.
     beforeBreadcrumb(breadcrumb) {
       return sanitizeSentryBreadcrumb(breadcrumb);

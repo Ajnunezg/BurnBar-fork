@@ -50,11 +50,7 @@ export const ARENA_SIGN_IN_PROVIDERS = ["google", "apple", "github", "facebook"]
 export type ArenaSignInProvider = (typeof ARENA_SIGN_IN_PROVIDERS)[number];
 
 export type AnalyticsCategory =
-  | "lifecycle"
-  | "screen_view"
-  | "primary_action"
-  | "conversion_auth"
-  | "error";
+  "lifecycle" | "screen_view" | "primary_action" | "conversion_auth" | "error";
 
 const LIFECYCLE = new Set<string>([
   EVENT.appSessionStarted,

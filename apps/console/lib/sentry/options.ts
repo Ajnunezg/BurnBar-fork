@@ -7,6 +7,7 @@
  * dev, CI builds, and any deploy without `NEXT_PUBLIC_SENTRY_DSN` never emit
  * events. The DSN is only ever read from env — never hardcoded.
  */
+import type { DataCollection } from "@sentry/core";
 import { beforeSend, sanitizeBreadcrumb } from "./scrub";
 
 /**
@@ -27,6 +28,24 @@ export const SENTRY_RELEASE = `openburnbar-console@${process.env.NEXT_PUBLIC_APP
 const isProduction = SENTRY_ENVIRONMENT === "production";
 
 /**
+ * Sentry 11 replaced `sendDefaultPii` with `dataCollection`, whose unset default
+ * collects MORE than v10 did (user info, cookies, headers, bodies, DB query
+ * data, queue args, GenAI I/O). Every category is pinned off explicitly; query
+ * params keep v10's IP/forwarding denylist on top of the `beforeSend` scrubber.
+ */
+const SENTRY_DATA_COLLECTION: DataCollection = {
+  userInfo: false,
+  cookies: false,
+  httpHeaders: false,
+  httpBodies: [],
+  urlQueryParams: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
+  genAI: { inputs: false, outputs: false },
+  databaseQueryData: false,
+  queues: false,
+  graphQL: { document: false, variables: false },
+};
+
+/**
  * Common `Sentry.init` options for all runtimes. `enabled` gates the whole SDK
  * on DSN presence so a missing DSN is a total no-op (no network, no overhead).
  */
@@ -39,9 +58,10 @@ export const sharedSentryOptions = {
   // 10% of transactions in production, 100% elsewhere — matches functions.
   tracesSampleRate: isProduction ? 0.1 : 1.0,
 
-  // Never attach cookies/headers/IP/user data by default. `beforeSend` is the
-  // final egress guard for anything copied into extra/contexts/breadcrumbs.
-  sendDefaultPii: false,
+  // Never attach cookies/headers/IP/user data (see SENTRY_DATA_COLLECTION).
+  // `beforeSend` is the final egress guard for anything copied into
+  // extra/contexts/breadcrumbs.
+  dataCollection: SENTRY_DATA_COLLECTION,
 
   // Keep the breadcrumb trail terse and scrubbed.
   maxBreadcrumbs: 30,

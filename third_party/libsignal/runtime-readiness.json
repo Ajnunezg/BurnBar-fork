@@ -2,16 +2,16 @@
   "status": "not_ready",
   "runtimeCryptoCore": "official_libsignal_device_to_device_and_at_rest_proofs_merged; durable_phone_gateway_runtime_wired_and_locally_verified; gateway_cutover_migration_telemetry_and_counsel_pending",
   "officialLibsignalPin": {
-    "tag": "v0.94.4",
-    "tagObject": "03c449017b57eccbda715b8b018dce5dff603ac6",
-    "commit": "46d867c986f66201e34e7ae20ce423eec742bf3f"
+    "tag": "v0.103.0",
+    "tagObject": "6c573a122a5e1055408d7de00388ac9d6e7dfdf4",
+    "commit": "ba133bd3457f556fbf56db0a5ab985de0af79da6"
   },
   "blockingReason": "The pinned official libsignal Rust bridge and Swift/Kotlin/Node bindings, durable phone gateway runtime, local gateway KATs, full mobile tests, Android tests, and a signed physical-iPad install/launch are verified. Final launch readiness still requires live gateway text/control and attachment write cutover evidence, private-domain Signal activation evidence, migration telemetry, real iroh QA, and counsel approval.",
   "completedEvidence": [
     {
       "id": "rust_core_bridge",
       "status": "complete",
-      "proof": "The official libsignal v0.94.4 Rust shared bridge is consumed through its Swift FFI, Kotlin/Android JNI, and Node bindings at one verified pin. Representative protocol, interop, at-rest, replay, and identity tests pass on all three consumers, and the vendored fork has no crypto-core divergence.",
+      "proof": "The official libsignal v0.103.0 Rust shared bridge is consumed through its Swift FFI, Kotlin/Android JNI, and Node bindings at one verified pin. Representative protocol, interop, at-rest, replay, and identity tests pass on all three consumers, and the vendored fork has no crypto-core divergence.",
       "command": "bash scripts/ci/verify-libsignal-pin.sh && bash scripts/ci/verify-libsignal-submodule-delta.sh && npm test --prefix packages/libsignal-bridge && swift test --package-path OpenBurnBarCore --scratch-path /tmp/obb-release-rust-bridge-swift --disable-swift-testing --filter OpenBurnBarSignalCoreTests && cd android && ./gradlew :app:testDebugUnitTest --tests '*AndroidSignalSession*' --tests '*AndroidSignalInteropKatTest' --tests '*AndroidCloudVaultSignalPayloadsTest' --tests '*AndroidSignalIdentityKeyStoreTest' --no-daemon",
       "evidencePath": "launch-evidence/libsignal-rust-core-bridge-v1.0.34.json"
     },

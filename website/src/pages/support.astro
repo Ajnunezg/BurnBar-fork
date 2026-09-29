@@ -61,11 +61,11 @@ import { SUPPORT_MACROS } from "@data/supportMacros";
         <article class="supportcard">
           <h2>Account and data deletion</h2>
           <p>
-            In the mobile app, go to <strong
-              >You &gt; Settings &gt; Account &gt; Delete account</strong
-            >. On Windows or macOS, open <strong>Settings &gt; Account &gt; Delete Account</strong>.
-            This deletes OpenBurnBar cloud data for the signed-in account and signs you out. Local
-            data remains on the device until you remove the platform's OpenBurnBar support folder.
+            In the mobile app, go to{" "}
+            <strong>You &gt; Settings &gt; Account &gt; Delete account</strong>. On Windows or
+            macOS, open <strong>Settings &gt; Account &gt; Delete Account</strong>. This deletes
+            OpenBurnBar cloud data for the signed-in account and signs you out. Local data remains
+            on the device until you remove the platform's OpenBurnBar support folder.
           </p>
         </article>
 
@@ -76,8 +76,12 @@ import { SUPPORT_MACROS } from "@data/supportMacros";
             information before enabling cloud features.
           </p>
           <div class="linkrow">
-            <a class="textlink" href="/legal/privacy-policy">Privacy Policy</a>
-            <a class="textlink" href="/legal/terms">Terms of Use</a>
+            <a class="textlink" href="/legal/privacy-policy">
+              Privacy Policy
+            </a>
+            <a class="textlink" href="/legal/terms">
+              Terms of Use
+            </a>
           </div>
         </article>
       </div>
@@ -89,14 +93,12 @@ import { SUPPORT_MACROS } from "@data/supportMacros";
           before you write in.
         </p>
         <div class="supportgrid">
-          {
-            SUPPORT_MACROS.map((macro) => (
-              <article class="supportcard supportcard--compact">
-                <h3>{macro.title}</h3>
-                <p>{macro.summary}</p>
-              </article>
-            ))
-          }
+          {SUPPORT_MACROS.map((macro) => (
+            <article class="supportcard supportcard--compact">
+              <h3>{macro.title}</h3>
+              <p>{macro.summary}</p>
+            </article>
+          ))}
         </div>
       </section>
     </div>

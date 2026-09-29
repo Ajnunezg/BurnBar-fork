@@ -502,7 +502,8 @@ const slo = [
     <div class="container container--wide mcp-hero__inner">
       <span class="eyebrow eyebrow--ember">MCP integration · protocol-native</span>
       <h1 id="mcp-hero-h" class="mcp-hero__h">
-        Codex forgets.<br />
+        Codex forgets.
+        <br />
         Claude forgets.
         <span class="mcp-hero__h--ember">Your history doesn't.</span>
       </h1>
@@ -559,9 +560,15 @@ const slo = [
             font-size="11"
             fill="rgba(255,255,255,0.6)"
           >
-            <text x="64" y="56">01 · LOCAL · SQLite</text>
-            <text x="64" y="156">02 · HOSTED · mcp.burnbar.ai</text>
-            <text x="64" y="256">03 · BRIDGE · stdio shim</text>
+            <text x="64" y="56">
+              01 · LOCAL · SQLite
+            </text>
+            <text x="64" y="156">
+              02 · HOSTED · mcp.burnbar.ai
+            </text>
+            <text x="64" y="256">
+              03 · BRIDGE · stdio shim
+            </text>
           </g>
 
           {/* source nodes (left) */}
@@ -580,19 +587,22 @@ const slo = [
             fill="none"
             stroke="url(#sigEmber)"
             stroke-width="1.5"
-            class="signalmap__path signalmap__path--a"></path>
+            class="signalmap__path signalmap__path--a"
+          ></path>
           <path
             d="M 86,180 C 280,180, 500,160, 760,160"
             fill="none"
             stroke="url(#sigMerc)"
             stroke-width="1.5"
-            class="signalmap__path signalmap__path--b"></path>
+            class="signalmap__path signalmap__path--b"
+          ></path>
           <path
             d="M 86,280 C 280,280, 500,120, 760,160"
             fill="none"
             stroke="url(#sigEmber)"
             stroke-width="1.5"
-            class="signalmap__path signalmap__path--c"></path>
+            class="signalmap__path signalmap__path--c"
+          ></path>
 
           {/* travelling packets (CSS animated dashes) */}
           <path
@@ -600,19 +610,22 @@ const slo = [
             fill="none"
             stroke="#fdc42c"
             stroke-width="2"
-            class="signalmap__packet signalmap__packet--a"></path>
+            class="signalmap__packet signalmap__packet--a"
+          ></path>
           <path
             d="M 86,180 C 280,180, 500,160, 760,160"
             fill="none"
             stroke="#e8e8ff"
             stroke-width="2"
-            class="signalmap__packet signalmap__packet--b"></path>
+            class="signalmap__packet signalmap__packet--b"
+          ></path>
           <path
             d="M 86,280 C 280,280, 500,120, 760,160"
             fill="none"
             stroke="#fa6b06"
             stroke-width="2"
-            class="signalmap__packet signalmap__packet--c"></path>
+            class="signalmap__packet signalmap__packet--c"
+          ></path>
 
           {/* convergence node (right) — ANY CLIENT */}
           <g>
@@ -636,7 +649,9 @@ const slo = [
             fill="#ffffff"
             text-anchor="middle"
           >
-            <text x="780" y="232">ANY MCP CLIENT</text>
+            <text x="780" y="232">
+              ANY MCP CLIENT
+            </text>
           </g>
           <g
             font-family="var(--font-mono)"
@@ -644,7 +659,9 @@ const slo = [
             fill="rgba(255,255,255,0.55)"
             text-anchor="middle"
           >
-            <text x="780" y="248">codex · claude · cursor · droid · kimi · forge · hermes</text>
+            <text x="780" y="248">
+              codex · claude · cursor · droid · kimi · forge · hermes
+            </text>
           </g>
         </svg>
 
@@ -657,49 +674,58 @@ const slo = [
       <div class="endplate" data-status="live">
         <div class="endplate__row">
           <span class="endplate__band mono">ENDPOINT · MCP/STREAMABLE-HTTP · 2025-11-25</span>
-          <span class="endplate__pill mono"><span class="endplate__dot"></span> LIVE</span>
+          <span class="endplate__pill mono">
+            <span class="endplate__dot"></span> LIVE
+          </span>
         </div>
         <div class="endplate__addr mono">https://mcp.burnbar.ai/mcp</div>
         <div class="endplate__row endplate__row--foot">
-          <span class="mono endplate__meta"
-            >audience-bound · HMAC bearer · burnbar_pro entitlement</span
-          >
+          <span class="mono endplate__meta">
+            audience-bound · HMAC bearer · burnbar_pro entitlement
+          </span>
           <span class="mono endplate__meta">since 2026-05-15</span>
         </div>
       </div>
 
       <div class="mcp-hero__ctas">
-        <a class="btn btn--ember" href="#install"
-          >See install snippets <span class="btn-arrow" aria-hidden="true">→</span></a
-        >
+        <a class="btn btn--ember" href="#install">
+          See install snippets{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
         <a
           class="btn btn--ghost"
           href={`${SITE.github}/blob/main/docs/HOSTED_REMOTE_MCP.md`}
           target="_blank"
-          rel="noopener noreferrer">Read the architecture doc</a
+          rel="noopener noreferrer"
         >
+          Read the architecture doc
+        </a>
         <a
           class="btn btn--ghost"
           href={`${SITE.github}/blob/main/docs/REMOTE_MCP_THREAT_MODEL.md`}
           target="_blank"
-          rel="noopener noreferrer">Threat model</a
+          rel="noopener noreferrer"
         >
+          Threat model
+        </a>
       </div>
     </div>
   </section>
 
-  {
-    /* ─────────── 1b · SIGNPOST ───────────
+  {/* ─────────── 1b · SIGNPOST ───────────
       This page is the transport reference. Readers who arrived looking for
       the durable memory engine want /memory, and the fastest way to serve
-      them is to say so before they read four channel cards. ─────────── */
-  }
+      them is to say so before they read four channel cards. ─────────── */}
   <section class="signpost" aria-labelledby="signpost-h">
     <div class="container container--wide">
       <div class="signpost__inner">
         <div class="signpost__text">
           <span class="eyebrow eyebrow--mercury">Looking for agent memory?</span>
-          <h2 id="signpost-h" class="signpost__h">The Memory MCP has its own page.</h2>
+          <h2 id="signpost-h" class="signpost__h">
+            The Memory MCP has its own page.
+          </h2>
           <p class="signpost__p">
             This page is about transports — which endpoint speaks which protocol, and how to point a
             client at it. The local server is a product in its own right, and it has the fuller
@@ -709,9 +735,12 @@ const slo = [
             with the capability that gates each one.
           </p>
         </div>
-        <a class="btn btn--ember signpost__cta" href="/memory"
-          >The Memory MCP <span class="btn-arrow" aria-hidden="true">→</span></a
-        >
+        <a class="btn btn--ember signpost__cta" href="/memory">
+          The Memory MCP{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
       </div>
     </div>
   </section>
@@ -734,60 +763,58 @@ const slo = [
       </header>
 
       <ol class="channels__grid">
-        {
-          channels.map((c) => (
-            <li class={`channel channel--${c.accent}`}>
-              <div class="channel__head">
-                <span class="channel__sigil mono">{c.sigil}</span>
-                <span class="channel__band mono">{c.band}</span>
+        {channels.map((c) => (
+          <li class={`channel channel--${c.accent}`}>
+            <div class="channel__head">
+              <span class="channel__sigil mono">{c.sigil}</span>
+              <span class="channel__band mono">{c.band}</span>
+            </div>
+            <h3 class="channel__name">{c.name}</h3>
+            <dl class="channel__spec mono">
+              <div>
+                <>
+                  <dt>runtime</dt>
+                  <dd>{c.runtime}</dd>
+                </>
               </div>
-              <h3 class="channel__name">{c.name}</h3>
-              <dl class="channel__spec mono">
-                <div>
-                  <>
-                    <dt>runtime</dt>
-                    <dd>{c.runtime}</dd>
-                  </>
-                </div>
-                <div>
-                  <>
-                    <dt>transport</dt>
-                    <dd>{c.transport}</dd>
-                  </>
-                </div>
-                <div>
-                  <>
-                    <dt>auth</dt>
-                    <dd>{c.auth}</dd>
-                  </>
-                </div>
-                <div>
-                  <>
-                    <dt>audience</dt>
-                    <dd>{c.audience}</dd>
-                  </>
-                </div>
-                <div>
-                  <>
-                    <dt>source</dt>
-                    <dd class="channel__src">{c.dataPath}</dd>
-                  </>
-                </div>
-                <div>
-                  <>
-                    <dt>tools</dt>
-                    <dd>{c.tools}</dd>
-                  </>
-                </div>
-              </dl>
-              <ul class="channel__bul">
-                {c.bullet.map((b) => (
-                  <li>{b}</li>
-                ))}
-              </ul>
-            </li>
-          ))
-        }
+              <div>
+                <>
+                  <dt>transport</dt>
+                  <dd>{c.transport}</dd>
+                </>
+              </div>
+              <div>
+                <>
+                  <dt>auth</dt>
+                  <dd>{c.auth}</dd>
+                </>
+              </div>
+              <div>
+                <>
+                  <dt>audience</dt>
+                  <dd>{c.audience}</dd>
+                </>
+              </div>
+              <div>
+                <>
+                  <dt>source</dt>
+                  <dd class="channel__src">{c.dataPath}</dd>
+                </>
+              </div>
+              <div>
+                <>
+                  <dt>tools</dt>
+                  <dd>{c.tools}</dd>
+                </>
+              </div>
+            </dl>
+            <ul class="channel__bul">
+              {c.bullet.map((b) => (
+                <li>{b}</li>
+              ))}
+            </ul>
+          </li>
+        ))}
       </ol>
     </div>
   </section>
@@ -812,28 +839,26 @@ const slo = [
           <span class="dossier__count mono">{hostedTools.length} tools</span>
         </header>
         <ul class="dossier__grid">
-          {
-            hostedTools.map((t) => (
-              <li class="tooltile">
-                <div class="tooltile__bracket" aria-hidden="true">
-                  <>
-                    <span />
-                    <span />
-                    <span />
-                    <span />
-                  </>
-                </div>
-                <code class="tooltile__name mono" set:html={t.name.replaceAll("_", "_<wbr>")} />
-                <div class="tooltile__meta mono">
-                  <span class={`tooltile__scope ${t.scope.startsWith("WRITE") ? "is-write" : ""}`}>
-                    {t.scope}
-                  </span>
-                  <span class="tooltile__cost">cost · {t.cost}</span>
-                </div>
-                <p class="tooltile__desc">{t.desc}</p>
-              </li>
-            ))
-          }
+          {hostedTools.map((t) => (
+            <li class="tooltile">
+              <div class="tooltile__bracket" aria-hidden="true">
+                <>
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                </>
+              </div>
+              <code class="tooltile__name mono" set:html={t.name.replaceAll("_", "_<wbr>")} />
+              <div class="tooltile__meta mono">
+                <span class={`tooltile__scope ${t.scope.startsWith("WRITE") ? "is-write" : ""}`}>
+                  {t.scope}
+                </span>
+                <span class="tooltile__cost">cost · {t.cost}</span>
+              </div>
+              <p class="tooltile__desc">{t.desc}</p>
+            </li>
+          ))}
         </ul>
       </div>
 
@@ -843,28 +868,26 @@ const slo = [
           <span class="dossier__count mono">{localTools.length} tools</span>
         </header>
         <ul class="dossier__grid">
-          {
-            localTools.map((t) => (
-              <li class="tooltile">
-                <div class="tooltile__bracket" aria-hidden="true">
-                  <>
-                    <span />
-                    <span />
-                    <span />
-                    <span />
-                  </>
-                </div>
-                <code class="tooltile__name mono" set:html={t.name.replaceAll("_", "_<wbr>")} />
-                <div class="tooltile__meta mono">
-                  <span class={`tooltile__scope ${t.scope.startsWith("WRITE") ? "is-write" : ""}`}>
-                    {t.scope}
-                  </span>
-                  <span class="tooltile__cost">cost · {t.cost}</span>
-                </div>
-                <p class="tooltile__desc">{t.desc}</p>
-              </li>
-            ))
-          }
+          {localTools.map((t) => (
+            <li class="tooltile">
+              <div class="tooltile__bracket" aria-hidden="true">
+                <>
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                </>
+              </div>
+              <code class="tooltile__name mono" set:html={t.name.replaceAll("_", "_<wbr>")} />
+              <div class="tooltile__meta mono">
+                <span class={`tooltile__scope ${t.scope.startsWith("WRITE") ? "is-write" : ""}`}>
+                  {t.scope}
+                </span>
+                <span class="tooltile__cost">cost · {t.cost}</span>
+              </div>
+              <p class="tooltile__desc">{t.desc}</p>
+            </li>
+          ))}
         </ul>
       </div>
     </div>
@@ -878,68 +901,66 @@ const slo = [
         <h2 id="install-h">Drop into any client in under a minute.</h2>
         <p class="lead">
           The hosted path uses the <code>openburnbar</code> CLI from npm — install it globally with
-          <code>npm i -g openburnbar</code> so the generated client configs can resolve the bin on your
-          PATH (<code>npx -y openburnbar</code> works for ad-hoc runs, not as a saved config command)
-          — as the stdio shim (or hit direct HTTP if your client speaks the 2025-11-25 spec). The local
-          path is one shell script and a JSON snippet.
+          <code>npm i -g openburnbar</code> so the generated client configs can resolve the bin on
+          your PATH (<code>npx -y openburnbar</code> works for ad-hoc runs, not as a saved config
+          command) — as the stdio shim (or hit direct HTTP if your client speaks the 2025-11-25
+          spec). The local path is one shell script and a JSON snippet.
         </p>
       </header>
 
       <div class="termmux" data-mux="hosted" data-tabs>
         <header class="termmux__head">
-          <h3 class="termmux__title">Hosted · <span class="ember">mcp.burnbar.ai</span></h3>
+          <h3 class="termmux__title">
+            Hosted · <span class="ember">mcp.burnbar.ai</span>
+          </h3>
           <p class="termmux__sub mono">
             requires BurnBar Cloud · openburnbar mcp login &lt;bearer&gt;
           </p>
         </header>
         <div class="termmux__tabs" role="tablist" aria-label="Hosted MCP install targets">
-          {
-            hostedSnippets.map((s, i) => (
-              <button
-                type="button"
-                role="tab"
-                class="termmux__tab"
-                aria-selected={i === 0 ? "true" : "false"}
-                aria-controls={`hosted-panel-${s.id}`}
-                id={`hosted-tab-${s.id}`}
-                tabindex={i === 0 ? 0 : -1}
-                data-target={s.id}
-              >
-                {s.label}
-              </button>
-            ))
-          }
-        </div>
-        {
-          hostedSnippets.map((s, i) => (
-            <section
-              role="tabpanel"
-              id={`hosted-panel-${s.id}`}
-              aria-labelledby={`hosted-tab-${s.id}`}
-              class="termmux__panel"
-              data-panel={s.id}
-              data-panel-index={i}
-              data-code
-              tabindex="0"
+          {hostedSnippets.map((s, i) => (
+            <button
+              type="button"
+              role="tab"
+              class="termmux__tab"
+              aria-selected={i === 0 ? "true" : "false"}
+              aria-controls={`hosted-panel-${s.id}`}
+              id={`hosted-tab-${s.id}`}
+              tabindex={i === 0 ? 0 : -1}
+              data-target={s.id}
             >
-              <p class="termmux__nojs mono">{s.label}</p>
-              <div class="termmux__strip">
-                <span class="mono termmux__strip-meta">{s.meta}</span>
-                <button
-                  class="termmux__copy mono"
-                  type="button"
-                  data-copy
-                  data-copy-label={`hosted ${s.label} snippet`}
-                >
-                  copy
-                </button>
-              </div>
-              <pre class="termmux__pre mono" tabindex="0">
+              {s.label}
+            </button>
+          ))}
+        </div>
+        {hostedSnippets.map((s, i) => (
+          <section
+            role="tabpanel"
+            id={`hosted-panel-${s.id}`}
+            aria-labelledby={`hosted-tab-${s.id}`}
+            class="termmux__panel"
+            data-panel={s.id}
+            data-panel-index={i}
+            data-code
+            tabindex="0"
+          >
+            <p class="termmux__nojs mono">{s.label}</p>
+            <div class="termmux__strip">
+              <span class="mono termmux__strip-meta">{s.meta}</span>
+              <button
+                class="termmux__copy mono"
+                type="button"
+                data-copy
+                data-copy-label={`hosted ${s.label} snippet`}
+              >
+                copy
+              </button>
+            </div>
+            <pre class="termmux__pre mono" tabindex="0">
                 <code>{s.lines.join("\n")}</code>
               </pre>
-            </section>
-          ))
-        }
+          </section>
+        ))}
       </div>
 
       <div class="termmux" data-mux="local" data-tabs>
@@ -950,59 +971,55 @@ const slo = [
           <p class="termmux__sub mono">tools/openburnbar-mcp · Python 3 venv</p>
         </header>
         <div class="termmux__tabs" role="tablist" aria-label="Local MCP install targets">
-          {
-            localSnippets.map((s, i) => (
-              <button
-                type="button"
-                role="tab"
-                class="termmux__tab"
-                aria-selected={i === 0 ? "true" : "false"}
-                aria-controls={`local-panel-${s.id}`}
-                id={`local-tab-${s.id}`}
-                tabindex={i === 0 ? 0 : -1}
-                data-target={s.id}
-              >
-                {s.label}
-              </button>
-            ))
-          }
-        </div>
-        {
-          localSnippets.map((s, i) => (
-            <section
-              role="tabpanel"
-              id={`local-panel-${s.id}`}
-              aria-labelledby={`local-tab-${s.id}`}
-              class="termmux__panel"
-              data-panel={s.id}
-              data-panel-index={i}
-              data-code
-              tabindex="0"
+          {localSnippets.map((s, i) => (
+            <button
+              type="button"
+              role="tab"
+              class="termmux__tab"
+              aria-selected={i === 0 ? "true" : "false"}
+              aria-controls={`local-panel-${s.id}`}
+              id={`local-tab-${s.id}`}
+              tabindex={i === 0 ? 0 : -1}
+              data-target={s.id}
             >
-              <p class="termmux__nojs mono">{s.label}</p>
-              <div class="termmux__strip">
-                <span class="mono termmux__strip-meta">{s.meta}</span>
-                <button
-                  class="termmux__copy mono"
-                  type="button"
-                  data-copy
-                  data-copy-label={`local ${s.label} snippet`}
-                >
-                  copy
-                </button>
-              </div>
-              <pre class="termmux__pre mono" tabindex="0">
+              {s.label}
+            </button>
+          ))}
+        </div>
+        {localSnippets.map((s, i) => (
+          <section
+            role="tabpanel"
+            id={`local-panel-${s.id}`}
+            aria-labelledby={`local-tab-${s.id}`}
+            class="termmux__panel"
+            data-panel={s.id}
+            data-panel-index={i}
+            data-code
+            tabindex="0"
+          >
+            <p class="termmux__nojs mono">{s.label}</p>
+            <div class="termmux__strip">
+              <span class="mono termmux__strip-meta">{s.meta}</span>
+              <button
+                class="termmux__copy mono"
+                type="button"
+                data-copy
+                data-copy-label={`local ${s.label} snippet`}
+              >
+                copy
+              </button>
+            </div>
+            <pre class="termmux__pre mono" tabindex="0">
                 <code>{s.lines.join("\n")}</code>
               </pre>
-            </section>
-          ))
-        }
+          </section>
+        ))}
       </div>
 
       <p class="install__memory">
-        Setting up the durable memory engine rather than a transport? <a href="/memory#setup"
-          >The Memory MCP page has a per-client setup path</a
-        > with the exact absolute paths, and a checklist that proves the install.
+        Setting up the durable memory engine rather than a transport?{" "}
+        <a href="/memory#setup">The Memory MCP page has a per-client setup path</a> with the exact
+        absolute paths, and a checklist that proves the install.
       </p>
     </div>
   </section>
@@ -1024,19 +1041,18 @@ const slo = [
           </header>
           <ul class="priv__list">
             <li>
-              <code>token_hashes[]</code> — deterministic keyed digests (reveal which terms repeat and
-              co-occur, not the terms)
+              <code>token_hashes[]</code> — deterministic keyed digests (reveal which terms repeat
+              and co-occur, not the terms)
             </li>
             <li>
-              <code>semantic_hashes[]</code> — deterministic keyed digests (reveal which terms repeat
-              and co-occur, not the terms)
+              <code>semantic_hashes[]</code> — deterministic keyed digests (reveal which terms
+              repeat and co-occur, not the terms)
             </li>
             <li>encrypted title / snippet / body-preview envelopes</li>
             <li>provider · model · project · harness facets</li>
             <li>
-              audience-bound bearer (<code>sub</code>, <code>scopes</code>, <code>exp</code>, <code
-                >jti</code
-              >)
+              audience-bound bearer (<code>sub</code>, <code>scopes</code>, <code>exp</code>,{" "}
+              <code>jti</code>)
             </li>
           </ul>
         </article>
@@ -1079,31 +1095,28 @@ const slo = [
       </header>
 
       <ol class="scoreboard__grid">
-        {
-          slo.map((s) => (
-            <li class="scoretile">
-              <div class="scoretile__bracket" aria-hidden="true">
-                <>
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </>
-              </div>
-              <div class="scoretile__num display">
-                {s.value}
-                <span class="scoretile__unit mono">{s.unit}</span>
-              </div>
-              <div class="scoretile__lbl mono">{s.label}</div>
-            </li>
-          ))
-        }
+        {slo.map((s) => (
+          <li class="scoretile">
+            <div class="scoretile__bracket" aria-hidden="true">
+              <>
+                <span />
+                <span />
+                <span />
+                <span />
+              </>
+            </div>
+            <div class="scoretile__num display">
+              {s.value}
+              <span class="scoretile__unit mono">{s.unit}</span>
+            </div>
+            <div class="scoretile__lbl mono">{s.label}</div>
+          </li>
+        ))}
       </ol>
 
       <details class="scoreboard__verify">
         <summary class="mono">verify it yourself · three commands</summary>
-        <pre
-          class="mono"><code>{`$ curl -fsS https://mcp.burnbar.ai/readyz
+        <pre class="mono"><code>{`$ curl -fsS https://mcp.burnbar.ai/readyz
 { "ok": true, "service": "openburnbar-hosted-mcp" }
 
 $ curl -fsS https://mcp.burnbar.ai/.well-known/oauth-protected-resource
@@ -1123,17 +1136,17 @@ PASS token · PASS endpoint 200 OK · PASS tools/list (10)`}</code></pre>
         <h2 id="ccmirror-h">Connect, list, revoke — from inside the app.</h2>
         <p>
           The macOS app and the iPhone/iPad app both ship a Remote MCP card. It pulls the live
-          <code>remote_mcp_clients</code> Firestore collection scoped to your user, shows the stdio shim
-          and doctor commands, and lets you revoke any connected agent with one confirmation. The card's
-          shim command today prints the legacy
-          <code>openburnbar-mcp-remote mcp serve</code> bin name — the published npm package ships that
-          alias alongside <code>openburnbar</code>, so the copy-paste works either way after
+          <code>remote_mcp_clients</code> Firestore collection scoped to your user, shows the stdio
+          shim and doctor commands, and lets you revoke any connected agent with one confirmation.
+          The card's shim command today prints the legacy
+          <code>openburnbar-mcp-remote mcp serve</code> bin name — the published npm package ships
+          that alias alongside <code>openburnbar</code>, so the copy-paste works either way after
           <code>npm i -g openburnbar</code>.
         </p>
         <p>
-          Revocation hits the <code>revokeRemoteMcpClient</code> callable; the next bearer-token refresh
-          fails closed with <code>403 client_revoked</code>. The signed-in flow was proved live on
-          iPhone 17 Pro Max and iPad Pro 13" (M4) on 2026-05-15.
+          Revocation hits the <code>revokeRemoteMcpClient</code> callable; the next bearer-token
+          refresh fails closed with <code>403 client_revoked</code>. The signed-in flow was proved
+          live on iPhone 17 Pro Max and iPad Pro 13" (M4) on 2026-05-15.
         </p>
         <p class="muted mono">
           AgentLens/Views/Settings/CloudStoreSettingsView.swift ·
@@ -1171,9 +1184,18 @@ PASS token · PASS endpoint 200 OK · PASS tools/list (10)`}</code></pre>
           session-memory search.
         </p>
         <dl class="ccmirror__rows mono">
-          <div><dt>Endpoint</dt><dd>https://mcp.burnbar.ai/mcp</dd></div>
-          <div><dt>Stdio shim</dt><dd>openburnbar-mcp-remote mcp serve</dd></div>
-          <div><dt>Doctor</dt><dd>openburnbar mcp doctor</dd></div>
+          <div>
+            <dt>Endpoint</dt>
+            <dd>https://mcp.burnbar.ai/mcp</dd>
+          </div>
+          <div>
+            <dt>Stdio shim</dt>
+            <dd>openburnbar-mcp-remote mcp serve</dd>
+          </div>
+          <div>
+            <dt>Doctor</dt>
+            <dd>openburnbar mcp doctor</dd>
+          </div>
         </dl>
         <p class="muted mono">
           Mirror of the app's card copy today. The npm package ships openburnbar-mcp-remote as a bin
@@ -1189,19 +1211,25 @@ PASS token · PASS endpoint 200 OK · PASS tools/list (10)`}</code></pre>
               <span class="ccmirror__cdot"></span>
               <span class="mono">claude-code</span>
               <span class="ccmirror__cmeta mono">last seen 2 min · search · conversation</span>
-              <button class="ccmirror__rev" type="button" disabled>revoke</button>
+              <button class="ccmirror__rev" type="button" disabled>
+                revoke
+              </button>
             </li>
             <li>
               <span class="ccmirror__cdot"></span>
               <span class="mono">codex-cli</span>
               <span class="ccmirror__cmeta mono">last seen 12 min · search · usage</span>
-              <button class="ccmirror__rev" type="button" disabled>revoke</button>
+              <button class="ccmirror__rev" type="button" disabled>
+                revoke
+              </button>
             </li>
             <li>
               <span class="ccmirror__cdot ccmirror__cdot--dim"></span>
               <span class="mono">forge</span>
               <span class="ccmirror__cmeta mono">last seen 3 h · search</span>
-              <button class="ccmirror__rev" type="button" disabled>revoke</button>
+              <button class="ccmirror__rev" type="button" disabled>
+                revoke
+              </button>
             </li>
           </ul>
         </div>
@@ -1215,26 +1243,24 @@ PASS token · PASS endpoint 200 OK · PASS tools/list (10)`}</code></pre>
       <div class="compstrip__col">
         <span class="eyebrow eyebrow--ember">Spec</span>
         <p>
-          MCP Streamable HTTP · protocolVersion <code>2025-11-25</code> · methods <code
-            >initialize</code
-          >, <code>tools/list</code>, <code>tools/call</code>, <code>resources/list</code>, <code
-            >resources/read</code
-          >.
+          MCP Streamable HTTP · protocolVersion <code>2025-11-25</code> · methods{" "}
+          <code>initialize</code>, <code>tools/list</code>, <code>tools/call</code>,{" "}
+          <code>resources/list</code>, <code>resources/read</code>.
         </p>
       </div>
       <div class="compstrip__col">
         <span class="eyebrow eyebrow--ember">Posture</span>
         <p>
-          Origin validated · oversized inputs bounded · missing bearer returns <code>401</code> with <code
-            >WWW-Authenticate</code
-          > · cross-tenant URI returns <code>404</code>.
+          Origin validated · oversized inputs bounded · missing bearer returns <code>401</code> with{" "}
+          <code>WWW-Authenticate</code> · cross-tenant URI returns <code>404</code>.
         </p>
       </div>
       <div class="compstrip__col">
         <span class="eyebrow eyebrow--ember">Auth</span>
         <p>
           Short-lived HMAC bearer with <code>aud=https://mcp.burnbar.ai/mcp</code>. Every tool call
-          re-checks scope + active client + active <code>burnbar_pro</code> entitlement + rate limit.
+          re-checks scope + active client + active <code>burnbar_pro</code> entitlement + rate
+          limit.
         </p>
       </div>
     </div>
@@ -1253,8 +1279,7 @@ PASS token · PASS endpoint 200 OK · PASS tools/list (10)`}</code></pre>
             <span class="mono mcp-end__tag">FREE · LOCAL · NO ACCOUNT</span>
             <h3>Run the local MCP in 30 seconds.</h3>
           </header>
-          <pre
-            class="mono"><code>{`$ cd BurnBar/tools/openburnbar-mcp && ./setup.sh
+          <pre class="mono"><code>{`$ cd BurnBar/tools/openburnbar-mcp && ./setup.sh
 $ /abs/path/.venv/bin/python /abs/path/server.py`}</code></pre>
           <a
             class="btn btn--ghost"
@@ -1262,7 +1287,10 @@ $ /abs/path/.venv/bin/python /abs/path/server.py`}</code></pre>
             target="_blank"
             rel="noopener noreferrer"
           >
-            View tools/openburnbar-mcp <span class="btn-arrow" aria-hidden="true">→</span>
+            View tools/openburnbar-mcp{" "}
+            <span class="btn-arrow" aria-hidden="true">
+              →
+            </span>
           </a>
         </article>
 
@@ -1278,9 +1306,14 @@ $ /abs/path/.venv/bin/python /abs/path/server.py`}</code></pre>
           </p>
           <div class="mcp-end__ctas">
             <a class="btn btn--ember" href="/pricing">
-              See BurnBar Cloud <span class="btn-arrow" aria-hidden="true">→</span>
+              See BurnBar Cloud{" "}
+              <span class="btn-arrow" aria-hidden="true">
+                →
+              </span>
             </a>
-            <a class="btn btn--ghost" href="/download">Download for macOS</a>
+            <a class="btn btn--ghost" href="/download">
+              Download for macOS
+            </a>
           </div>
         </article>
       </div>
@@ -1288,12 +1321,10 @@ $ /abs/path/.venv/bin/python /abs/path/server.py`}</code></pre>
   </section>
 </BaseLayout>
 
-{
-  /* ────────────────────────── INTERACTIONS ──────────────────────────
+{/* ────────────────────────── INTERACTIONS ──────────────────────────
     The tabs and copy buttons now run on src/scripts/mcpSetup.ts, shared
     with /memory: one roving-tabindex implementation, one clipboard failure
-    path, one live-region announcement, fixed in one place. ───────────── */
-}
+    path, one live-region announcement, fixed in one place. ───────────── */}
 <script>
   import { initMcpSetup } from "../scripts/mcpSetup.ts";
 

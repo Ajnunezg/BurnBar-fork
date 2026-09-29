@@ -1,11 +1,276 @@
+/* Tailwind first: it declares the layer order (theme, base, components,
+   utilities). Importing the tokens into `base` before it would make `base`
+   the first layer, so the `@theme inline` aliases below would override the
+   real token values instead of deferring to them. */
+@import 'tailwindcss';
+
 /* Pensieve design tokens (synced verbatim from packages/design-tokens/dist/css/pensieve.css). */
-@import "./pensieve.tokens.css";
+@import './pensieve.tokens.css' layer(base);
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* v3 `plugins: [tailwindcssAnimate]` — animate-in/out, fade/zoom/slide utilities. */
+@plugin 'tailwindcss-animate';
 
-/* ============================================================================
+@source '../lib/**/*.{ts,tsx}';
+
+/* `inline`: these theme keys alias the Pensieve token variables of the same
+   name, so utilities must inline var(--token) instead of re-declaring it. */
+@theme inline {
+  --color-ink-void: var(--color-ink-void);
+  --color-ink-base: var(--color-ink-base);
+  --color-ink-elevated: var(--color-ink-elevated);
+  --color-ink-furnace: var(--color-ink-furnace);
+
+  --color-mercury-bright: var(--color-mercury-bright);
+  --color-mercury-core: var(--color-mercury-core);
+  --color-mercury-deep: var(--color-mercury-deep);
+  --color-mercury-wash: var(--color-mercury-wash);
+
+  --color-brass-core: var(--color-brass-core);
+  --color-brass-bright: var(--color-brass-bright);
+  --color-brass-deep: var(--color-brass-deep);
+  --color-brass-glow: var(--color-brass-glow);
+
+  --color-frost-veil: var(--color-frost-veil);
+  --color-frost-line: var(--color-frost-line);
+
+  --color-seal-crimson: var(--color-seal-crimson);
+
+  --color-glass-bg: var(--color-glass-bg);
+  --color-glass-bg-elevated: var(--color-glass-bg-elevated);
+  --color-glass-line: var(--color-glass-line);
+  --color-glass-line-bright: var(--color-glass-line-bright);
+
+  --color-content-bright: var(--color-text-bright);
+  --color-content-base: var(--color-text-base);
+  --color-content-mute: var(--color-text-mute);
+  --color-content-dim: var(--color-text-dim);
+
+  --color-tier-server-readable: var(--color-tier-server-readable);
+  --color-tier-zero-access: var(--color-tier-zero-access);
+  --color-tier-end-to-end: var(--color-tier-end-to-end);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+  --font-arcane: var(--font-arcane);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-pill: var(--radius-pill);
+
+  --spacing-token-1: var(--space-1);
+  --spacing-token-2: var(--space-2);
+  --spacing-token-3: var(--space-3);
+  --spacing-token-4: var(--space-4);
+  --spacing-token-6: var(--space-6);
+  --spacing-token-8: var(--space-8);
+  --spacing-token-12: var(--space-12);
+
+  --ease-standard: var(--motion-ease-standard);
+
+  --animate-frost-sweep: frost-sweep var(--motion-frost-flip-ms)
+    var(--motion-ease-standard) forwards;
+
+  @keyframes frost-sweep {
+    0% {
+      opacity: 0;
+      backdrop-filter: blur(0px);
+    }
+    100% {
+      opacity: 1;
+      backdrop-filter: blur(8px);
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: #e5e7eb; /* v3 default border: gray-200 (pre-oklch) */
+  }
+}
+
+@utility glass-pane {
+  /* Paper panel — replaces glass. Clean, hairline, the faintest lift. */
+  background: var(--color-ink-elevated);
+  border: 1px solid var(--color-glass-line);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 1px 1px rgba(22, 20, 15, 0.03),
+    0 12px 28px -22px rgba(22, 20, 15, 0.35);
+}
+
+@utility glass-pane--elevated {
+  border-color: var(--color-glass-line-bright);
+  box-shadow:
+    0 1px 1px rgba(22, 20, 15, 0.04),
+    0 24px 48px -28px rgba(22, 20, 15, 0.4);
+}
+
+@utility frost-overlay {
+  background: var(--color-frost-veil);
+  border: 1px solid var(--color-frost-line);
+}
+
+@utility eyebrow {
+  /* Mono small-caps kicker. */
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--color-text-dim);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+@utility eyebrow--accent {
+  color: var(--accent-deep);
+}
+
+@utility epigraph {
+  /* Evocative serif epigraph — used once, sparingly. */
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-optical-sizing: auto;
+  color: var(--color-text-mute);
+  letter-spacing: 0;
+}
+
+@utility rule {
+  /* Hairline rules. */
+  height: 1px;
+  width: 100%;
+  background: var(--color-glass-line);
+  border: 0;
+}
+
+@utility ledger-head {
+  /* Column header for the ledger — shares the row's grid + gutters so the
+     labels sit exactly above their tracks. */
+  display: grid;
+  align-items: end;
+  gap: 1.25rem;
+  padding: 0 0.25rem 0.7rem;
+}
+
+@utility ledger-row {
+  /* Ruled ledger rows — the privacy footprint as an editorial table. */
+  display: grid;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.1rem 0.25rem;
+  border-bottom: 1px solid var(--color-glass-line);
+  transition:
+    background 160ms ease,
+    padding-left 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  &:hover {
+    background: var(--color-mercury-wash);
+    padding-left: 0.9rem;
+  }
+}
+
+@utility tier-dot {
+  /* A small luminous-ink tier marker. */
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  flex: none;
+  display: inline-block;
+}
+
+@utility tier-badge {
+  /* Tier as a scannable, colour-coded pill in the "Access" column. */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  padding: 0.16rem 0.55rem 0.16rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--tier-ink) 26%, transparent);
+  background: color-mix(in srgb, var(--tier-ink) 8%, transparent);
+  color: var(--tier-ink);
+  font-variant: all-small-caps;
+  letter-spacing: 0.07em;
+  font-size: 0.72rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@utility tier-badge__dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--tier-dot, var(--tier-ink));
+  flex: none;
+}
+
+@utility btn-quiet {
+  /* The single, restrained editorial button set. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+  &:active {
+    transform: translateY(0.5px);
+  }
+}
+
+@utility btn-accent {
+  background: var(--accent);
+  color: #fbf3ef;
+  border: 1px solid var(--accent);
+  &:hover {
+    background: var(--accent-deep);
+    border-color: var(--accent-deep);
+    color: #fff;
+  }
+}
+
+@utility btn-outline {
+  background: transparent;
+  color: var(--color-text-base);
+  border: 1px solid var(--color-glass-line-bright);
+  &:hover {
+    border-color: var(--color-text-bright);
+    color: var(--color-text-bright);
+  }
+}
+
+@utility btn-bare {
+  background: transparent;
+  color: var(--color-text-mute);
+  border: 1px solid transparent;
+  &:hover {
+    color: var(--color-text-bright);
+    background: var(--color-mercury-wash);
+  }
+}
+
+@layer utilities {
+  /* ============================================================================
    "Quiet Editorial" — a light, paper-bright console. Near-black ink, ONE
    restrained accent (oxblood — a muted wax-seal evolution of BurnBar's red),
    big grotesk display, mono figures, hairlines, whitespace. No glow, no
@@ -16,59 +281,64 @@
    token-bound component flips to the editorial palette coherently.
    ========================================================================== */
 
-:root {
-  /* paper + ink */
-  --color-ink-void: #f6f4ef; /* the page */
-  --color-ink-base: #f0eee7; /* header / recessed */
-  --color-ink-elevated: #fffefb; /* raised paper */
-  --color-ink-furnace: #f6f4ef;
+  :root {
+    /* paper + ink */
+    --color-ink-void: #f6f4ef; /* the page */
+    --color-ink-base: #f0eee7; /* header / recessed */
+    --color-ink-elevated: #fffefb; /* raised paper */
+    --color-ink-furnace: #f6f4ef;
 
-  --color-text-bright: #16140f; /* ink — headings */
-  --color-text-base: #353027; /* body */
-  --color-text-mute: #6e685d; /* secondary */
-  --color-text-dim: #9b9488; /* tertiary / labels */
+    --color-text-bright: #16140f; /* ink — headings */
+    --color-text-base: #353027; /* body */
+    --color-text-mute: #6e685d; /* secondary */
+    --color-text-dim: #9b9488; /* tertiary / labels */
 
-  /* hairlines + tints */
-  --color-glass-line: rgba(22, 20, 15, 0.12);
-  --color-glass-line-bright: rgba(22, 20, 15, 0.22);
-  --color-glass-bg: #fffefb;
-  --color-glass-bg-elevated: #fffefb;
-  --color-mercury-bright: #16140f;
-  --color-mercury-core: #6e685d;
-  --color-mercury-deep: #9b9488;
-  --color-mercury-wash: rgba(22, 20, 15, 0.04);
-  --color-frost-veil: rgba(22, 20, 15, 0.035);
-  --color-frost-line: rgba(22, 20, 15, 0.12);
+    /* hairlines + tints */
+    --color-glass-line: rgba(22, 20, 15, 0.12);
+    --color-glass-line-bright: rgba(22, 20, 15, 0.22);
+    --color-glass-bg: #fffefb;
+    --color-glass-bg-elevated: #fffefb;
+    --color-mercury-bright: #16140f;
+    --color-mercury-core: #6e685d;
+    --color-mercury-deep: #9b9488;
+    --color-mercury-wash: rgba(22, 20, 15, 0.04);
+    --color-frost-veil: rgba(22, 20, 15, 0.035);
+    --color-frost-line: rgba(22, 20, 15, 0.12);
 
-  /* the single accent: coral */
-  --accent: #f45b69;
-  --accent-deep: #b3243c;
-  --accent-wash: rgba(244, 91, 105, 0.1);
-  --color-brass-core: var(--accent);
-  --color-brass-bright: var(--accent);
-  --color-brass-deep: var(--accent-deep);
-  --color-brass-glow: rgba(244, 91, 105, 0.16);
+    /* the single accent: coral */
+    --accent: #f45b69;
+    --accent-deep: #b3243c;
+    --accent-wash: rgba(244, 91, 105, 0.1);
+    --color-brass-core: var(--accent);
+    --color-brass-bright: var(--accent);
+    --color-brass-deep: var(--accent-deep);
+    --color-brass-glow: rgba(244, 91, 105, 0.16);
 
-  /* encryption tiers — same identities, AA-legible on paper */
-  --color-tier-end-to-end: #0c7c69; /* teal, darkened */
-  --color-tier-zero-access: #565d68; /* slate */
-  --color-tier-server-readable: #8a6200; /* ochre (amber on light) */
-  --tier-e2e-dot: #11a98f;
-  --tier-zero-dot: #767d8a;
-  --tier-srv-dot: #c79200;
+    /* encryption tiers — same identities, AA-legible on paper */
+    --color-tier-end-to-end: #0c7c69; /* teal, darkened */
+    --color-tier-zero-access: #565d68; /* slate */
+    --color-tier-server-readable: #8a6200; /* ochre (amber on light) */
+    --tier-e2e-dot: #11a98f;
+    --tier-zero-dot: #767d8a;
+    --tier-srv-dot: #c79200;
 
-  --color-seal-crimson: #b22219; /* destructive */
+    --color-seal-crimson: #b22219; /* destructive */
 
-  /* typography */
-  --font-display: "Bricolage Grotesque", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-body: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-mono: "Geist Mono", "SF Mono", Menlo, Consolas, monospace;
-  --font-serif: "Newsreader", Georgia, "Times New Roman", serif;
+    /* typography */
+    --font-display:
+      'Bricolage Grotesque', 'Geist', -apple-system, BlinkMacSystemFont,
+      'Segoe UI', system-ui, sans-serif;
+    --font-body:
+      'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
+      sans-serif;
+    --font-mono: 'Geist Mono', 'SF Mono', Menlo, Consolas, monospace;
+    --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
 
-  /* crisper editorial radii */
-  --radius-sm: 5px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+    /* crisper editorial radii */
+    --radius-sm: 5px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+  }
 }
 
 @layer base {
@@ -131,173 +401,6 @@
   .font-mono,
   [class*="font-mono"] {
     font-feature-settings: "tnum" 1, "zero" 1;
-  }
-}
-
-@layer components {
-  /* Paper panel — replaces glass. Clean, hairline, the faintest lift. */
-  .glass-pane {
-    background: var(--color-ink-elevated);
-    border: 1px solid var(--color-glass-line);
-    border-radius: var(--radius-lg);
-    box-shadow:
-      0 1px 1px rgba(22, 20, 15, 0.03),
-      0 12px 28px -22px rgba(22, 20, 15, 0.35);
-  }
-
-  .glass-pane--elevated {
-    border-color: var(--color-glass-line-bright);
-    box-shadow:
-      0 1px 1px rgba(22, 20, 15, 0.04),
-      0 24px 48px -28px rgba(22, 20, 15, 0.4);
-  }
-
-  .frost-overlay {
-    background: var(--color-frost-veil);
-    border: 1px solid var(--color-frost-line);
-  }
-
-  /* Mono small-caps kicker. */
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--color-text-dim);
-    font-weight: 500;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6rem;
-  }
-
-  .eyebrow--accent {
-    color: var(--accent-deep);
-  }
-
-  /* Evocative serif epigraph — used once, sparingly. */
-  .epigraph {
-    font-family: var(--font-serif);
-    font-style: italic;
-    font-optical-sizing: auto;
-    color: var(--color-text-mute);
-    letter-spacing: 0;
-  }
-
-  /* Hairline rules. */
-  .rule {
-    height: 1px;
-    width: 100%;
-    background: var(--color-glass-line);
-    border: 0;
-  }
-
-  /* Column header for the ledger — shares the row's grid + gutters so the
-     labels sit exactly above their tracks. */
-  .ledger-head {
-    display: grid;
-    align-items: end;
-    gap: 1.25rem;
-    padding: 0 0.25rem 0.7rem;
-  }
-
-  /* Ruled ledger rows — the privacy footprint as an editorial table. */
-  .ledger-row {
-    display: grid;
-    align-items: center;
-    gap: 1.25rem;
-    padding: 1.1rem 0.25rem;
-    border-bottom: 1px solid var(--color-glass-line);
-    transition:
-      background 160ms ease,
-      padding-left 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-  .ledger-row:hover {
-    background: var(--color-mercury-wash);
-    padding-left: 0.9rem;
-  }
-
-  /* A small luminous-ink tier marker. */
-  .tier-dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 999px;
-    flex: none;
-    display: inline-block;
-  }
-
-  /* Tier as a scannable, colour-coded pill in the "Access" column. */
-  .tier-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    max-width: 100%;
-    padding: 0.16rem 0.55rem 0.16rem 0.45rem;
-    border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--tier-ink) 26%, transparent);
-    background: color-mix(in srgb, var(--tier-ink) 8%, transparent);
-    color: var(--tier-ink);
-    font-variant: all-small-caps;
-    letter-spacing: 0.07em;
-    font-size: 0.72rem;
-    line-height: 1;
-    white-space: nowrap;
-  }
-  .tier-badge__dot {
-    width: 0.4rem;
-    height: 0.4rem;
-    border-radius: 999px;
-    background: var(--tier-dot, var(--tier-ink));
-    flex: none;
-  }
-
-  /* The single, restrained editorial button set. */
-  .btn-quiet {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    border-radius: var(--radius-sm);
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    transition:
-      background 160ms ease,
-      color 160ms ease,
-      border-color 160ms ease,
-      transform 160ms ease;
-  }
-  .btn-quiet:active {
-    transform: translateY(0.5px);
-  }
-
-  .btn-accent {
-    background: var(--accent);
-    color: #fbf3ef;
-    border: 1px solid var(--accent);
-  }
-  .btn-accent:hover {
-    background: var(--accent-deep);
-    border-color: var(--accent-deep);
-    color: #fff;
-  }
-
-  .btn-outline {
-    background: transparent;
-    color: var(--color-text-base);
-    border: 1px solid var(--color-glass-line-bright);
-  }
-  .btn-outline:hover {
-    border-color: var(--color-text-bright);
-    color: var(--color-text-bright);
-  }
-
-  .btn-bare {
-    background: transparent;
-    color: var(--color-text-mute);
-    border: 1px solid transparent;
-  }
-  .btn-bare:hover {
-    color: var(--color-text-bright);
-    background: var(--color-mercury-wash);
   }
 }
 
