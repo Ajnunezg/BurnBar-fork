@@ -10,11 +10,17 @@ successful, neutral, or intentionally skipped.
 
 Slow walls kept off the fast PR set: Daemon PR Gate, Android PR Gate, PR Windows
 Full Gate, and Domain Core PR Gate remain merge-queue / classic-protection
-walls where applicable. App build + test (AgentLens) and Mobile build + unit
-test are post-merge/nightly macos-26 proofs — they do not run on
-`pull_request`, and `merge_group` only emits skipped receipts so a stale
-BurnBar CI Gate inventory cannot hang the queue. Headless App Build is
-push-to-main + nightly only. Domain Core stays path-scoped evidence when
+walls where applicable. `App build + test (AgentLens)` (app-pr-gate.yml) is the
+merge-queue Mac/iOS wall: it does not run on `pull_request`, but on
+`merge_group` it builds the app and runs the bounded smoke catalog
+([`scripts/lib/openburnbar-release-app-test-filters.sh`](../scripts/lib/openburnbar-release-app-test-filters.sh)),
+the Lab build + catalog, and the iOS mobile build + unit tests, and its
+aggregate exits 1 unless all three succeed. `governance/burnbar-ci-gate.json`
+lists it, so the required BurnBar CI Gate blocks merge-queue candidates on it.
+The same workflow runs on `main` pushes and nightly; those main verdicts feed
+the main-red circuit breaker. The full app XCTest corpus (~7,000 tests) runs
+only in the nightly Full Harness (`openburnbar-pr-harness.yml`), which gates
+nothing. Headless App Build is push-to-main + nightly only. Domain Core stays path-scoped evidence when
 `rust=true`; its aggregator must not sit in the 45-minute eligibility umbrella
 while `swift-consumer-contracts` can still run for tens of minutes.
 
