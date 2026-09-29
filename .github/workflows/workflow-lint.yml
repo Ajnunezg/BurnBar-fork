@@ -162,6 +162,8 @@ on:
       - "scripts/ci/release-dry-run-attestation.test.mjs"
       - "scripts/ops/run-firestore-restore-drill.sh"
       - "scripts/ops/run-firestore-restore-drill.test.sh"
+      - "scripts/ops/ops-paging-drill.mjs"
+      - "scripts/ops/ops-paging-drill.test.mjs"
       - "scripts/ops/verify-firestore-app-check-enforcement.sh"
       - "scripts/ops/verify-firestore-app-check-enforcement.test.sh"
       - "scripts/test-openburnbar-mobile.sh"
@@ -316,6 +318,8 @@ on:
       - "scripts/ci/release-dry-run-attestation.test.mjs"
       - "scripts/ops/run-firestore-restore-drill.sh"
       - "scripts/ops/run-firestore-restore-drill.test.sh"
+      - "scripts/ops/ops-paging-drill.mjs"
+      - "scripts/ops/ops-paging-drill.test.mjs"
       - "scripts/ops/verify-firestore-app-check-enforcement.sh"
       - "scripts/ops/verify-firestore-app-check-enforcement.test.sh"
       - "scripts/test-openburnbar-mobile.sh"
@@ -442,7 +446,9 @@ jobs:
         run: node scripts/ci/verify-jscpd-report.test.mjs
 
       - name: Self-test ops failure issue (escalation + paging)
-        run: node --test .github/actions/ops-failure-issue/escalation.test.cjs .github/actions/ops-failure-issue/paging-wiring.test.cjs .github/actions/ops-failure-issue/paging-payload.test.cjs
+        run: |
+          node --test .github/actions/ops-failure-issue/escalation.test.cjs .github/actions/ops-failure-issue/paging-wiring.test.cjs .github/actions/ops-failure-issue/paging-payload.test.cjs .github/actions/ops-failure-issue/paging-delivery.test.cjs
+          node --test scripts/ops/ops-paging-drill.test.mjs
 
       - name: Self-test release attestation verifier
         run: bash scripts/ci/verify-release-attestations.test.sh

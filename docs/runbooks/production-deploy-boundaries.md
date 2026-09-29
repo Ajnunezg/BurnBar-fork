@@ -107,8 +107,9 @@ machine-readable scoreboard.
   production is not stale per the freshness rule above.
 - **Red or unavailable:** the workflow exits non-zero, records a
   `deploy-health` issue, and pages through the shared ops action with
-  `repage-until-green` when the configured webhook is available: every red
-  run re-pages until a green run closes the issue and re-arms the alarm.
+  `repage-until-green`: every red run re-pages until a green run closes the
+  issue and re-arms the alarm. A missing or failing webhook fails the job and
+  labels the issue `paging:undelivered` (see [the alert delivery drill](alert-delivery-drill.md)).
   A `known-red-named-blocker` still suppresses paging. A missing deploy run,
   skipped/cancelled run, API error, or failed probe is an explicit
   infrastructure blocker, not a green/no-op result. A failed deploy conclusion
