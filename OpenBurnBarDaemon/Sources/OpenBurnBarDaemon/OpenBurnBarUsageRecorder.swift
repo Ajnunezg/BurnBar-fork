@@ -51,6 +51,25 @@ enum BurnBarUsageLedgerError: Error, Equatable, LocalizedError {
     }
 }
 
+/// What happened to one event handed to `recordDurably`.
+public enum BurnBarUsageDurableRecordOutcome: Equatable, Sendable {
+    /// Appended to the ledger (`inserted == false`: an identical record was
+    /// already there).
+    case recorded(inserted: Bool)
+    /// The ledger append failed; the event waits in the durable retry spool
+    /// and is replayed, under the same idempotency key, on the next write or
+    /// replay tick.
+    case deferred
+    /// The event itself can never be recorded (invalid fields, or a different
+    /// event already holds its idempotency key). Counted, never retried.
+    case rejected
+
+    public var isRecorded: Bool {
+        if case .recorded = self { return true }
+        return false
+    }
+}
+
 public struct BurnBarUsageLedgerSignature: Equatable, Sendable {
     public let recordCount: Int
     public let latestRecordedAt: Date?
@@ -128,16 +147,24 @@ public actor BurnBarUsageRecorder {
 
     private var ledgerIndex: LedgerIndex?
     private var cachedProjection: BurnBarUsageProjection?
+    /// Durable retry spool for `recordDurably`: one `BurnBarUsageRecord` JSON
+    /// line per event whose ledger append failed, in arrival order.
+    private let deferredFileURL: URL
+    private var deferredRecords: [BurnBarUsageRecord]?
+    static let maximumDeferredRecords = 10_000
 
     public init(
         fileURL: URL = BurnBarDaemonPaths.defaultUsageLedgerURL,
         projectionFileURL: URL? = nil,
+        deferredFileURL: URL? = nil,
         logger: BurnBarDaemonLogger = BurnBarDaemonLogger(category: "usage-recorder"),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.fileURL = fileURL
         self.projectionFileURL = projectionFileURL
             ?? fileURL.deletingLastPathComponent().appendingPathComponent("usage-projection.json")
+        self.deferredFileURL = deferredFileURL
+            ?? fileURL.deletingLastPathComponent().appendingPathComponent("usage-events.deferred.jsonl")
         self.logger = logger
         self.now = now
     }
@@ -184,6 +211,180 @@ public actor BurnBarUsageRecorder {
         )
 
         return BurnBarUsageRecordResult(record: record, inserted: true)
+    }
+
+    /// Records spend without ever losing it to a transient ledger failure.
+    ///
+    /// The proxied request that produced this usage has already been served,
+    /// so a failed append must neither fail that request nor vanish: the
+    /// event goes to a durable retry spool and is replayed, in order and
+    /// under its own idempotency key (so a replay can never double count),
+    /// before any newer event and on every `replayDeferred()` tick. Every
+    /// outcome other than a clean append is counted on `GET /metrics`.
+    public func recordDurably(
+        _ event: BurnBarUsageEvent,
+        idempotencyKey: String
+    ) -> BurnBarUsageDurableRecordOutcome {
+        let normalizedKey: String
+        do {
+            normalizedKey = try Self.validatedIdentifier(idempotencyKey, field: "idempotencyKey")
+            try validate(event)
+        } catch {
+            return reject(idempotencyKey: idempotencyKey, event: event, error: error)
+        }
+
+        replayDeferred()
+        if !loadDeferredRecordsIfNeeded().isEmpty {
+            // Older spend is still waiting; keep arrival order.
+            return deferRecord(BurnBarUsageRecord(idempotencyKey: normalizedKey, event: event), error: nil)
+        }
+        do {
+            let result = try record(event, idempotencyKey: normalizedKey)
+            return .recorded(inserted: result.inserted)
+        } catch BurnBarUsageLedgerError.conflictingIdempotencyKey(let key) where key == normalizedKey {
+            return reject(idempotencyKey: normalizedKey, event: event, error: BurnBarUsageLedgerError.conflictingIdempotencyKey(key))
+        } catch {
+            return deferRecord(BurnBarUsageRecord(idempotencyKey: normalizedKey, event: event), error: error)
+        }
+    }
+
+    /// Appends spooled events to the ledger in arrival order, stopping at the
+    /// first one that still fails. Returns how many were replayed.
+    @discardableResult
+    public func replayDeferred() -> Int {
+        var pending = loadDeferredRecordsIfNeeded()
+        guard !pending.isEmpty else { return 0 }
+        var replayed = 0
+        var rejected = 0
+        while let next = pending.first {
+            do {
+                _ = try record(next.event, idempotencyKey: next.idempotencyKey)
+                replayed += 1
+            } catch BurnBarUsageLedgerError.conflictingIdempotencyKey(let key) where key == next.idempotencyKey {
+                rejected += 1
+                logger.error(
+                    "usage_record_deferred_conflict_dropped",
+                    metadata: ["idempotency_key": key, "provider_id": next.event.providerID]
+                )
+            } catch {
+                break
+            }
+            pending.removeFirst()
+        }
+        guard replayed + rejected > 0 else { return 0 }
+        deferredRecords = pending
+        rewriteDeferredSpool(pending)
+        BurnBarDaemonMetricsCounters.recordUsageLedgerReplay(
+            replayed: replayed,
+            rejected: rejected,
+            pending: pending.count
+        )
+        logger.notice(
+            "usage_record_deferred_replayed",
+            metadata: ["replayed": "\(replayed)", "pending": "\(pending.count)"]
+        )
+        return replayed
+    }
+
+    /// Events waiting in the retry spool.
+    public func deferredRecordCount() -> Int {
+        loadDeferredRecordsIfNeeded().count
+    }
+
+    private func reject(
+        idempotencyKey: String,
+        event: BurnBarUsageEvent,
+        error: Error
+    ) -> BurnBarUsageDurableRecordOutcome {
+        BurnBarDaemonMetricsCounters.recordUsageLedgerRejected()
+        logger.error(
+            "usage_record_rejected",
+            metadata: [
+                "idempotency_key": idempotencyKey,
+                "provider_id": event.providerID,
+                "model_id": event.modelID,
+                "error": "\(error)"
+            ]
+        )
+        return .rejected
+    }
+
+    private func deferRecord(_ record: BurnBarUsageRecord, error: Error?) -> BurnBarUsageDurableRecordOutcome {
+        var pending = loadDeferredRecordsIfNeeded()
+        if let index = pending.firstIndex(where: { $0.idempotencyKey == record.idempotencyKey }) {
+            // A retried request re-reporting the same attempt: keep one copy.
+            pending[index] = record
+        } else {
+            pending.append(record)
+        }
+        var dropped = 0
+        if pending.count > Self.maximumDeferredRecords {
+            dropped = pending.count - Self.maximumDeferredRecords
+            pending.removeFirst(dropped)
+        }
+        deferredRecords = pending
+        let spooled = rewriteDeferredSpool(pending)
+        BurnBarDaemonMetricsCounters.recordUsageLedgerDeferred(pending: pending.count, dropped: dropped)
+        logger.error(
+            "usage_record_deferred",
+            metadata: [
+                "idempotency_key": record.idempotencyKey,
+                "provider_id": record.event.providerID,
+                "model_id": record.event.modelID,
+                "pending": "\(pending.count)",
+                "spooled": spooled ? "true" : "false",
+                "error": error.map { "\($0)" } ?? "older events pending"
+            ]
+        )
+        return .deferred
+    }
+
+    private func loadDeferredRecordsIfNeeded() -> [BurnBarUsageRecord] {
+        if let deferredRecords { return deferredRecords }
+        var loaded: [BurnBarUsageRecord] = []
+        if let data = FileManager.default.contents(atPath: deferredFileURL.path) {
+            for line in data.split(separator: 0x0A) where !line.isEmpty {
+                do {
+                    loaded.append(try decoder.decode(BurnBarUsageRecord.self, from: Data(line)))
+                } catch {
+                    logger.error("usage_record_deferred_line_unreadable", metadata: ["error": "\(error)"])
+                }
+            }
+        }
+        deferredRecords = loaded
+        BurnBarDaemonMetricsCounters.setUsageLedgerPending(loaded.count)
+        return loaded
+    }
+
+    /// Rewrites the spool atomically (0600). Returns false when it could not
+    /// be written; the records then stay pending in memory for this process.
+    @discardableResult
+    private func rewriteDeferredSpool(_ records: [BurnBarUsageRecord]) -> Bool {
+        do {
+            if records.isEmpty {
+                if FileManager.default.fileExists(atPath: deferredFileURL.path) {
+                    try FileManager.default.removeItem(at: deferredFileURL)
+                }
+                return true
+            }
+            try FileManager.default.createDirectory(
+                at: deferredFileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            var data = Data()
+            for record in records {
+                data.append(try encoder.encode(record))
+                data.append(0x0A)
+            }
+            try data.write(to: deferredFileURL, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: deferredFileURL.path)
+            return true
+        } catch {
+            BurnBarDaemonMetricsCounters.recordUsageLedgerSpoolWriteFailure()
+            logger.error("usage_record_deferred_spool_write_failed", metadata: ["error": "\(error)"])
+            return false
+        }
     }
 
     public func records() throws -> [BurnBarUsageRecord] {

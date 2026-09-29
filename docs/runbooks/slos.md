@@ -90,6 +90,12 @@ When adding a new critical path, ship **one structured log event** and **one cou
 | `counters.rpc_requests_total` | Monotonic RPC request count (socket + gateway) |
 | `counters.rpc_errors_total` | RPC responses with error codes (auth, rate limit, decode) |
 | `counters.rpc_latency_ms_p95` | Rolling p95 of local socket/gateway RPC latency (ms); omitted until samples exist |
+| `counters.usage_ledger_pending` | Spend events waiting in the usage-ledger retry spool. Must be `0`; `> 0` means ledger appends are failing and the meter is behind |
+| `counters.usage_ledger_deferred_total` | Ledger appends that failed and were spooled (the proxied request was still served) |
+| `counters.usage_ledger_replayed_total` | Spooled events later written to the ledger under their original idempotency key |
+| `counters.usage_ledger_rejected_total` | Events that can never be recorded (invalid fields, or a conflicting idempotency key) |
+| `counters.usage_ledger_dropped_total` | Spooled events evicted by the 10,000-event spool cap — lost spend; must be `0` |
+| `counters.usage_ledger_spool_write_failures_total` | Spool rewrites that failed; pending events then survive only until daemon restart |
 | `heartbeat.updatedAt` | ISO8601 last write (when present) |
 
 **Playbook:**
@@ -97,6 +103,7 @@ When adding a new critical path, ship **one structured log event** and **one cou
 1. `openburnbar health` (CLI) or app Daemon settings → verify heartbeat PID matches running process.
 2. If heartbeat stale but process alive: check disk permissions on support directory.
 3. If gateway 5xx spike: inspect rate limit + provider executor logs; rotate auth token if compromised.
+4. If `usage_ledger_pending > 0`: the usage ledger (`usage-events.jsonl`) is rejecting appends — check disk space and support-directory permissions, then look for `usage_record_deferred` log events. The spool (`usage-events.deferred.jsonl`, same directory) replays every 60s and on the next request; once `usage_ledger_pending` returns to `0` no spend was lost. A buffered gateway response whose spend was not recorded carries `X-OpenBurnBar-Usage-Ledger: deferred` (or `rejected`).
 
 ### Latency
 
