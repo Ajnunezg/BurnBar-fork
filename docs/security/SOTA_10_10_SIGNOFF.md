@@ -1,5 +1,18 @@
 # SOTA 10/10 Sign-off — master revision Waves 0–5
 
+> **STALE — this sign-off does not cover current `main`.** It attests to commit
+> `32b5d9ba` only (see Attestation scope). `main` has moved since (to
+> `99c2049e4b` on 2026-09-28) and has not been re-attested. A spot re-run at
+> `99c2049e4b` on 2026-09-28 found every script-checked Wave 3/4 bar still green
+> (lab boundary, Kernel purity, domain-core freeze, SwiftLint per-rule budget,
+> `[String: Any]` budget, force-unwrap budget, file-size budget, XCTSkip budget,
+> design tokens, docs freshness, RPC canon `--check`). The Build proof bar does
+> not hold there: the scheduled CodeQL run `36404985934` failed, and the Full
+> Harness run `36400161922` executed 6,959 App XCTest tests with 307 failures.
+> Per the Attestation scope, re-verification is required before this page can
+> describe any later commit, and the security-reviewer signature is still
+> pending. This banner is not a re-attestation and changes no signature.
+
 Wave 4 stale-docs closer: the assurance pointer allowlisted in
 `scripts/security/internal-content-policy.mjs` (`assurance-docs`).
 Records the verified end state of

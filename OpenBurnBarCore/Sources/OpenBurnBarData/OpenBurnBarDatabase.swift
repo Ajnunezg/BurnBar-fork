@@ -3,8 +3,9 @@ import GRDB
 // MARK: - Shared Database Spine
 
 /// Owns the shared database writer (DatabasePool in production, DatabaseQueue in tests),
-/// the full ordered migrator (v1–v26), and shared SQL / date / JSON / row-decoding
-/// helpers used by all focused stores.
+/// the full ordered migrator (`v1_initial` through the head that
+/// `latestMigrationIdentifier` reports; `migrator` lists every registration), and
+/// shared SQL / date / JSON / row-decoding helpers used by all focused stores.
 ///
 /// Stores receive a `DatabaseWriter` reference; this type additionally provides
 /// a single migration entry-point and shared codecs so that each store file

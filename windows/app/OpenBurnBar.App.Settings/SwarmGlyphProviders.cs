@@ -16,8 +16,9 @@ namespace OpenBurnBar.App.Settings;
 public static class SwarmGlyphProviders
 {
     /// <summary>
-    /// Swift <c>AgentProvider.swarmGlyphProviders</c> in order. The default
-    /// <c>selectedGlyphs</c> of <c>SwarmBackgroundPreferences</c> on iOS,
+    /// Swift <c>AgentProvider.swarmGlyphProviders</c> in order, minus Swift
+    /// <c>together</c> (not ported yet; see the PARITY GAP note in AgentProvider.cs).
+    /// The default <c>selectedGlyphs</c> of <c>SwarmBackgroundPreferences</c> on iOS,
     /// Android, and Windows.
     /// </summary>
     public static readonly IReadOnlyList<AgentProvider> Ordered =
