@@ -61,7 +61,9 @@ The same custody contract applies below account level
 
 Every failed attempt logs `provider_secret_erasure_failed` (`user_id_hash`,
 `account_id_hash`, `reason`, `scope`, `error_code`, `attempt_count`; never a secret
-name or raw UID).
+name or raw UID). The `openburnbar_provider_secret_erasure_failed` log metric feeds
+the **OpenBurnBar Provider credential erasure stuck** alert, which pages when an
+erasure is refused more than once within an hour.
 
 **Runtime IAM.** Version-complete erasure lists a secret's versions, so the Functions
 runtime service account needs `secretmanager.versions.list` alongside

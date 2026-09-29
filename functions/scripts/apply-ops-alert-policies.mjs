@@ -4,7 +4,8 @@
  * Prerequisites:
  *   - gcloud auth
  *   - OPS_ALERT_CHANNELS=comma-separated notification channel resource names
- *   - node functions/scripts/create-ops-log-metrics.mjs (once per project)
+ *   - node functions/scripts/create-ops-log-metrics.mjs (every apply: it creates missing
+ *     log metrics and corrects drifted filters; `--check` reports drift read-only)
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
