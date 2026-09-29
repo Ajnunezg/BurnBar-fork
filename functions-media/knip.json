@@ -9,5 +9,8 @@
   ],
   "ignoreDependencies": [
     "@openburnbar/functions-shared"
+  ],
+  "ignore": [
+    "lib/**"
   ]
 }

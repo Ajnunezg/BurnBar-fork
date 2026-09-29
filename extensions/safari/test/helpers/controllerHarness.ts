@@ -38,8 +38,7 @@ interface ControllerHarness {
   setPopupActionHandler(
     action: string,
     handler:
-      | ((payload: Record<string, unknown>) => BridgePopupActionResult | Promise<BridgePopupActionResult>)
-      | undefined
+      ((payload: Record<string, unknown>) => BridgePopupActionResult | Promise<BridgePopupActionResult>) | undefined
   ): void;
   setPopupActionResult(action: string, result: BridgePopupActionResult): void;
   setGatewayHandler(handler: GatewayHandler): void;

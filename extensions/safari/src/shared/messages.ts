@@ -24,7 +24,7 @@ export interface TrustSettings {
   cloudScreenshotAcknowledged: boolean;
 }
 
-export interface LearningState {
+interface LearningState {
   eligible: boolean;
   optedIn: boolean;
   consentSeen: boolean;
@@ -257,8 +257,7 @@ export function isPopupRequest(value: unknown): value is PopupRequest {
 }
 
 export type PopupResponse =
-  | { ok: true; snapshot: PopupSnapshot }
-  | { ok: false; error: SerializedError; snapshot?: PopupSnapshot };
+  { ok: true; snapshot: PopupSnapshot } | { ok: false; error: SerializedError; snapshot?: PopupSnapshot };
 
 export type BackgroundPush = { type: 'background.snapshot'; snapshot: PopupSnapshot };
 
