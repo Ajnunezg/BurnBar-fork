@@ -12,6 +12,7 @@ import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify
 import io.mockk.mockk
+import java.net.SocketTimeoutException
 import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -84,6 +85,23 @@ class InsightAnalysisEngineTest {
         assertFalse(answer.isFallback)
         assertEquals(listOf("citation-1", "citation-2", "citation-3"), answer.citations.map { it.id })
         assertEquals("BurnBar hosted", answer.modelDisplayName)
+    }
+
+    @Test
+    fun `follow-up rides the hosted route when the selected gateway fails over the network`() = runBlocking {
+        val hostedKey = AndroidBurnBarHostedInsightGateway.PROVIDER_KEY
+        val hostedTag = modelTag(hostedKey, displayName = "BurnBar hosted")
+        val hosted =
+            ScriptedGateway(providerKey = hostedKey, models = listOf(hostedTag)) { gatewayResult(hostedTag, it) }
+        val relayTag = modelTag("relay")
+        val relay = ScriptedGateway(providerKey = "relay", models = listOf(relayTag)) { throw SocketTimeoutException("relay timed out") }
+        val engine = AndroidInsightAnalysisEngine(gateways = mapOf("relay" to relay, hostedKey to hosted))
+
+        val result = engine.analyze(analysisRequest(relayTag))
+
+        assertEquals(1, relay.callCount)
+        assertEquals(1, hosted.callCount)
+        assertEquals(InsightBriefingAnswer.Source.HOSTED_FALLBACK, requireNotNull(result.briefingAnswer).source)
     }
 
     @Test
