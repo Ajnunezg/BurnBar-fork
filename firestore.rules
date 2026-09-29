@@ -1124,8 +1124,11 @@ service cloud.firestore {
       return /databases/$(database)/documents/team_rosters/$(teamId)/members/$(request.auth.uid);
     }
 
+    // isSignedIn() carries the account-erasure tombstone: an active roster row
+    // must not keep a pending-erasure token inside any team lane. Every team
+    // rule (isTeamAdmin, readsTeamMemory) goes through this helper.
     function isTeamMember(teamId) {
-      return request.auth != null
+      return isSignedIn()
         && exists(teamMemberPath(teamId))
         && get(teamMemberPath(teamId)).data.status == "active";
     }
@@ -5102,7 +5105,7 @@ service cloud.firestore {
       allow read: if isTeamMember(teamId);
 
       match /members/{memberUid} {
-        allow read: if request.auth != null
+        allow read: if isSignedIn()
           && (request.auth.uid == memberUid || isTeamMember(teamId));
       }
 
