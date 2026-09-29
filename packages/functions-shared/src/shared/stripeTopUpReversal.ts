@@ -16,6 +16,25 @@ export type StripeTopUpDisputeStatus =
   | "lost"
   | "prevented";
 
+const STRIPE_TOP_UP_DISPUTE_STATUSES: ReadonlySet<string> = new Set<StripeTopUpDisputeStatus>([
+  "warning_needs_response",
+  "warning_under_review",
+  "warning_closed",
+  "needs_response",
+  "under_review",
+  "won",
+  "lost",
+  "prevented",
+]);
+
+/**
+ * Stripe 22 types `Dispute.Status` as an open string. A status this module does
+ * not model reverses nothing, matching the subscription reversal path.
+ */
+export function isStripeTopUpDisputeStatus(status: string): status is StripeTopUpDisputeStatus {
+  return STRIPE_TOP_UP_DISPUTE_STATUSES.has(status);
+}
+
 interface StripeTopUpReceiptState {
   monthKey: string;
   units: number;
