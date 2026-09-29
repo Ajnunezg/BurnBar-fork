@@ -176,11 +176,11 @@
     },
     {
       "path": "packages/libsignal-bridge/package-lock.json",
-      "sha256": "ecd9c154a541e196765f45f29ec47a804cbabce43c275d9469ecbda0bcd642a7"
+      "sha256": "98f937068ef4bb6de1af9e99bad8d9903f0c76c5d7542f506e69945b01ce6048"
     },
     {
       "path": "packages/libsignal-bridge/package.json",
-      "sha256": "7e084b8a8f8470d8f4af15696f6bd78e8e339c5e9ff2ebcfa4f7768718293a02"
+      "sha256": "a5b86991f60ed9ed28fbbe3bc805639c1d08e18f3bb4d9aee6f36af944303a11"
     },
     {
       "path": "packages/libsignal-bridge/src/index.test.ts",
