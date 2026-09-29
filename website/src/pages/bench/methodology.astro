@@ -310,7 +310,7 @@ const AMENDMENTS: [string, string, string][] = [
           <p>
             Each export pins <code>generated_at_utc</code> and a <code>runs_sha256</code> over the
             underlying run set, so consumers can reject stale files. This build:
-            <strong>{generatedAt}</strong>, runs <code>{shaShort}…</code>,{fmtInt(TRIALS_MEASURED)}{" "}
+            <strong>{generatedAt}</strong>, runs <code>{shaShort}…</code>, {fmtInt(TRIALS_MEASURED)}{" "}
             trials measured across {fmtInt(TASK_CELLS)} task cells,
             {fmtInt(EXCLUDED_MEASURED)} excluded (superseded or invalid), trees
             <code>{BENCH.source.trees.map((t) => t.split("/").pop()).join(", ")}</code>.
