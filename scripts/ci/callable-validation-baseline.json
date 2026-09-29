@@ -1,5 +1,5 @@
 {
-  "_comment": "SHRINK-ONLY baseline for scripts/ci/check-callable-validation.mjs. Each entry is a pre-existing callable that reads request.data without a recognized input validator. Do not add entries; add validation (parseCallableInput from functions/src/validation/callableSchema.ts) and remove the entry instead. Regenerate with: node scripts/ci/check-callable-validation.mjs --write",
+  "_comment": "SHRINK-ONLY baseline for scripts/ci/check-callable-validation.mjs. Each entry is a pre-existing callable that reads request.data without a recognized input validator. Do not add entries; add validation (parseCallableInput from packages/functions-shared/src/validation/callableSchema.ts) and remove the entry instead. Regenerate with: node scripts/ci/check-callable-validation.mjs --write",
   "unvalidatedCallables": [
     "functions-identity/src/domains/billing/appstore/callable.ts::beginEntitlementBinding",
     "functions-identity/src/domains/devices/deviceLinks.ts::backfillProviderAccountDeviceLinks",

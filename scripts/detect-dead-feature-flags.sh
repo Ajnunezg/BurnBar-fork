@@ -44,15 +44,19 @@ CANONICAL_SOURCES=(
   android/app/src/main/java/com/openburnbar/data/computeruse/PhoneControlSecureEnclaveKeystore.kt
   android/app/src/main/java/com/openburnbar/data/computeruse/ControlFrameSeal.kt
   android/app/src/main/java/com/openburnbar/data/media/MediaFrameAead.kt
-  functions/src/computerUseRemoteConfig.ts
-  functions/src/mediaRemoteConfig.ts
-  functions/src/cloudProAllowanceRemoteConfig.ts
+  functions-sync/src/computerUseRemoteConfig.ts
+  functions-sync/src/mediaRemoteConfig.ts
+  packages/functions-shared/src/cloudProAllowanceRemoteConfig.ts
 )
 
 extract_flags() {
   local source
   for source in "${CANONICAL_SOURCES[@]}"; do
-    [[ -f "$source" ]] || continue
+    # A moved canonical source must fail, not silently drop its flags.
+    if [[ ! -f "$source" ]]; then
+      echo "ERROR: canonical flag source $source does not exist; update CANONICAL_SOURCES" >&2
+      exit 1
+    fi
     grep -E '"[A-Za-z0-9_.-]+"' "$source" \
       | grep -vE '^[[:space:]]*(//|/\*|\*|#)' \
       | grep -oE '"[A-Za-z0-9_.-]+"' \
@@ -62,7 +66,8 @@ extract_flags() {
   done
 }
 
-ALL_FLAGS=$(extract_flags | sort -u | grep -v '^$' || true)
+EXTRACTED=$(extract_flags)
+ALL_FLAGS=$(echo "$EXTRACTED" | sort -u | grep -v '^$' || true)
 
 if [[ -z "$ALL_FLAGS" ]]; then
   echo "No feature flags found." >&2
@@ -80,7 +85,8 @@ ACTIVE_FLAGS=()
 # Directories to search (exclude build artifacts and vendored code).
 SEARCH_DIRS=(
   AgentLens OpenBurnBarCore OpenBurnBarDaemon OpenBurnBarMobile
-  android/app/src functions/src extensions/openburnbar/src
+  android/app/src functions/src functions-identity/src functions-sync/src
+  functions-media/src packages/functions-shared/src extensions/openburnbar/src
   scripts docs droid-wiki AGENTS.md CONTRIBUTING.md README.md
 )
 SEARCH_GLOBS=(--glob=*.swift --glob=*.kt --glob=*.ts --glob=*.mjs --glob=*.js --glob=*.sh --glob=*.md)

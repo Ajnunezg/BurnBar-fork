@@ -62,7 +62,7 @@ test('repo cross-language fixtures pass and field rename fails closed', () => {
 
 test('malformed usage fixture fails closed', () => {
   const source = fs.readFileSync(
-    new URL('../../functions/src/types/generated/usage-quota.ts', import.meta.url),
+    new URL('../../packages/functions-shared/src/types/generated/usage-quota.ts', import.meta.url),
     'utf8'
   );
   const fields = fieldsFromGeneratedTs(source, 'UsageEventDoc');

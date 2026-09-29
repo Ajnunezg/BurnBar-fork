@@ -49,6 +49,7 @@ echo "==> Checking hand-maintained schema mirrors…"
 node tools/schema-sync/check-hand-mirror.mjs
 
 echo "==> Checking hand-maintained TS surface budget…"
+node --test tools/schema-sync/check-legacy-budget.test.mjs
 node tools/schema-sync/check-legacy-budget.mjs
 
 echo "==> Checking mobile schema boundary…"
