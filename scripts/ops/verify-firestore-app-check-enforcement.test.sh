@@ -60,4 +60,34 @@ grep -Fq 'Apple DeviceCheck provider is incomplete' "$fixture/missing.err"
   >"$fixture/configured.out" 2>"$fixture/configured.err"
 grep -Fq 'PASS: Apple DeviceCheck provider has a key' "$fixture/configured.out"
 
-echo "PASS: App Check verifier rejects missing DeviceCheck credentials and accepts a complete provider."
+# --receipt: written only on a full pass, and redaction-safe.
+if "${common_env[@]}" bash "$repo_root/scripts/ops/verify-firestore-app-check-enforcement.sh" \
+  --receipt "$fixture/refused.json" >/dev/null 2>"$fixture/refused.err"; then
+  echo "expected missing DeviceCheck credentials to fail with --receipt" >&2
+  exit 1
+fi
+grep -Fq 'No receipt written' "$fixture/refused.err"
+[[ ! -e "$fixture/refused.json" ]] || { echo "a failed probe must not write a receipt" >&2; exit 1; }
+
+"${common_env[@]}" MOCK_DEVICECHECK_CONFIG=configured \
+  bash "$repo_root/scripts/ops/verify-firestore-app-check-enforcement.sh" \
+  --receipt "$fixture/evidence/app-check.json" >/dev/null 2>&1
+python3 - "$fixture/evidence/app-check.json" <<'PY'
+import json, sys
+receipt = json.load(open(sys.argv[1]))
+assert receipt["schema"] == "openburnbar.app-check-enforcement-receipt.v1", receipt
+assert receipt["ok"] is True and receipt["mode"] == "live", receipt
+assert receipt["appleDeviceCheckKeySet"] is True, receipt
+assert [s["service"] for s in receipt["services"]] == ["firestore.googleapis.com", "firebasestorage.googleapis.com"], receipt
+assert all(s["enforcementMode"] == "ENFORCED" for s in receipt["services"]), receipt
+text = json.dumps(receipt)
+for secret in ("246956661961", "DEVICE1234", ":ios:"):
+    assert secret not in text, f"receipt leaks {secret}"
+PY
+
+if "${common_env[@]}" bash "$repo_root/scripts/ops/verify-firestore-app-check-enforcement.sh" --bogus >/dev/null 2>&1; then
+  echo "expected an unknown argument to be refused" >&2
+  exit 1
+fi
+
+echo "PASS: App Check verifier rejects missing DeviceCheck credentials, accepts a complete provider, and writes a receipt only on a full pass."
