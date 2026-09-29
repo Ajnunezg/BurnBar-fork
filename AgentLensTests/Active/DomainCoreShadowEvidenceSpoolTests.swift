@@ -500,6 +500,7 @@ final class DomainCoreShadowEvidenceSpoolTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let submitter = RecordingDomainCoreShadowSubmitter()
         let recorder = MacDomainCoreShadowEvidenceRecorder(
+            cloudSyncEnabled: { true },
             profile: signedProfile(
                 profile: "internal",
                 distribution: "internal",
@@ -531,6 +532,50 @@ final class DomainCoreShadowEvidenceSpoolTests: XCTestCase {
         XCTAssertEqual(sample.slice, "search")
         XCTAssertEqual(sample.operation, "query")
         withExtendedLifetime(recorder) {}
+    }
+
+    func testRecorderRecordsNothingWhileCloudSyncIsOff() async throws {
+        defer { DomainCoreShadowComparisonCollector.configure(nil) }
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let consentGrants = LockedCounter()
+        let submitter = RecordingDomainCoreShadowSubmitter()
+        let recorder = MacDomainCoreShadowEvidenceRecorder(
+            cloudSyncEnabled: { consentGrants.value > 0 },
+            profile: signedProfile(
+                profile: "internal",
+                distribution: "internal",
+                channel: "internal",
+                evidenceEnabled: true
+            ),
+            directory: directory,
+            submitter: submitter,
+            debounceNanoseconds: 1_000_000
+        )
+        func recordComparison() {
+            DomainCoreShadowComparisonCollector.record(.init(
+                domain: "cloudvault",
+                slice: "search",
+                operation: "query",
+                coreVersion: "0.3.0",
+                outcome: "match",
+                mismatchCategory: nil,
+                legacyMicros: 10,
+                rustMicros: 8
+            ))
+        }
+
+        recordComparison()
+        XCTAssertEqual(recorder.snapshot()?.enqueued, 0)
+
+        // Control: the same comparison is captured and uploaded once consent is
+        // granted, so the zero above comes from the gate, not the fixture.
+        consentGrants.increment()
+        recordComparison()
+        try await eventually {
+            await submitter.batchSizes() == [1]
+        }
+        XCTAssertEqual(recorder.snapshot()?.enqueued, 1)
     }
 
     func testUnacknowledgedBatchIsReturnedForRetryUntilAcknowledged() throws {
@@ -894,6 +939,7 @@ final class DomainCoreShadowEvidenceSpoolTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: enabledDirectory) }
         let enabledSubmitter = RecordingDomainCoreShadowSubmitter()
         let enabledRecorder = MacDomainCoreShadowEvidenceRecorder(
+            cloudSyncEnabled: { true },
             profile: signedProfile(
                 profile: "internal",
                 distribution: "internal",
@@ -915,6 +961,7 @@ final class DomainCoreShadowEvidenceSpoolTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: disabledDirectory) }
         let disabledSubmitter = RecordingDomainCoreShadowSubmitter()
         let disabledRecorder = MacDomainCoreShadowEvidenceRecorder(
+            cloudSyncEnabled: { true },
             profile: signedProfile(
                 profile: "public-production",
                 distribution: "public",
@@ -952,6 +999,7 @@ final class DomainCoreShadowEvidenceSpoolTests: XCTestCase {
         let submitter = RecordingDomainCoreShadowSubmitter()
 
         let recorder = MacDomainCoreShadowEvidenceRecorder(
+            cloudSyncEnabled: { true },
             profile: signedProfile(
                 profile: "internal",
                 distribution: "internal",
@@ -978,6 +1026,7 @@ final class DomainCoreShadowEvidenceSpoolTests: XCTestCase {
         let submitter = RecordingDomainCoreShadowSubmitter()
 
         let recorder = MacDomainCoreShadowEvidenceRecorder(
+            cloudSyncEnabled: { true },
             profile: signedProfile(
                 profile: "public-production",
                 distribution: "public",
@@ -1006,6 +1055,7 @@ final class DomainCoreShadowEvidenceSpoolTests: XCTestCase {
         let submitter = RecordingDomainCoreShadowSubmitter()
 
         let recorder = MacDomainCoreShadowEvidenceRecorder(
+            cloudSyncEnabled: { true },
             profile: signedProfile(
                 profile: "beta",
                 distribution: "beta",
@@ -1031,6 +1081,7 @@ final class DomainCoreShadowEvidenceSpoolTests: XCTestCase {
         let sentinel = Data("not-a-directory".utf8)
         try sentinel.write(to: directory)
         let recorder = MacDomainCoreShadowEvidenceRecorder(
+            cloudSyncEnabled: { true },
             profile: signedProfile(
                 profile: "internal",
                 distribution: "internal",
@@ -1049,6 +1100,7 @@ final class DomainCoreShadowEvidenceSpoolTests: XCTestCase {
     func testMacRecorderHandlesSpoolDisappearingBeforeRecord() async throws {
         let directory = temporaryDirectory()
         let recorder = MacDomainCoreShadowEvidenceRecorder(
+            cloudSyncEnabled: { true },
             profile: signedProfile(
                 profile: "internal",
                 distribution: "internal",
@@ -1237,6 +1289,7 @@ final class DomainCoreShadowEvidenceSpoolTests: XCTestCase {
         // the batch is retained (never acknowledged) for later retry rather than
         // dropped. A large debounce keeps rescheduled retries out of the test window.
         let recorder = MacDomainCoreShadowEvidenceRecorder(
+            cloudSyncEnabled: { true },
             profile: signedProfile(
                 profile: "internal",
                 distribution: "internal",

@@ -54,6 +54,11 @@ final class StandingOrderRuntimeHost {
                 activeInterval: Self.tickInterval,
                 backgroundInterval: Self.tickInterval * 5,
                 sleepInterval: nil,
+                // Each dispatch writes a sealed mission to Firestore, so the
+                // rhythm pauses while Cloud sync is off.
+                isEnabled: { [weak self] in
+                    self?.dispatcher.accountManager.isCloudSyncEnabled ?? false
+                },
                 fireImmediately: true,
                 cancellableInFlight: false,
                 work: { [weak self] in

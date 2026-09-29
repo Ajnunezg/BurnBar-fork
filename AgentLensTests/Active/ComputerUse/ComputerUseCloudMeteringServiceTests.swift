@@ -9,7 +9,7 @@ import XCTest
 final class ComputerUseCloudMeteringServiceTests: XCTestCase {
     func testWritesSessionAndActionDocumentsThroughGatewayWithExpectedMergeSemantics() async throws {
         let gateway = ComputerUseFirestoreGatewaySpy()
-        let service = ComputerUseCloudMeteringService(firestoreGateway: gateway)
+        let service = ComputerUseCloudMeteringService(firestoreGateway: gateway, cloudSyncEnabled: { true })
         let startedAt = Date(timeIntervalSince1970: 1_788_000_000)
         let request = ComputerUseSessionStartRequest(
             mode: ComputerUseMode.system.rawValue,
@@ -106,6 +106,47 @@ final class ComputerUseCloudMeteringServiceTests: XCTestCase {
                 containsPrivateActionData: false
             )
         ])
+    }
+
+    func testWritesNothingWhileCloudSyncIsOff() async throws {
+        let gateway = ComputerUseFirestoreGatewaySpy()
+        var cloudSyncEnabled = false
+        let service = ComputerUseCloudMeteringService(
+            firestoreGateway: gateway,
+            cloudSyncEnabled: { cloudSyncEnabled }
+        )
+        let request = ComputerUseSessionStartRequest(
+            mode: ComputerUseMode.browser.rawValue,
+            trustMode: ComputerUseTrustMode.manual.rawValue,
+            scopeRuleIds: [],
+            clientID: BurnBarClientID(rawValue: "client-1")
+        )
+        let response = ComputerUseSessionStartResponse(
+            sessionId: "session-1",
+            manifestHashHex: String(repeating: "a", count: 64),
+            startedAt: Date(timeIntervalSince1970: 1_788_000_000),
+            entitlementProductId: "hosted_computer_use_sync",
+            actionCap: 50
+        )
+        func recordStartAndEnd() async throws {
+            try await service.recordSessionStart(userID: "user-1", request: request, response: response, macAppVersion: "1.0")
+            try await service.recordSessionEnd(
+                userID: "user-1",
+                sessionID: "session-1",
+                endedAt: Date(timeIntervalSince1970: 1_788_000_020),
+                reason: .completed,
+                state: nil,
+                auditHeadHashHex: nil
+            )
+        }
+
+        try await recordStartAndEnd()
+        XCTAssertTrue(gateway.writes.isEmpty)
+
+        // Control: the same session is metered once consent is granted.
+        cloudSyncEnabled = true
+        try await recordStartAndEnd()
+        XCTAssertEqual(gateway.writes.count, 2)
     }
 
     func testSessionStartPayloadExcludesDeviceAndAuthorizationDetails() {
@@ -214,7 +255,7 @@ final class ComputerUseCloudMeteringServiceTests: XCTestCase {
     }
 
     func testRecordSessionStartRejectsMissingAndLocalUsers() async throws {
-        let service = ComputerUseCloudMeteringService(firestoreGateway: ComputerUseFirestoreGatewaySpy())
+        let service = ComputerUseCloudMeteringService(firestoreGateway: ComputerUseFirestoreGatewaySpy(), cloudSyncEnabled: { true })
         let request = ComputerUseSessionStartRequest(
             mode: ComputerUseMode.browser.rawValue,
             trustMode: ComputerUseTrustMode.manual.rawValue,

@@ -32,6 +32,10 @@ final class FakeAccountManager: AccountManaging {
         }
     }
 
+    /// Tests flip `isCloudSyncEnabled` directly; `AccountManager`'s own tests
+    /// cover the notification.
+    func observeCloudSyncConsentChanges(_ observer: @escaping @MainActor @Sendable (Bool) -> Void) {}
+
     static func makeSignedIn(uid: String = "test-uid-1") -> FakeAccountManager {
         let manager = FakeAccountManager()
         manager.isSignedIn = true

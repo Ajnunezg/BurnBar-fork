@@ -241,8 +241,8 @@ extension CLIAgentMissionRequestListener {
         }
         defer { cancellationListener.remove() }
 
-        guard let uid = accountManager.currentUID else {
-            logger.warning("mission id=\(document.documentID, privacy: .private(mask: .hash)) ignored because this Mac is not signed in")
+        guard let uid = accountManager.cloudSyncUID else {
+            logger.warning("mission id=\(document.documentID, privacy: .private(mask: .hash)) ignored because this Mac is not signed in or Cloud sync is off")
             return
         }
         let privatePayload: CLIAgentMissionPrivatePayload?

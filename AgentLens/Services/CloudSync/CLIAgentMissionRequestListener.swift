@@ -60,8 +60,8 @@ final class CLIAgentMissionRequestListener {
     }
     func attachIfPossible() {
         guard isStarted else { return }
-        guard accountManager.isFirebaseAvailable, let uid = accountManager.currentUID else {
-            let state = "waiting firebase=\(accountManager.isFirebaseAvailable) uid=\(accountManager.currentUID == nil ? "nil" : "present")"
+        guard accountManager.isFirebaseAvailable, let uid = accountManager.cloudSyncUID else {
+            let state = "waiting firebase=\(accountManager.isFirebaseAvailable) uid=\(accountManager.currentUID == nil ? "nil" : "present") cloudSync=\(accountManager.isCloudSyncEnabled)"
             if lastAttachState != state {
                 logger.warning("mission listener \(state, privacy: .public)")
                 lastAttachState = state

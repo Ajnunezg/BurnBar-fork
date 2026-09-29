@@ -58,7 +58,7 @@ final class SmartDisplayActionsListener {
     }
 
     private func attachIfPossible() {
-        guard accountManager.isFirebaseAvailable, let uid = accountManager.currentUID else {
+        guard accountManager.isFirebaseAvailable, let uid = accountManager.cloudSyncUID else {
             listener?.remove()
             listener = nil
             listenerUID = nil

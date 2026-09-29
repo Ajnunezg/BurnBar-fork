@@ -176,7 +176,7 @@ final class TextExpansionSyncServiceTests: XCTestCase {
         XCTAssertTrue(makeSettingsManager(defaults: defaults).textExpansion.cloudSyncEnabled)
     }
 
-    func testMasterCloudSyncOffWritesNothingToFirestore() async throws {
+    func testCloudSyncOffWritesNothingToFirestore() async throws {
         let docPath = "users/test-uid-1/text_snippets/snippet-consent"
         try await dataStore.upsertTextExpansionSnippet(consentSnippet())
         // Signed in with snippet sync on, but the master switch was never enabled.
@@ -196,7 +196,7 @@ final class TextExpansionSyncServiceTests: XCTestCase {
         XCTAssertNotNil(fakeGateway.documentData(at: docPath))
     }
 
-    func testSnippetSyncOffWritesNothingEvenWithMasterCloudSyncOn() async throws {
+    func testSnippetSyncOffWritesNothingEvenWithCloudSyncOn() async throws {
         try await dataStore.upsertTextExpansionSnippet(consentSnippet())
         settingsManager.textExpansion.cloudSyncEnabled = false
 

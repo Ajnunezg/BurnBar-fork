@@ -37,7 +37,7 @@ final class SmartDisplayConfigPublisher {
 
     func publishCurrent() async {
         guard accountManager.isFirebaseAvailable,
-              let uid = accountManager.currentUID else { return }
+              let uid = accountManager.cloudSyncUID else { return }
         let db = db ?? Firestore.firestore()
         let data = smartHubPayload()
         do {
