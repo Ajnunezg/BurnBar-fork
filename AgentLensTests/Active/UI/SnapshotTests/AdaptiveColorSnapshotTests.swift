@@ -9,18 +9,18 @@ import SnapshotTesting
 @MainActor
 final class AdaptiveColorSnapshotTests: XCTestCase {
 
-    func test_designSystemColorSwatches() {
+    func test_designSystemColorSwatches() throws {
         let view = ColorSwatchGrid()
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 500, height: 600),
             named: SnapshotName.colorSwatches
         )
     }
 
-    func test_providerPrimaryColors() {
+    func test_providerPrimaryColors() throws {
         let view = ProviderColorGrid()
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 500, height: 800),
             named: SnapshotName.providerColors

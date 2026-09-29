@@ -15,6 +15,10 @@ package_dir="$1"
 baseline_key="$2"
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 baseline_file="$repo_root/budgets/knip-baseline.json"
+if [[ ! -d "$repo_root/$package_dir" ]]; then
+  echo "::error::knip-ratchet: package dir $package_dir does not exist" >&2
+  exit 1
+fi
 
 # Admin harnesses import compiled `lib/*.js` from every 3.5 codebase plus the
 # shared runtime; knip must see those edges on CI checkouts (no warm lib/).
@@ -43,8 +47,16 @@ case "$package_dir" in
     ;;
 esac
 
-output="$(cd "$repo_root/$package_dir" && npx knip --reporter compact 2>&1 || true)"
+# knip exits 0 when clean, 1 when it reports issues, and 2 or higher when it
+# could not run (bad config, crash). The old `|| true` read a knip that never
+# ran, or a missing package dir, as "0 findings" and passed the ratchet.
+knip_status=0
+output="$(cd "$repo_root/$package_dir" && npx knip --reporter compact 2>&1)" || knip_status=$?
 printf '%s\n' "$output"
+if [[ "$knip_status" -gt 1 ]]; then
+  echo "::error::knip did not run cleanly for $baseline_key (exit $knip_status); a crash is not a clean scan."
+  exit 1
+fi
 
 # knip's compact reporter prints one section header per issue type with the
 # count in trailing parens; the sum is the total finding count.
@@ -52,6 +64,10 @@ total=0
 while IFS= read -r count; do
   total=$((total + count))
 done < <(printf '%s\n' "$output" | sed -n 's/.*(\([0-9][0-9]*\))$/\1/p')
+if [[ "$knip_status" -eq 1 && "$total" -eq 0 ]]; then
+  echo "::error::knip reported issues for $baseline_key (exit 1) but no section counts parsed; the compact reporter format changed."
+  exit 1
+fi
 
 baseline="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))[sys.argv[2]])" "$baseline_file" "$baseline_key")"
 

@@ -10,20 +10,20 @@ import SnapshotTesting
 @MainActor
 final class MercuryGradientSnapshotTests: XCTestCase {
 
-    func test_hermesToolCard_completed() {
+    func test_hermesToolCard_completed() throws {
         let view = HermesToolCard(
             toolName: "Bash",
             detail: nil,
             isRunning: false
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 320, height: 50),
             named: SnapshotName.hermesToolCardCompleted
         )
     }
 
-    func test_hermesToolCard_expanded() {
+    func test_hermesToolCard_expanded() throws {
         // Expansion is driven by @State isExpanded, which defaults to false.
         // We simulate an expanded state by constructing a view that has detail
         // and is not running; the card renders with the chevron visible.
@@ -32,17 +32,17 @@ final class MercuryGradientSnapshotTests: XCTestCase {
             detail: "search_pattern = 'func test'",
             isRunning: false
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 320, height: 60),
             named: SnapshotName.hermesToolCardExpanded
         )
     }
 
-    func test_hermesThinkingView() {
+    func test_hermesThinkingView() throws {
         let view = HermesThinkingView()
         // Lower precision because droplet animation depends on onAppear timing
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 200, height: 60),
             named: SnapshotName.hermesThinkingView,
@@ -50,7 +50,7 @@ final class MercuryGradientSnapshotTests: XCTestCase {
         )
     }
 
-    func test_chatMessageView_hermesAssistant() {
+    func test_chatMessageView_hermesAssistant() throws {
         let message = ViewTestFixtures.makeHermesAssistantMessage(
             textPieces: ["Mercury rising."],
             toolPieces: [],
@@ -62,28 +62,28 @@ final class MercuryGradientSnapshotTests: XCTestCase {
             showViaBadge: true,
             isHermes: true
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 400, height: 120),
             named: SnapshotName.chatMessageHermes
         )
     }
 
-    func test_chatMessageView_user() {
+    func test_chatMessageView_user() throws {
         let message = ViewTestFixtures.makeUserMessage(content: "Hello Hermes")
         let view = ChatMessageView(
             message: message,
             isStreaming: false,
             showViaBadge: false
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 400, height: 80),
             named: SnapshotName.chatMessageUser
         )
     }
 
-    func test_chatMessageView_streamingAssistant() {
+    func test_chatMessageView_streamingAssistant() throws {
         let message = ViewTestFixtures.makeAssistantMessage(content: "Processing")
         let view = ChatMessageView(
             message: message,
@@ -91,7 +91,7 @@ final class MercuryGradientSnapshotTests: XCTestCase {
             showViaBadge: false
         )
         // Lower precision because streaming caret blinks
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 400, height: 80),
             named: SnapshotName.chatMessageStreaming,

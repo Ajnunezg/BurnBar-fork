@@ -63,6 +63,8 @@ const NON_TEST_JOBS = new Set([
   "targeted-e2e-gate",
   "openburnbar-pr",
   "path-filter",
+  // Opens/closes the standing-failure issue from harness-required's verdict.
+  "standing-failure",
 ]);
 
 const AGGREGATE_JOBS = [

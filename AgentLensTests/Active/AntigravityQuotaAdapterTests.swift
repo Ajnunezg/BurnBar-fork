@@ -316,8 +316,10 @@ final class AntigravityQuotaAdapterTests: XCTestCase {
         let t1 = formatter.string(from: now.addingTimeInterval(-2 * 3600))
         let t2 = formatter.string(from: now.addingTimeInterval(-1 * 3600))
 
+        // A catalogued tier that is NOT `defaultModelName`, so the label and
+        // cap below prove the transcript selection was read, not defaulted.
         let lines = [
-            "{\"source\":\"USER_EXPLICIT\",\"type\":\"USER_INPUT\",\"content\":\"<USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 3.7 Flash (High).</USER_SETTINGS_CHANGE>\"}",
+            "{\"source\":\"USER_EXPLICIT\",\"type\":\"USER_INPUT\",\"content\":\"<USER_SETTINGS_CHANGE>The user changed setting `Model Selection` from None to Gemini 3.8 Flash (Medium).</USER_SETTINGS_CHANGE>\"}",
             "{\"source\":\"MODEL\",\"type\":\"PLANNER_RESPONSE\",\"created_at\":\"\(t1)\"}",
             "{\"source\":\"MODEL\",\"type\":\"PLANNER_RESPONSE\",\"created_at\":\"\(t2)\"}"
         ]
@@ -332,10 +334,10 @@ final class AntigravityQuotaAdapterTests: XCTestCase {
         let activeBucket = snapshot.buckets.first(where: { $0.label.contains("(Active)") })
         XCTAssertNotNil(activeBucket)
         if let active = activeBucket {
-            XCTAssertTrue(active.label.contains("Gemini 3.7 Flash (High)"))
+            XCTAssertTrue(active.label.contains("Gemini 3.8 Flash (Medium)"))
             XCTAssertEqual(active.usedValue, 2.0)
-            XCTAssertEqual(active.limitValue, 600.0)
-            XCTAssertEqual(active.remainingValue, 598.0)
+            XCTAssertEqual(active.limitValue, 900.0)
+            XCTAssertEqual(active.remainingValue, 898.0)
             XCTAssertNotNil(active.resetsAt)
         }
     }

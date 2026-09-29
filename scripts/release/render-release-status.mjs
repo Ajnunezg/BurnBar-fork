@@ -16,6 +16,10 @@
  * operator clause comes from the docs/runbooks/HANDOVER.md backup slot, so the
  * README says "single operator" until a backup is actually named there.
  *
+ * The readiness page must agree: docs/TECHNICAL_READINESS.md states exactly one
+ * commercial verdict sentence (LAUNCH_VERDICTS), recorded as `launchVerdict`,
+ * and rendering fails when that verdict and the launch evidence disagree.
+ *
  * Usage:
  *   node scripts/release/render-release-status.mjs
  *   node scripts/release/render-release-status.mjs --check
@@ -33,6 +37,22 @@ const LAUNCH_EVIDENCE = "launch-evidence/final-launch-evidence.json";
 const LAUNCH_DONE_STAMP = "launch-evidence/LAUNCH_DONE.md";
 const READINESS_DOC = "docs/TECHNICAL_READINESS.md";
 const HANDOVER_DOC = "docs/runbooks/HANDOVER.md";
+// The README headline and the readiness page's verdict sentence must never
+// disagree (diligence 2026-09-28: README said "Commercial launch candidate"
+// while TECHNICAL_READINESS.md said "Commercial GO is not present"). Exactly one
+// of these markers must appear on the readiness page.
+export const LAUNCH_VERDICTS = Object.freeze([
+  Object.freeze({
+    value: "source-ready-with-blockers",
+    marker: "**Commercial GO is not present:**",
+    headline: "Source-ready with named launch blockers",
+  }),
+  Object.freeze({
+    value: "commercial-go",
+    marker: "**Commercial GO is present:**",
+    headline: "Commercial launch candidate",
+  }),
+]);
 const REQUIRED_INPUT_FIELDS = [
   "macAppStoreReviewState",
   "iosReviewState",
@@ -59,6 +79,7 @@ function repoPaths(root) {
     surfaces: path.join(root, "docs/status/surfaces.json"),
     mobileLedger: path.join(root, "docs/mobile-parity/mobile-parity-ledger.json"),
     windowsLedger: path.join(root, "docs/windows-port/WINDOWS_PARITY_LEDGER.yml"),
+    readiness: path.join(root, READINESS_DOC),
     launchEvidence: path.join(root, LAUNCH_EVIDENCE),
     launchDoneStamp: path.join(root, LAUNCH_DONE_STAMP),
     handover: path.join(root, HANDOVER_DOC),
@@ -175,6 +196,26 @@ function readLaunchPosture(paths) {
 }
 
 /**
+ * The readiness page's single verdict sentence. A GO verdict is accepted only
+ * when the final launch evidence validates (see readLaunchPosture).
+ */
+export function readLaunchVerdict(readinessText, { launchEvidenceValidates = false } = {}) {
+  const found = LAUNCH_VERDICTS.filter((verdict) => readinessText.includes(verdict.marker));
+  if (found.length !== 1) {
+    throw new Error(
+      `${READINESS_DOC} must state exactly one commercial verdict (${LAUNCH_VERDICTS.map((verdict) => verdict.marker).join(" or ")}); found ${found.length}`,
+    );
+  }
+  if (found[0].value === "commercial-go" && !launchEvidenceValidates) {
+    throw new Error(`a commercial GO verdict requires ${LAUNCH_EVIDENCE} to validate at the done stage`);
+  }
+  if (found[0].value !== "commercial-go" && launchEvidenceValidates) {
+    throw new Error(`${LAUNCH_EVIDENCE} validates but ${READINESS_DOC} still states no commercial GO`);
+  }
+  return found[0];
+}
+
+/**
  * Read one value from the HANDOVER.md "Required slots" table. A missing row is
  * an error: the README must not guess the operator model.
  */
@@ -219,6 +260,10 @@ export function buildReleaseStatus(root = REPO_ROOT) {
     "mobile parity ledger semantics.programStatus",
   );
   const windowsSchemaVersion = readWindowsLedgerSchemaVersion(paths);
+  const launch = readLaunchPosture(paths);
+  const launchVerdict = readLaunchVerdict(readText(paths.readiness), {
+    launchEvidenceValidates: launch.commercialGo,
+  });
 
   const storeFacing = Object.fromEntries(
     REQUIRED_INPUT_FIELDS.map((field) => [
@@ -234,6 +279,7 @@ export function buildReleaseStatus(root = REPO_ROOT) {
     schemaVersion: 1,
     generatedFrom: [
       "project.yml",
+      READINESS_DOC,
       "docs/status/release-status.input.json",
       "docs/status/surfaces.json",
       "docs/mobile-parity/mobile-parity-ledger.json",
@@ -241,7 +287,11 @@ export function buildReleaseStatus(root = REPO_ROOT) {
       LAUNCH_EVIDENCE,
       HANDOVER_DOC,
     ],
-    launch: readLaunchPosture(paths),
+    launchVerdict: {
+      value: launchVerdict.value,
+      evidence: READINESS_DOC,
+    },
+    launch,
     operators: readOperatorPosture(paths),
     macOS: {
       marketingVersion: version,
@@ -261,10 +311,12 @@ export function buildReleaseStatus(root = REPO_ROOT) {
   };
 }
 
-function renderHeadline(launch) {
+function renderHeadline(status) {
+  const { launch } = status;
+  const { headline } = LAUNCH_VERDICTS.find((verdict) => verdict.value === status.launchVerdict.value);
   return launch.commercialGo
-    ? `Commercial launch candidate — validated launch evidence is committed (\`${launch.evidence}\`)`
-    : `Source-ready with named launch blockers; commercial GO is not present (${launch.reason}; see [${path.basename(launch.readiness)}](${launch.readiness}))`;
+    ? `${headline} — validated launch evidence is committed (\`${launch.evidence}\`)`
+    : `${headline}; commercial GO is not present (${launch.reason}; see [${path.basename(launch.readiness)}](${launch.readiness}))`;
 }
 
 function renderOperators(operators) {
@@ -278,7 +330,7 @@ export function renderBlock(status) {
     `${status.storeFacing[field].claim} — ${status.storeFacing[field].value}`;
   return [
     START_MARKER,
-    `**Status:** ${renderHeadline(status.launch)}. OpenBurnBar is ${renderOperators(status.operators)}. macOS \`${status.macOS.marketingVersion}\` is the committed product version; mobile parity claim is \`${status.mobileParity.productParityClaim}\` (${status.mobileParity.programStatus}); Mac App Store review: ${asserted("macAppStoreReviewState")}; iOS review: ${asserted("iosReviewState")}; manual release: ${asserted("manualReleaseEnabled")}; Windows channel: ${asserted("windowsChannelClaim")}.`,
+    `**Status:** ${renderHeadline(status)}. OpenBurnBar is ${renderOperators(status.operators)}. macOS \`${status.macOS.marketingVersion}\` is the committed product version; mobile parity claim is \`${status.mobileParity.productParityClaim}\` (${status.mobileParity.programStatus}); Mac App Store review: ${asserted("macAppStoreReviewState")}; iOS review: ${asserted("iosReviewState")}; manual release: ${asserted("manualReleaseEnabled")}; Windows channel: ${asserted("windowsChannelClaim")}.`,
     END_MARKER,
   ].join("\n");
 }

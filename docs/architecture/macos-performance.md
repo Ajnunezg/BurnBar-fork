@@ -1123,6 +1123,10 @@ signs each analytics file separately. Copilot's process-log fallback
 integers participate in the signature. Sharing Core cache files would
 let an isomorphic signature decode Mac totals as a Core hit.
 
+Superseded 2026-09-20 (#2641): the app names now alias the Core parsers
+(`LiftedEngineTypeAliases.swift`), so Copilot no longer adds the
+`session.shutdown` summary to turn usage and no parser writes the `mac_*` caches.
+
 ### Lane 2 — Daily summaries use intersection membership
 
 `fetchDailySummaries` attributes each row to every overlapped local

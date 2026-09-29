@@ -4,11 +4,14 @@ permissions:
   contents: read
   issues: write
 
+# NOT RUNNING. This workflow has been `disabled_manually` in GitHub since
+# 2026-07-31 (CI-cost hardening); its last scheduled runs (2026-07-26..30) all
+# failed. The daily cron was removed so the file stops implying a nightly lane
+# that does not exist. scripts/ci/nightly-health.mjs still lists the lane and
+# reports it stale, which is the truth. To revive it: fix the lane, restore a
+# `schedule:` trigger here, then `gh workflow enable nightly-e2e.yml`.
+# Production health synthetics run in ops-confidence.yml meanwhile.
 on:
-  schedule:
-    # 09:43 UTC daily. Keep off the top of the hour to reduce scheduler
-    # contention and leave the full harness room to start first.
-    - cron: "43 9 * * *"
   workflow_dispatch:
 
 concurrency:

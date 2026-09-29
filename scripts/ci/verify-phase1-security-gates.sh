@@ -24,6 +24,8 @@ reject_pattern() {
   local label="$1"
   local pattern="$2"
   local file="$3"
+  # A moved or deleted file must not turn an absence check into a silent pass.
+  [[ -f "$file" ]] || fail "${label}: ${file} does not exist (moved?); cannot prove '${pattern}' is absent"
   if grep -Eq "$pattern" "$file"; then
     fail "${label}: unexpected pattern '${pattern}' in ${file}"
   fi
@@ -100,7 +102,7 @@ bash -n scripts/ci/verify-release-attestations.sh
 echo "==> SOTA phone-control attestation readiness (code)"
 require_pattern "server attestation RC param" \
   'COMPUTER_USE_PHONE_CONTROL_ATTESTATION_REQUIRED_PARAM' \
-  functions/src/computerUseRemoteConfig.ts
+  functions-sync/src/computerUseRemoteConfig.ts
 require_pattern "attestation binding tests" \
   'computer_use_phone_control_attestation_required' \
   functions/src/__tests__/appCheckAttestationBinding.test.ts

@@ -52,6 +52,11 @@ OpenBurnBarMobile/Views/Control/DataVaultRecoveryView.swift ::: zero-knowledge :
 functions/src/__tests__/knowledgeMemoryDedupHash.test.ts ::: zero-knowledge ::: 1
 # Wave 3.5: the callables/ entries above moved to domains/; comment-only hits.
 functions/src/domains/ops/recovery.ts ::: zero-knowledge ::: 2
+# The 3.5 codebase split moved these three comment-only hits to functions-sync;
+# 32b5d9bafa dropped their entries while the scan roots stopped covering them.
+functions-sync/src/domains/knowledge/knowledgeMemory.ts ::: zero-knowledge ::: 1
+functions-sync/src/domains/knowledge/knowledgeSearch.ts ::: zero-knowledge ::: 1
+functions-sync/src/domains/search/encryptedSearch.ts ::: zero-knowledge ::: 1
 # apps/console (app.burnbar.ai) developer comments — NOT user-facing copy. The
 # rendered console copy (domain summaries, dashboard) is the caveated form; these two
 # are a JSDoc crypto-model note and a section-divider comment. (Remediation R3.)

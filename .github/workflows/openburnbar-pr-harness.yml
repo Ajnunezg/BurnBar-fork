@@ -133,7 +133,11 @@ jobs:
   functions-integration:
     name: Functions Integration
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Every functions `test:*` script rebuilds all four deploy codebases
+    # (build:all) since the 3.5 codebase split; the 27-script chain plus the
+    # workspace install measured ~22 min on a loaded M5 Max (2026-09-28), so the
+    # old 15-minute cap would cancel a green run. Nightly ubuntu minutes only.
+    timeout-minutes: 40
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (node24-native; June 16 forced-runtime fuse)
@@ -143,7 +147,12 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: functions/package-lock.json
+          cache-dependency-path: |
+            functions/package-lock.json
+            functions-identity/package-lock.json
+            functions-sync/package-lock.json
+            functions-media/package-lock.json
+            packages/functions-shared/package-lock.json
 
       - name: Set up Java 21 for Firebase emulators
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1 (node24-native)
@@ -151,8 +160,12 @@ jobs:
           java-version: "21"
           distribution: temurin
 
-      - name: Install OpenBurnBar Functions dependencies
-        run: npm ci --prefix functions
+      - name: Install + build the Functions workspace (all codebases + shared packages)
+        # A clean runner has no packages/functions-shared/lib, so `npm ci
+        # --prefix functions` alone fails tsc with TS2307 on every
+        # @openburnbar/functions-shared import (run 36400161922), and the
+        # test scripts' build:all also needs the other codebases installed.
+        run: bash scripts/ci/setup-functions-workspace.sh
 
       - name: Build OpenBurnBar Functions
         run: |
@@ -912,7 +925,12 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: functions/package-lock.json
+          cache-dependency-path: |
+            functions/package-lock.json
+            functions-identity/package-lock.json
+            functions-sync/package-lock.json
+            functions-media/package-lock.json
+            packages/functions-shared/package-lock.json
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1 (node24-native)
         with:
@@ -947,8 +965,8 @@ jobs:
           fi
           bash scripts/ci/verify-vendored-agent-source.sh
 
-      - name: Install Functions dependencies
-        run: npm ci --prefix functions
+      - name: Install + build the Functions workspace (all codebases + shared packages)
+        run: bash scripts/ci/setup-functions-workspace.sh
 
       - name: Install Hermes gateway test dependencies
         run: |
@@ -978,7 +996,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Hermes relay unit tests (Functions)
-        run: npm ci --prefix functions && npm --prefix functions run test:hermes
+        run: bash scripts/ci/setup-functions-workspace.sh && npm --prefix functions run test:hermes
       - name: Install Rust toolchain for libsignal Swift FFI
         uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # stable
         with:

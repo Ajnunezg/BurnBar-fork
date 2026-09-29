@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 #
-# Production env hygiene gate: functions/.env.*.production is intentionally
-# tracked, but it must stay public-config only. This script fails closed if
-# known production-secret shapes appear in those files.
+# Production env hygiene gate: each Functions codebase's .env.*.production is
+# intentionally tracked, but it must stay public-config only. This script fails
+# closed if known production-secret shapes appear in those files.
+#
+# Every firebase.json codebase ships one (functions, functions-identity,
+# functions-sync, functions-media); the old `functions/.env.*.production`
+# pathspec saw only the first, and "at least one file" could not notice.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
@@ -13,11 +17,17 @@ else
   files=()
   while IFS= read -r file; do
     [[ -n "$file" ]] && files+=("$file")
-  done < <(git ls-files 'functions/.env.*.production')
+  done < <(git ls-files 'functions/.env.*.production' 'functions-*/.env.*.production')
+  # One per deploy codebase; fewer means a codebase dropped out of the scan.
+  expected=4
+  if [[ ${#files[@]} -lt $expected ]]; then
+    echo "FAIL: found ${#files[@]} tracked Functions .env.*.production files, expected ${expected} (one per codebase): ${files[*]}" >&2
+    exit 1
+  fi
 fi
 
 if [[ ${#files[@]} -eq 0 ]]; then
-  echo "FAIL: no tracked functions/.env.*.production files found" >&2
+  echo "FAIL: no tracked Functions .env.*.production files found" >&2
   exit 1
 fi
 

@@ -120,6 +120,12 @@ for path in tracked:
         continue
     swift_by_root[root][os.path.basename(path)].append(path)
 
+# A root with no visible Swift files (e.g. left out of a sparse checkout) would
+# make every pair against it vacuously absent.
+empty_roots = [root for root, files in swift_by_root.items() if not files]
+if empty_roots:
+    fatal(f"no tracked Swift files visible under {', '.join(empty_roots)}; check out every root this gate compares")
+
 current_pairs = set()
 for basename, mac_paths in swift_by_root["AgentLens"].items():
     for peer_root in PEER_ROOTS:

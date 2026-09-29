@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "generatedFrom": [
     "project.yml",
+    "docs/TECHNICAL_READINESS.md",
     "docs/status/release-status.input.json",
     "docs/status/surfaces.json",
     "docs/mobile-parity/mobile-parity-ledger.json",
@@ -9,6 +10,10 @@
     "launch-evidence/final-launch-evidence.json",
     "docs/runbooks/HANDOVER.md"
   ],
+  "launchVerdict": {
+    "value": "source-ready-with-blockers",
+    "evidence": "docs/TECHNICAL_READINESS.md"
+  },
   "launch": {
     "evidence": "launch-evidence/final-launch-evidence.json",
     "readiness": "docs/TECHNICAL_READINESS.md",

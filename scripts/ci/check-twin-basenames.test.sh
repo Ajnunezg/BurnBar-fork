@@ -66,4 +66,14 @@ fi
 
 grep -q "NewCoreTwin.swift" /tmp/check-twin-core-bad.err
 
+# A peer root missing from the checkout (the Fast Feedback sparse list once
+# omitted OpenBurnBarCore) must fail, not make every Core pair vacuously absent.
+rm -rf "$tmp/OpenBurnBarCore" "$tmp/AgentLens/Views/NewTwin.swift" "$tmp/OpenBurnBarMobile/Views/NewTwin.swift"
+if TWIN_BASELINE_ROOT="$tmp" bash scripts/ci/check-twin-basenames.sh >/tmp/check-twin-sparse.out 2>/tmp/check-twin-sparse.err; then
+  echo "FAIL: a checkout without OpenBurnBarCore was accepted" >&2
+  exit 1
+fi
+
+grep -q "no tracked Swift files visible under OpenBurnBarCore" /tmp/check-twin-sparse.err
+
 echo "PASS: twin-basename guard positive controls"

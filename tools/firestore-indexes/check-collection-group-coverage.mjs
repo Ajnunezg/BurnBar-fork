@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify every Firestore collection-group query in functions/src has a usable
+ * Verify every Firestore collection-group query in the Functions codebases has a usable
  * COLLECTION_GROUP index declared in firestore.indexes.json (the deploy source
  * of truth per firebase.json#firestore.indexes). Prod throws FAILED_PRECONDITION
  * on every tick of any scheduled job whose collection-group query lacks a
@@ -34,7 +34,18 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const INDEXES_PATH = join(repoRoot, "firestore.indexes.json");
-const DEFAULT_SOURCE_ROOT = join(repoRoot, "functions", "src");
+// Every Functions deploy codebase plus the shared package: the scan saw 5 of 30
+// collection-group call sites while it read functions/src alone after the
+// codebase split. MIN_CALL_SITES fails the scan if it ever shrinks like that
+// again (30 sites on 2026-09-28; deleting queries may lower it in the same PR).
+const DEFAULT_SOURCE_ROOTS = [
+  "functions/src",
+  "functions-identity/src",
+  "functions-sync/src",
+  "functions-media/src",
+  "packages/functions-shared/src",
+].map((root) => join(repoRoot, root));
+const MIN_CALL_SITES = 30;
 const SKIP_DIRS = new Set(["node_modules", "__tests__", "__mocks__", "lib"]);
 
 // --- declared index model -------------------------------------------------
@@ -129,10 +140,10 @@ function resolveGroupName(arg, source) {
   return undefined;
 }
 
-function extractCallSites(sourceRoot = DEFAULT_SOURCE_ROOT) {
+function extractCallSites(sourceRoots) {
   const sites = [];
   const problems = [];
-  for (const filePath of walkSourceFiles(sourceRoot)) {
+  for (const filePath of sourceRoots.flatMap((sourceRoot) => [...walkSourceFiles(sourceRoot)])) {
     const source = readFileSync(filePath, "utf8");
     const relPath = relative(repoRoot, filePath);
     const pattern = /\.collectionGroup(\s*)\(/g;
@@ -261,14 +272,19 @@ if (projectFlag !== -1 && !project) {
   process.exit(2);
 }
 const sourceRootFlag = process.argv.indexOf("--source-root");
-const sourceRoot = sourceRootFlag !== -1 ? process.argv[sourceRootFlag + 1] : DEFAULT_SOURCE_ROOT;
+const sourceRoot = sourceRootFlag !== -1 ? process.argv[sourceRootFlag + 1] : undefined;
 if (sourceRootFlag !== -1 && !sourceRoot) {
   console.error("--source-root requires a directory");
   process.exit(2);
 }
 
 const declaredModel = loadDeclared();
-const { sites, problems } = extractCallSites(sourceRoot);
+const { sites, problems } = extractCallSites(sourceRoot ? [sourceRoot] : DEFAULT_SOURCE_ROOTS);
+if (!sourceRoot && sites.length < MIN_CALL_SITES) {
+  problems.push(
+    `found ${sites.length} collection-group call sites, expected >= ${MIN_CALL_SITES}: the scan lost scope (moved codebase?)`,
+  );
+}
 const uncovered = sites.filter((site) => !isCovered(site, declaredModel));
 
 for (const problem of problems) {

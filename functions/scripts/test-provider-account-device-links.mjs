@@ -17,7 +17,10 @@ assert.equal(
   "users/user-1/provider_account_device_links/codex_default_macbook-pro",
 );
 
-const types = readFileSync(new URL("../src/types/legacy/providers.ts", import.meta.url), "utf8");
+const types = readFileSync(
+  new URL("../../packages/functions-shared/src/types/legacy/providers.ts", import.meta.url),
+  "utf8",
+);
 assert.match(types, /export type ProviderAccountDeviceLinkDoc = Omit/);
 assert.match(types, /capability: DeviceLinkCapability;/);
 assert.match(types, /export type DeviceLinkCapability = "owner" \| "use" \| "add";/);
@@ -37,9 +40,10 @@ assertConsolidatedServerOnlyCollection(rules, "provider_account_device_links");
   assert.match(preferenceWrite, /preferenceId == d\.deviceID \+ "_" \+ d\.runtimeKind/);
 }
 
-const indexSource = readFileSync(new URL("../src/index.ts", import.meta.url), "utf8");
+// Provider-account device-link callables ship from the functions-identity deploy codebase.
+const indexSource = readFileSync(new URL("../../functions-identity/src/index.ts", import.meta.url), "utf8");
 const providerAccountWritesSource = readFileSync(
-  new URL("../src/callables/providerAccountWrites.ts", import.meta.url),
+  new URL("../../functions-identity/src/callables/providerAccountWrites.ts", import.meta.url),
   "utf8",
 );
 for (const exportedName of [

@@ -35,7 +35,7 @@ function extractLegacyFields(source, interfaceName, generatedFields) {
 }
 
 const generated = readFileSync(
-  join(repoRoot, "functions/src/types/generated/provider-account.ts"),
+  join(repoRoot, "packages/functions-shared/src/types/generated/provider-account.ts"),
   "utf8"
 );
 // types/legacy.ts was split into cohesive sub-modules under types/legacy/ (re-
@@ -44,16 +44,17 @@ const generated = readFileSync(
 // the split relocated them (e.g. ProviderAccountDoc -> legacy/providers.ts,
 // ProviderAccountConnectContext -> legacy/config.ts).
 let handMaintained = readFileSync(
-  join(repoRoot, "functions/src/types/legacy.ts"),
+  join(repoRoot, "packages/functions-shared/src/types/legacy.ts"),
   "utf8"
 );
-const legacyDir = join(repoRoot, "functions/src/types/legacy");
-if (existsSync(legacyDir)) {
-  for (const file of readdirSync(legacyDir)) {
-    if (file.endsWith(".ts")) {
-      handMaintained += "\n" + readFileSync(join(legacyDir, file), "utf8");
-    }
-  }
+// The shared types live in packages/functions-shared since the 3.5 codebase split.
+const legacyDir = join(repoRoot, "packages/functions-shared/src/types/legacy");
+const legacyModules = existsSync(legacyDir) ? readdirSync(legacyDir).filter((file) => file.endsWith(".ts")) : [];
+if (legacyModules.length === 0) {
+  throw new Error(`no legacy type modules found under ${legacyDir}; the parity check would compare against nothing`);
+}
+for (const file of legacyModules) {
+  handMaintained += "\n" + readFileSync(join(legacyDir, file), "utf8");
 }
 
 const generatedDoc = extractInterfaceFields(generated, "ProviderAccountDoc");
@@ -76,7 +77,7 @@ function assertSuperset(label, generatedFields, handFields) {
   const missing = [...generatedFields].filter((field) => !handFields.has(field));
   if (missing.length > 0) {
     throw new Error(
-      `${label} missing in functions/src/types/legacy.ts: ${missing.join(", ")}`
+      `${label} missing in packages/functions-shared/src/types/legacy.ts: ${missing.join(", ")}`
     );
   }
 }

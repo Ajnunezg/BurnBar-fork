@@ -37,6 +37,32 @@ final class VectorIndexSnapshotCutoverTests: XCTestCase {
         return (store, queue)
     }
 
+    /// `vector_index_snapshots.embeddingVersionID` references
+    /// `embedding_versions(id)` and GRDB enforces foreign keys, so the local
+    /// double needs the lineage row a real snapshot build always has.
+    private func seedEmbeddingLineage(in store: DataStoreCoordinator, versionID: String) async throws {
+        try await store.upsertEmbeddingModel(
+            EmbeddingModelRecord(
+                id: "model-1",
+                provider: "openai",
+                modelName: "text-embedding-3-small",
+                dimensions: 1536,
+                distanceMetric: .dotProduct
+            )
+        )
+        try await store.upsertEmbeddingVersion(
+            EmbeddingVersionRecord(
+                id: versionID,
+                modelID: "model-1",
+                versionTag: "2026-09-23",
+                chunkerVersion: "chunker-v1",
+                normalizationVersion: "norm-v1",
+                promptVersion: "prompt-v1",
+                isActive: true
+            )
+        )
+    }
+
     private func makeRecord() -> VectorIndexSnapshotRecord {
         // Whole-second dates only: GRDB persists `Date` as millisecond text,
         // so a fractional fixture could not survive an exact-equality
@@ -152,6 +178,7 @@ final class VectorIndexSnapshotCutoverTests: XCTestCase {
 
     func testLocalDoubleRoundTripsLikeLegacyPath() async throws {
         let (store, queue) = try makeLocalStore()
+        try await seedEmbeddingLineage(in: store, versionID: "version-1")
         let record = makeRecord()
 
         try await store.upsertVectorIndexSnapshot(record)

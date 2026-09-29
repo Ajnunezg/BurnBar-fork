@@ -131,10 +131,9 @@ final class HermesRelayHostService {
                         // `uid`/`connectionID` only (there is no live mirror
                         // request carrying a `mediaSealKey` wrap at fetch time),
                         // and no per-connection media-seal key is resolvable on
-                        // this path today, so the provider returns nil: the seal
-                        // param is wired and the inbox keeps its prior
-                        // quarantine-only behaviour until a per-connection seal
-                        // session exists to open.
+                        // this path today, so the provider returns nil and every
+                        // inbound P2P file is refused before fetch (fail closed,
+                        // #2362) until a per-connection seal session exists.
                         frameSealKeyProvider: { _, _ in nil }
                     )
                     macFileTransfer.setComputerUseControlDispatcher(computerUseControlDispatcher)

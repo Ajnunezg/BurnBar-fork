@@ -59,4 +59,24 @@ for fixture in stripe webhook private-key google-key secret-var service-account-
   fi
 done
 
+# Default (no-argument) mode must see one production env file per Functions
+# codebase: a repo tracking only functions/ fails instead of scanning 1 of 4.
+repo="$tmpdir/repo"
+mkdir -p "$repo/scripts/ci" "$repo/functions"
+cp scripts/ci/check-env-no-secrets.sh "$repo/scripts/ci/"
+cp "$safe" "$repo/functions/.env.burnbar.production"
+git -C "$repo" init -q
+git -C "$repo" add .
+if bash "$repo/scripts/ci/check-env-no-secrets.sh" >/tmp/check-env-no-secrets-scope.out 2>&1; then
+  echo "FAIL: a scan that found 1 of 4 codebase env files passed" >&2
+  exit 1
+fi
+grep -q "expected 4 (one per codebase)" /tmp/check-env-no-secrets-scope.out
+for codebase in functions-identity functions-sync functions-media; do
+  mkdir -p "$repo/$codebase"
+  cp "$safe" "$repo/$codebase/.env.burnbar.production"
+done
+git -C "$repo" add .
+bash "$repo/scripts/ci/check-env-no-secrets.sh" >/tmp/check-env-no-secrets-scope.out
+
 echo "PASS: check-env-no-secrets positive controls"
