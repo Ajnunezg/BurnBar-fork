@@ -58,30 +58,31 @@ final class ChartsDataService {
         buildTask?.cancel()
         isBuilding = snapshot == nil
         buildTask = Task { [weak self] in
-            let fetchedRows: (selected: [ChartFactRow], recent: [ChartFactRow])
+            let source: SnapshotSource
             do {
-                // Bounded TimeRange cases (today / 7d / 30d / month) all sit
-                // inside the last 31 days, so one intersection scan covers
-                // both windows. All-time uses the same fact-row projection —
-                // never `SELECT *` / `decodeUsage`.
-                let coveringRows: [ChartFactRow]
                 if requestedRange == nil {
-                    coveringRows = try await dataStore.fetchChartFactRows(in: nil)
+                    // All-time aggregates in SQL: facts bounded by elapsed
+                    // time × dimensions, not one Swift row per ledger row.
+                    source = .aggregates(
+                        try await dataStore.fetchChartAggregates(recentRange: recentRange)
+                    )
                 } else {
-                    coveringRows = try await dataStore.fetchChartFactRows(in: recentRange)
+                    // Bounded TimeRange cases (today / 7d / 30d / month) all
+                    // sit inside the last 31 days, so one intersection scan
+                    // covers both windows.
+                    let windows = Self.deriveWindows(
+                        coveringRows: try await dataStore.fetchChartFactRows(in: recentRange),
+                        requestedRange: requestedRange,
+                        recentRange: recentRange
+                    )
+                    source = .rows(selected: windows.selected, recent: windows.recent)
                 }
-                fetchedRows = Self.deriveWindows(
-                    coveringRows: coveringRows,
-                    requestedRange: requestedRange,
-                    recentRange: recentRange
-                )
             } catch {
-                fetchedRows = fallbackWindows
+                source = .rows(selected: fallbackWindows.selected, recent: fallbackWindows.recent)
             }
             guard !Task.isCancelled else { return }
             let built = await Self.buildDetached(
-                rows: fetchedRows.selected,
-                recentRows: fetchedRows.recent,
+                source: source,
                 timeRange: timeRange,
                 usagesVersion: key.usagesVersion,
                 now: now
@@ -118,21 +119,37 @@ final class ChartsDataService {
         )
     }
 
+    enum SnapshotSource: Sendable {
+        case rows(selected: [ChartFactRow], recent: [ChartFactRow])
+        case aggregates(ChartAggregates)
+    }
+
     private nonisolated static func buildDetached(
-        rows: [ChartFactRow],
-        recentRows: [ChartFactRow],
+        source: SnapshotSource,
         timeRange: TimeRange,
         usagesVersion: Int,
         now: Date
     ) async -> ChartsSnapshot {
         await Task.detached(priority: .userInitiated) {
-            ChartsSnapshot.build(
-                rows: rows,
-                recentRows: recentRows,
-                timeRange: timeRange,
-                usagesVersion: usagesVersion,
-                now: now
-            )
+            switch source {
+            case let .rows(selected, recent):
+                ChartsSnapshot.build(
+                    rows: selected,
+                    recentRows: recent,
+                    timeRange: timeRange,
+                    usagesVersion: usagesVersion,
+                    now: now
+                )
+            case let .aggregates(aggregates):
+                ChartsSnapshot.build(
+                    facts: aggregates.facts,
+                    recentFacts: aggregates.recentFacts,
+                    sessions: aggregates.sessions,
+                    timeRange: timeRange,
+                    usagesVersion: usagesVersion,
+                    now: now
+                )
+            }
         }.value
     }
 }

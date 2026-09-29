@@ -88,16 +88,51 @@ public actor BurnBarUsageRecorder {
         let byteCount: Int
     }
 
+    private struct RecencyEntry: Sendable {
+        let recordedAt: Date
+        let location: RecordLocation
+
+        /// Ascending `recordedAt`; equal timestamps put the later-appended
+        /// record first, so a walk from the end yields newest-first with ties
+        /// in ledger order — what the old full-scan-then-sort returned.
+        static func precedes(_ lhs: RecencyEntry, _ rhs: RecencyEntry) -> Bool {
+            lhs.recordedAt != rhs.recordedAt
+                ? lhs.recordedAt < rhs.recordedAt
+                : lhs.location.byteOffset > rhs.location.byteOffset
+        }
+    }
+
     private struct LedgerIndex: Sendable {
         var locationsByKey: [String: RecordLocation]
         var recordCount: Int
         var latestRecordedAt: Date?
+        /// Canonical records ordered by `RecencyEntry.precedes`. Time-bounded
+        /// reads (recent usage, windowed records, today's spend) seek here and
+        /// decode only the records they return; the app asks for recent usage
+        /// on every refresh tick, and the ledger is never rotated.
+        var recency: [RecencyEntry]
+        var recencyIsSorted: Bool
 
         static let empty = LedgerIndex(
             locationsByKey: [:],
             recordCount: 0,
-            latestRecordedAt: nil
+            latestRecordedAt: nil,
+            recency: [],
+            recencyIsSorted: true
         )
+
+        /// Indexes a canonical (first-seen) record. Live appends arrive in time
+        /// order and keep `recency` sorted; an out-of-order one defers a sort
+        /// to the next time-bounded read.
+        mutating func add(_ key: String, _ entry: RecencyEntry) {
+            locationsByKey[key] = entry.location
+            recordCount += 1
+            latestRecordedAt = max(latestRecordedAt ?? entry.recordedAt, entry.recordedAt)
+            if let last = recency.last, !RecencyEntry.precedes(last, entry) {
+                recencyIsSorted = false
+            }
+            recency.append(entry)
+        }
     }
 
     private struct ProjectionBucketKey: Hashable, Comparable {
@@ -149,10 +184,12 @@ public actor BurnBarUsageRecorder {
         let normalizedKey = try Self.validatedIdentifier(idempotencyKey, field: "idempotencyKey")
         try validate(event)
 
-        var index = try loadIndexIfNeeded()
         let record = BurnBarUsageRecord(idempotencyKey: normalizedKey, event: event)
 
-        if let location = index.locationsByKey[normalizedKey] {
+        // Look up through a temporary, never a local copy: the index is
+        // mutated in place below, and a live copy would make every insert
+        // copy the whole key table (a quadratic batch import).
+        if let location = try loadIndexIfNeeded().locationsByKey[normalizedKey] {
             let existing = try readRecord(at: location)
             guard existing == record else {
                 throw BurnBarUsageLedgerError.conflictingIdempotencyKey(normalizedKey)
@@ -165,10 +202,7 @@ public actor BurnBarUsageRecorder {
         }
 
         let location = try append(record)
-        index.locationsByKey[normalizedKey] = location
-        index.recordCount += 1
-        index.latestRecordedAt = max(index.latestRecordedAt ?? event.recordedAt, event.recordedAt)
-        ledgerIndex = index
+        ledgerIndex?.add(normalizedKey, RecencyEntry(recordedAt: event.recordedAt, location: location))
         // The projection is a derived cache. Invalidate it in O(1) and rebuild
         // only when a projection consumer asks; recounting the whole ledger on
         // every imported row would make a batch import quadratic.
@@ -198,13 +232,13 @@ public actor BurnBarUsageRecorder {
     }
 
     public func recentUsage(limit: Int) throws -> [BurnBarUsageEvent] {
-        try newestRecords(limit: limit) { _ in true }.map(\.event)
+        try newestRecords(limit: limit, within: nil).map(\.event)
     }
 
-    /// Returns the newest matching records in chronological order. Working
-    /// memory is bounded by `limit`, independent of total ledger size.
+    /// Returns the newest matching records in chronological order. Reads and
+    /// decodes at most `limit` records, independent of total ledger size.
     public func records(in interval: DateInterval, limit: Int) throws -> [BurnBarUsageRecord] {
-        Array(try newestRecords(limit: limit) { interval.contains($0.recordedAt) }.reversed())
+        Array(try newestRecords(limit: limit, within: interval).reversed())
     }
 
     /// Enriches a complete, bounded Activity snapshot without materializing the
@@ -287,20 +321,19 @@ public actor BurnBarUsageRecorder {
         }
     }
 
-    /// Streams the canonical ledger and sums matching spend without retaining
-    /// the underlying records.
+    /// Sums matching spend recorded at or after `start`, decoding only those
+    /// records and without retaining them.
     public func sumCost(
         since start: Date,
         matching predicate: @Sendable (BurnBarUsageEvent) -> Bool
     ) throws -> Double {
-        let index = try loadIndexIfNeeded()
+        let recency = try sortedRecency()
+        let firstMatch = Self.firstRecencyPosition(in: recency) { $0 >= start }
+        // Ledger order keeps the floating-point sum identical to a full scan.
+        let locations = recency[firstMatch...].map(\.location).sorted { $0.byteOffset < $1.byteOffset }
         var total = 0.0
-        try forEachLedgerRecord { record, location in
-            guard index.locationsByKey[record.idempotencyKey] == location,
-                  record.event.recordedAt >= start,
-                  predicate(record.event) else {
-                return
-            }
+        try forEachRecord(at: locations) { record in
+            guard predicate(record.event) else { return }
             let next = total + record.event.cost
             guard next.isFinite else {
                 throw BurnBarUsageLedgerError.aggregateOverflow("cost")
@@ -374,16 +407,63 @@ public actor BurnBarUsageRecorder {
                 }
                 return
             }
-            index.locationsByKey[key] = location
-            index.recordCount += 1
-            index.latestRecordedAt = max(
-                index.latestRecordedAt ?? record.event.recordedAt,
-                record.event.recordedAt
-            )
+            index.add(key, RecencyEntry(recordedAt: record.event.recordedAt, location: location))
         }
 
         ledgerIndex = index
         return index
+    }
+
+    /// The canonical records in `RecencyEntry.precedes` order, sorted in
+    /// place when an out-of-order append left them unsorted.
+    private func sortedRecency() throws -> [RecencyEntry] {
+        _ = try loadIndexIfNeeded()
+        if ledgerIndex?.recencyIsSorted == false {
+            ledgerIndex?.recency.sort(by: RecencyEntry.precedes)
+            ledgerIndex?.recencyIsSorted = true
+        }
+        return ledgerIndex?.recency ?? []
+    }
+
+    /// Partition point of an ascending `recordedAt` order: the first position
+    /// whose timestamp satisfies `isAtOrPast` (false before it, true after).
+    private static func firstRecencyPosition(
+        in recency: [RecencyEntry],
+        where isAtOrPast: (Date) -> Bool
+    ) -> Int {
+        var low = recency.startIndex
+        var high = recency.endIndex
+        while low < high {
+            let middle = low + (high - low) / 2
+            if isAtOrPast(recency[middle].recordedAt) {
+                high = middle
+            } else {
+                low = middle + 1
+            }
+        }
+        return low
+    }
+
+    /// Decodes the canonical records at `locations`, in the given order,
+    /// through one file handle.
+    private func forEachRecord(
+        at locations: [RecordLocation],
+        _ body: (BurnBarUsageRecord) throws -> Void
+    ) throws {
+        guard !locations.isEmpty else { return }
+        let index = try loadIndexIfNeeded()
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+        for (position, location) in locations.enumerated() {
+            if position % 1_024 == 1_023 {
+                try Task.checkCancellation()
+            }
+            try handle.seek(toOffset: location.byteOffset)
+            let data = try handle.read(upToCount: location.byteCount) ?? Data()
+            let record = try decodeValidatedRecord(from: data)
+            guard index.locationsByKey[record.idempotencyKey] == location else { continue }
+            try body(record)
+        }
     }
 
     private func projectionSource() throws -> ProjectionSource {
@@ -538,32 +618,27 @@ public actor BurnBarUsageRecorder {
         value = incremented.partialValue
     }
 
+    /// Newest-first records (inside `interval` when given), ties in ledger
+    /// order. Seeks the recency index and decodes only the returned records.
     private func newestRecords(
         limit: Int,
-        matching predicate: (BurnBarUsageEvent) -> Bool
+        within interval: DateInterval?
     ) throws -> [BurnBarUsageRecord] {
         let boundedLimit = min(max(0, limit), Self.maximumReturnedRecords)
         guard boundedLimit > 0 else { return [] }
-        let index = try loadIndexIfNeeded()
+        let recency = try sortedRecency()
+        var position = interval.map { interval in
+            Self.firstRecencyPosition(in: recency) { $0 > interval.end }
+        } ?? recency.endIndex
+        var locations: [RecordLocation] = []
+        while position > recency.startIndex, locations.count < boundedLimit {
+            position -= 1
+            if let interval, recency[position].recordedAt < interval.start { break }
+            locations.append(recency[position].location)
+        }
         var newest: [BurnBarUsageRecord] = []
-        newest.reserveCapacity(min(boundedLimit * 2, index.recordCount))
-
-        try forEachLedgerRecord { record, location in
-            guard index.locationsByKey[record.idempotencyKey] == location,
-                  predicate(record.event) else {
-                return
-            }
-            newest.append(record)
-            if newest.count >= boundedLimit * 2 {
-                newest.sort { $0.event.recordedAt > $1.event.recordedAt }
-                newest.removeSubrange(boundedLimit..<newest.count)
-            }
-        }
-
-        newest.sort { $0.event.recordedAt > $1.event.recordedAt }
-        if newest.count > boundedLimit {
-            newest.removeSubrange(boundedLimit..<newest.count)
-        }
+        newest.reserveCapacity(locations.count)
+        try forEachRecord(at: locations) { newest.append($0) }
         return newest
     }
 
@@ -593,18 +668,22 @@ public actor BurnBarUsageRecorder {
             )
             previousEndOffset = endOffset
 
-            let record = try decoder.decode(BurnBarUsageRecord.self, from: Data(line.text.utf8))
-            let key = try Self.validatedIdentifier(record.idempotencyKey, field: "idempotencyKey")
-            try validate(record.event)
-            guard key == record.idempotencyKey else {
-                throw BurnBarUsageValidationError.invalidField(
-                    "idempotencyKey",
-                    "must remain canonical"
-                )
-            }
-            try body(record, location)
+            try body(try decodeValidatedRecord(from: Data(line.text.utf8)), location)
         }
         try Task.checkCancellation()
+    }
+
+    private func decodeValidatedRecord(from data: Data) throws -> BurnBarUsageRecord {
+        let record = try decoder.decode(BurnBarUsageRecord.self, from: data)
+        let key = try Self.validatedIdentifier(record.idempotencyKey, field: "idempotencyKey")
+        try validate(record.event)
+        guard key == record.idempotencyKey else {
+            throw BurnBarUsageValidationError.invalidField(
+                "idempotencyKey",
+                "must remain canonical"
+            )
+        }
+        return record
     }
 
     private func readRecord(at location: RecordLocation) throws -> BurnBarUsageRecord {

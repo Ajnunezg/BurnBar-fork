@@ -76,6 +76,20 @@ test("budget file is machine-consumed and points at this gate", () => {
     "budget must assert no existing baseline was raised");
 });
 
+test("tripwire runs on the required PR door, not only post-merge", () => {
+  // app-pr-gate never runs on pull_request, so the fast behavioral half must
+  // live in a Fast Feedback job the CI gate requires.
+  const workflow = readFileSync(path.join(root, ".github/workflows/fast-feedback.yml"), "utf8");
+  const job = workflow.match(/\n {2}debt-budgets:\n(?<body>(?: {4}.*\n|\s*\n)+)/u)?.groups?.body ?? "";
+  assert.match(job, /name: Debt budgets \(shrink-only ratchets\)/u,
+    "fast-feedback.yml must keep the debt-budgets job");
+  assert.match(job, /run: node --test scripts\/ci\/macos-idle-occlusion-gate\.test\.mjs\n/u,
+    "the debt-budgets job must run this tripwire");
+  const ciGate = JSON.parse(readFileSync(path.join(root, "governance/burnbar-ci-gate.fast.json"), "utf8"));
+  assert.ok(ciGate.required_contexts?.includes("Debt budgets (shrink-only ratchets)"),
+    "the CI gate must require the debt-budgets job");
+});
+
 // ── Mock DOM + rAF harness ──────────────────────────────────────────────────
 
 function createHarness(opts = {}) {

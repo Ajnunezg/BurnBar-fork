@@ -1113,7 +1113,8 @@ public actor BurnBarDaemonServer {
                             metadata: [
                                 "parsed_rows": "\(report.parsedRows)",
                                 "inserted_deltas": "\(report.insertedDeltas)",
-                                "unchanged_rows": "\(report.unchangedRows)"
+                                "unchanged_rows": "\(report.unchangedRows)",
+                                "deferred_files": "\(report.deferredFiles)"
                             ]
                         )
                     } else {

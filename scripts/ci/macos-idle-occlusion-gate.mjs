@@ -866,16 +866,18 @@ async function writeEvidence(outputPath, evidence) {
 }
 
 async function executeGate(argumentsToParse) {
+  const rawConfig = JSON.parse(await readFile(configPath, "utf8"));
+  const config = validateConfig(rawConfig);
+  const defaultOutputPath = path.resolve(repositoryRoot, config.evidence.defaultRelativeOutputPath);
+  // Seeded inputs are refused on every host (the tripwire suite runs on the
+  // Linux PR door); only a real measurement needs macOS.
+  const { outputPath } = parseArguments(argumentsToParse, defaultOutputPath);
   if (process.platform !== "darwin") {
     throw infrastructureFailure(
       "launch-failed",
       "P-PERF-3 real-process CPU gate requires macOS",
     );
   }
-  const rawConfig = JSON.parse(await readFile(configPath, "utf8"));
-  const config = validateConfig(rawConfig);
-  const defaultOutputPath = path.resolve(repositoryRoot, config.evidence.defaultRelativeOutputPath);
-  const { outputPath } = parseArguments(argumentsToParse, defaultOutputPath);
   await mkdir(path.dirname(outputPath), { recursive: true });
   await unlink(outputPath).catch((error) => {
     if (error.code !== "ENOENT") throw error;
