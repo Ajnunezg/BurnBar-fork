@@ -5,8 +5,22 @@
     "docs/status/release-status.input.json",
     "docs/status/surfaces.json",
     "docs/mobile-parity/mobile-parity-ledger.json",
-    "docs/windows-port/WINDOWS_PARITY_LEDGER.yml"
+    "docs/windows-port/WINDOWS_PARITY_LEDGER.yml",
+    "launch-evidence/final-launch-evidence.json",
+    "docs/runbooks/HANDOVER.md"
   ],
+  "launch": {
+    "evidence": "launch-evidence/final-launch-evidence.json",
+    "readiness": "docs/TECHNICAL_READINESS.md",
+    "commercialGo": false,
+    "reason": "launch-evidence/final-launch-evidence.json is missing"
+  },
+  "operators": {
+    "model": "single-operator",
+    "backupOperatorNamed": false,
+    "evidence": "docs/runbooks/HANDOVER.md",
+    "risk": "AR-008"
+  },
   "macOS": {
     "marketingVersion": "1.0.40",
     "evidence": "project.yml"

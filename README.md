@@ -6,7 +6,7 @@
   > A native macOS app that watches your AI coding agents so you don't have to wonder where all your money went.
 
 <!-- release-status:start -->
-**Status:** Commercial launch candidate — macOS `1.0.40` is the committed product version; mobile parity claim is `false` (mobile parity remediation in progress); Mac App Store review: operator-asserted (last confirmed 2026-09-01) — UNSET; iOS review: operator-asserted (last confirmed 2026-09-01) — UNSET; manual release: operator-asserted (last confirmed 2026-09-01) — UNSET; Windows channel: operator-asserted (last confirmed 2026-09-01) — UNSET.
+**Status:** Source-ready with named launch blockers; commercial GO is not present (launch-evidence/final-launch-evidence.json is missing; see [TECHNICAL_READINESS.md](docs/TECHNICAL_READINESS.md)). OpenBurnBar is run by a single operator with no named backup (risk AR-008; [HANDOVER.md](docs/runbooks/HANDOVER.md)). macOS `1.0.40` is the committed product version; mobile parity claim is `false` (mobile parity remediation in progress); Mac App Store review: operator-asserted (last confirmed 2026-09-01) — UNSET; iOS review: operator-asserted (last confirmed 2026-09-01) — UNSET; manual release: operator-asserted (last confirmed 2026-09-01) — UNSET; Windows channel: operator-asserted (last confirmed 2026-09-01) — UNSET.
 <!-- release-status:end -->
 
 </div>
@@ -15,7 +15,7 @@ If you're the kind of person who has three AI agents running in parallel tabs an
 
 For the paranoid-and-proud crowd: analytics stay **local-first**. No API keys, no account, no cloud — unless you *want* cloud. OpenBurnBar also ships a **Cursor / VS Code extension** that talks to a small **local daemon** so your editor and your meter can be friends.
 
-OpenBurnBar's macOS release ships through two channels: a sandboxed Mac App Store build and a Developer ID notarized DMG from GitHub Releases. For direct download, grab the latest macOS DMG, drag `OpenBurnBar.app` into `/Applications`, and launch it from your menu bar. If you want the latest tree or prefer local builds, `make install` remains the source fallback.
+OpenBurnBar's macOS release is built for two channels: a Developer ID notarized DMG attached to GitHub Releases, and a sandboxed Mac App Store build whose review state is the operator-asserted value in the status line above (`UNSET` means nobody has asserted it). For direct download, grab the latest macOS DMG, drag `OpenBurnBar.app` into `/Applications`, and launch it from your menu bar. If you want the latest tree or prefer local builds, `make install` remains the source fallback.
 
 The macOS app ships as a packaged release artifact. The editor extension remains source-only for now; there is no public VS Marketplace / Open VSX listing or signed VSIX attached to releases yet.
 
@@ -39,7 +39,7 @@ The current architecture canon lives in [OPENBURNBAR_RELEASE_ARCHITECTURE.md](do
 | **Core** | macOS app (`AgentLens/`), `OpenBurnBarCore`, local daemon (`OpenBurnBarDaemon/`), Cursor/VS Code extension (`extensions/openburnbar/`), `OpenBurnBarCLI` | Built and exercised in CI where configured; local-first + daemon RPC are the product spine. |
 | **Experimental** | Optional Firestore sync, sealed cloud collaboration, Cursor connector + tunnel, Computer Use / Mercury / missions, iOS / Android / Windows / Linux ports, future sealed iCloud archive support | Best-effort; opt-in; not canonical vs local SQLite/daemon state. Not a parity or commercial-launch claim. Raw iCloud session-file mirroring is disabled in this tree. |
 | **Adjacent tooling** | [`tools/openburnbar-mcp/`](tools/openburnbar-mcp/README.md) (local SQLite MCP helper, BurnBar Resume, plus opt-in hosted encrypted semantic search), [`tools/openburnbar-mcp-remote/`](tools/openburnbar-mcp-remote/) (BurnBar Pro hosted Remote MCP stdio shim, published to npm as **`openburnbar`**), [`plugins/openburnbar/`](plugins/openburnbar/README.md) (Cursor Marketplace plugin: hosted HTTP MCP + bearer variable) | Developer convenience; not required to run OpenBurnBar. The marketplace plugin is a **distinct Cursor surface** from the editor extension — see [docs/OPENBURNBAR_CURSOR_PLUGIN.md](docs/OPENBURNBAR_CURSOR_PLUGIN.md). |
-| **Quarantined tests** | `AgentLensTests/Quarantine/` | Stale suites kept as migration reference only; **not compiled** in the active `OpenBurnBarTests` bundle until fixed and moved back to `Active/` — see [AgentLensTests/README.md](AgentLensTests/README.md) and [CONTRIBUTING.md](CONTRIBUTING.md). |
+| **Archived tests** | `AgentLensTests/Archive/`, `AgentLensTests/LegacyReference/` | Stale suites kept as migration reference only; **not compiled** in the active `OpenBurnBarTests` bundle until fixed and moved back to `AgentLensTests/Active/`. `Archive/` holds no Swift sources today; `LegacyReference/` holds two legacy monoliths; `AgentLensTests/Quarantine/` holds only the revival manifest — see [AgentLensTests/README.md](AgentLensTests/README.md) and [CONTRIBUTING.md](CONTRIBUTING.md). |
 
 **Cursor deep dives** (for humans and agents):
 
@@ -61,7 +61,7 @@ The current architecture canon lives in [OPENBURNBAR_RELEASE_ARCHITECTURE.md](do
 - [Technical readiness & diligence scorecard](docs/TECHNICAL_READINESS.md)
 - [Tech debt strategy & metrics](docs/TECH_DEBT_STRATEGY.md) · [live snapshot](docs/TECH_DEBT_METRICS.md)
 - [Observability contract](docs/OBSERVABILITY.md) · [SLO runbook](docs/runbooks/slos.md)
-- [Architecture ADRs](docs/ARCHITECTURE/README.md)
+- [Architecture ADRs](docs/architecture/README.md)
 
 ---
 
@@ -182,7 +182,7 @@ CloudSyncService merge decision (local vs synced vs remote hash)
 ### Test and eval entrypoints
 
 - `scripts/test-openburnbar-swift.sh` — Swift package tests (`OpenBurnBarCore`, `OpenBurnBarDaemon`)
-- `scripts/test-openburnbar-app.sh` — Xcode `OpenBurnBarTests` only (compiled from `AgentLensTests/Active/**` + `AgentLensTests/Support/**`; `AgentLensTests/Quarantine/**` stays out of CI until revived)
+- `scripts/test-openburnbar-app.sh` — Xcode `OpenBurnBarTests` only (compiled from `AgentLensTests/Active/**`, `AgentLensTests/Support/**`, and `AgentLensTests/Fixtures/**`; archived suites stay out of the build until revived)
 - `scripts/test-openburnbar-retrieval-evals.sh` — retrieval + authoring replay/golden suites
 - `scripts/test-openburnbar-release-smoke.sh` — end-to-end release smoke (Swift + retrieval evals + extension tests + authenticated daemon health)
 
