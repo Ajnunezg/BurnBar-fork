@@ -96,7 +96,8 @@ test("prepare stages every codebase before the portable config is written", () =
 test("deploy shims and configures every staged codebase", () => {
   assert.ok(tools.includes(`${JQ_CODEBASES} firebase-functions.ci.json`), "deploy must read codebases from the verified artifact");
   assert.ok(tools.includes('> "$codebase/node_modules/.bin/firebase-functions"'));
-  assert.ok(tools.includes('echo "FUNCTIONS_CODEBASES=${codebases[*]}" >> "$GITHUB_ENV"'));
+  assert.ok(tools.includes('echo "FUNCTIONS_CODEBASES=${codebases[*]}"'));
+  assert.match(tools, /echo "SENTRY_CLI_BIN=[^\n]*\n\s*\} >> "\$GITHUB_ENV"/);
   assert.ok(release.includes('cat "${codebase}-production.env"'));
   assert.ok(release.includes('} > "${codebase}/.env.burnbar"'));
   assert.doesNotMatch(release, /ENV_FILE="functions\/\.env\.burnbar"/u, "no functions-only env writer left behind");
