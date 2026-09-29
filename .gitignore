@@ -346,3 +346,11 @@ website/.tmp/
 .audit.out
 .muse/
 .xcode-source-packages-audit/
+
+# Repo-weight sweep 2026-09-28 (diligence): regenerable screenshot output.
+# IntelligenceBriefSnapshotTests (iOS) and IntelligenceBriefScreenTest (Android)
+# write insights-editorial/ on every run; downloaded/ is a copy of what App Store
+# Connect already stores. The upload inputs at the top of .appstore-screenshots/
+# and in review-final/ stay tracked. See docs/runbooks/repo-hygiene.md.
+.appstore-screenshots/insights-editorial/
+.appstore-screenshots/downloaded/

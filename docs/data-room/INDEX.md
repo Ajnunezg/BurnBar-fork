@@ -11,6 +11,7 @@ approval: store, signing, and live-infrastructure facts remain operator-owned.
 | --- | --- | --- | --- |
 | The tracked root surface is inventoried and guarded by a shrink-only ratchet. | `governance/root-inventory.json` | 2026-09-01 | W0-11 / Alberto |
 | Repository operating conventions and architecture entry points are committed with the source. | `AGENTS.md` | 2026-09-01 | Repository maintainers |
+| Repository weight is measured, regenerable debris is untracked, and the history rewrite is a written, unexecuted plan. | `docs/runbooks/repo-hygiene.md` | 2026-09-28 | Alberto (sole operator) |
 
 ## Claims vs ledgers
 
@@ -53,6 +54,7 @@ approval: store, signing, and live-infrastructure facts remain operator-owned.
 | --- | --- | --- | --- |
 | Contribution, review, and ownership expectations are available to a new maintainer. | `CONTRIBUTING.md` | 2026-09-01 | Repository maintainers |
 | Incident response and escalation duties have a committed operational runbook. | `docs/runbooks/oncall.md` | 2026-09-01 | Operations |
+| The single-operator model, its incident limits, and the signatures it still needs are stated plainly (draft, unsigned). | `docs/runbooks/HANDOVER.md` | 2026-09-28 | Alberto (sole operator) |
 
 ## Depth
 
