@@ -13,14 +13,17 @@ There are **two** rollback paths. Reach for the fast one first.
 
 **Why the fast path works:** Gen2 Cloud Functions ARE Cloud Run services. Every deploy creates an immutable Cloud Run *revision*, and traffic is a separate, instantly re-routable pointer. Rolling back a bad deploy is just pointing traffic at the prior revision — no artifact rebuild required. Prefer this for any deploy-introduced regression where a known-good revision still exists.
 
-**When to fall back to source rollback:** the bug is in committed source you must actually revert, the prior revisions were pruned/garbage-collected, or no good revision exists. Expect tens of minutes of MTTR because it rebuilds and redeploys.
+**When to fall back to source rollback:** the bug is in committed source you must actually revert, the prior revision's image was pruned (the script's image preflight says so before any traffic change), or no good revision exists. Expect tens of minutes of MTTR because it rebuilds and redeploys.
+
+**The fast path is unproven today.** The last live drill ([`launch-evidence/rollback-drill-2026-09-23.json`](../../launch-evidence/rollback-drill-2026-09-23.json), `ok: false`) found every previous revision's image pruned in both projects. The fix is [Keep Rollback Images](#keep-rollback-images-artifact-registry-retention), then [Revision-Pin Drill](#revision-pin-drill-the-rollback-receipt).
 
 ## Prerequisites
 
 **Fast revision-pin:**
 
 - gcloud CLI: installed and authenticated (`gcloud auth login`, or ADC)
-- Caller has `roles/run.admin` (or `run.services.update` + `run.revisions.list`)
+- Caller has `roles/run.admin` (or `run.services.get` + `run.services.update` + `run.revisions.list` + `run.revisions.get`)
+- Caller has `roles/artifactregistry.reader` on the `gcf-artifacts` repository (the image preflight)
 
 **Full source rollback:**
 
@@ -47,10 +50,14 @@ There are **two** rollback paths. Reach for the fast one first.
 ```
 
 The script lists revisions newest-first, picks the previous-good one (unless you
-name one), prints the plan, flips traffic, then health-checks the service URL
-(non-2xx is a warning, not a failure). Region defaults to `us-central1`; project
-defaults to the `.firebaserc` default (`burnbar`). Override with `--region` /
-`--project`.
+name one), checks that the target's image still exists in Artifact Registry,
+prints the plan, flips traffic, then health-checks the service URL (non-2xx is a
+warning, not a failure). The image check reads the digest Cloud Run pulls
+(`status.imageDigest`) and runs `gcloud artifacts docker images describe` on
+it. A missing image is a loud `WARN` on a rollback: the pin is still attempted,
+Cloud Run refuses it atomically, traffic stays put, and you use the slow path.
+Region defaults to `us-central1`; project defaults to the `.firebaserc` default
+(`burnbar`). Override with `--region` / `--project`.
 
 The exact command it runs under the hood:
 
@@ -65,14 +72,7 @@ For an offline rehearsal, pass a revisions-list JSON fixture with
 `--revisions-json <file>` (or `ROLLBACK_REVISIONS_JSON`). Fixture mode only
 prints the plan; it cannot change traffic and cannot produce a live receipt.
 The live drill is deliberately separate and requires an authenticated gcloud
-session:
-
-```bash
-./scripts/ops/rollback-revision.sh <cloud-run-service> \
-  --project burnbar-staging \
-  --drill \
-  --receipt launch-evidence/rollback-drill-$(date -u +%F).json
-```
+session: see [Revision-Pin Drill](#revision-pin-drill-the-rollback-receipt).
 
 To list candidate revisions by hand:
 
@@ -83,6 +83,108 @@ gcloud run revisions list \
   --project burnbar \
   --sort-by='~metadata.creationTimestamp'
 ```
+
+## Keep Rollback Images (Artifact Registry retention)
+
+A revision can serve only while its image is in Artifact Registry. Firebase's
+default `firebase-functions-cleanup` policy on `us-central1/gcf-artifacts`
+deletes every function image older than 24 hours. A KEEP policy wins over a
+DELETE for the same image, so
+[`governance/ops-artifact-retention.json`](../../governance/ops-artifact-retention.json)
+commits two KEEP floors for both projects:
+
+| Policy | Keeps | Why |
+|--------|-------|-----|
+| `rollback-retention` | the newest 3 versions of each function image | N-1 survives even when deploys are more than a week apart |
+| `rollback-retention-7d` | every version uploaded in the last 7 days | nothing from the last week is pruned |
+
+Apply them with the script, never by hand. `set-cleanup-policies` rewrites the
+repository's whole policy map, so the script sends every live policy
+(`firebase-functions-cleanup` included) along with the contract's floors. It
+never weakens a stronger live floor, keeps the repository's dry-run mode, and
+describes the repository again afterwards; a mismatch exits non-zero.
+
+```bash
+# 1. Plan: read-only describe; prints each project's policy file and the exact gcloud command
+node scripts/ops/apply-artifact-retention.mjs
+
+# 2. Apply staging first, then production (each run re-reads and verifies live)
+node scripts/ops/apply-artifact-retention.mjs --apply --project burnbar-staging
+node scripts/ops/apply-artifact-retention.mjs --apply --project burnbar
+
+# 3. The same check CI runs weekly (ops-plane-verify.yml, alert-plane-drift)
+node scripts/ops/check-artifact-retention-drift.mjs
+```
+
+- **IAM:** planning and the drift check need `roles/artifactregistry.reader`
+  on `gcf-artifacts`. The ops-verifier WIF is granted it per
+  [`governance/ops-plane-verifier-sa.json`](../../governance/ops-plane-verifier-sa.json).
+  Applying needs `roles/artifactregistry.admin` on the project, the documented
+  role for cleanup policies (`artifactregistry.repositories.update`).
+- **Until applied**, the weekly drift check reports DRIFT (`rollback-retention-7d`
+  missing live). That red is correct.
+- **Retention is prospective.** It cannot restore pruned images. The 2026-09-23
+  drill measured an empty repository, so even today's serving revisions have no
+  image. A pinnable N-1 therefore needs **two** successful deploys of a service
+  after 2026-09-23: after one, N-1 is still an image-less revision. The drill's
+  image preflight tells you which case you are in before touching traffic.
+
+## Revision-Pin Drill (the rollback receipt)
+
+`--drill` is a round trip, and a receipt is written only when every step is
+proven:
+
+1. Check the N-1 target's image (missing or unverifiable: refuse, no traffic change).
+2. Record the pre-drill traffic: 100% on LATEST, or 100% pinned to one revision
+   (a split service is refused).
+3. Pin the target to 100% and read the traffic back.
+4. Health-probe it; a 2xx is required.
+5. Restore the pre-drill traffic (`--to-latest`, or `--to-revisions=<orig>=100`)
+   and read it back.
+
+Once the pin is attempted, every failure path restores first and writes no
+receipt. If the restore itself cannot be confirmed, the script exits non-zero
+and prints the exact restore command: run it immediately.
+
+**When:** after the retention floors are applied and the service has two
+successful deploys since 2026-09-23 (see above). Production uses `healthready`,
+the public readiness function. Staging does not deploy `healthReady`
+([`functions/staging-deploy-targets.json`](../../functions/staging-deploy-targets.json)),
+so use `latestrouterrundown`. Its GET returns 2xx only when staging Firestore
+has a `router_rundowns/latest` document.
+
+```bash
+# Production, after the next successful production deploys
+bash scripts/ops/rollback-revision.sh healthready --project burnbar --region us-central1 --dry-run
+bash scripts/ops/rollback-revision.sh healthready --project burnbar --region us-central1 --yes \
+  --drill --receipt "launch-evidence/rollback-drill-$(date -u +%F)-burnbar.json"
+
+# Staging, after the next staging deploys
+bash scripts/ops/rollback-revision.sh latestrouterrundown --project burnbar-staging --region us-central1 --dry-run
+bash scripts/ops/rollback-revision.sh latestrouterrundown --project burnbar-staging --region us-central1 --yes \
+  --drill --receipt "launch-evidence/rollback-drill-$(date -u +%F)-burnbar-staging.json"
+```
+
+The `--dry-run` preview is read-only. It shows the chosen N-1, its image
+verdict, and the pin command.
+
+**Receipts:** `launch-evidence/rollback-drill-<YYYY-MM-DD>-<project>.json`,
+schema [`docs/schemas/rollback-drill-receipt.schema.json`](../schemas/rollback-drill-receipt.schema.json).
+A production-project receipt (the `.firebaserc` default) under
+`launch-evidence/` is also copied by the script to
+`launch-evidence/latest-rollback-revision-drill.json`. Staging receipts never
+become that pointer, and `--receipt` cannot name it. Commit the dated receipt
+and, for production, the pointer.
+
+**IAM:** `roles/run.admin` (or the `run.services.get/update` and
+`run.revisions.list/get` permissions) plus `roles/artifactregistry.reader` on
+`gcf-artifacts`.
+
+**Status (2026-09-28): none of this has run against a live project.** The
+image preflight, the round trip, and the retention apply are proven only
+offline, against fake `gcloud` binaries
+(`scripts/ops/rollback-revision.test.sh`, `scripts/ops/apply-artifact-retention.test.mjs`).
+The fast path stays unproven until a receipt from this procedure is committed.
 
 ## Full Source Rollback (slow — FALLBACK)
 

@@ -26,7 +26,7 @@ exists as `burnbar-staging`. Signal at-rest remains readiness-gated, not live.
 | Build artifact hygiene | `.gitignore` plus `scripts/ci/check-no-committed-build-artifacts.sh` blocks tracked module caches, DerivedData, and `.pcm` files | Clean release checkout generated from tracked source only |
 | Ops readiness | `scripts/ci/verify-ops-readiness.sh` checks logging, resilience, legal packet, and Hermes provenance | `verify-production-ops-plane.sh` with production credentials and a matching `HERMES_AGENT_SRC` checkout |
 | Android E2E | PR harness and nightly E2E now execute `scripts/e2e/android-iroh-chat.sh` on emulator when the relevant lane runs | Green instrumented result from GitHub Actions or a local emulator with valid Firebase config |
-| Rollback | Fixture dry-run plus `scripts/ci/check-runbook-topology.mjs` topology lint | Staging/production revision-pin receipt — **PENDING** (human queue item 15 runs the live drill) |
+| Rollback | Fixture dry-run; `scripts/ops/rollback-revision.test.sh` (image preflight and pin-and-restore drill against a fake gcloud); retention contract `governance/ops-artifact-retention.json` with `scripts/ops/apply-artifact-retention.mjs` and the weekly `check-artifact-retention-drift.mjs`; `scripts/ci/check-runbook-topology.mjs` topology lint | Retention applied live, then a production round-trip receipt (`launch-evidence/latest-rollback-revision-drill.json`) once two post-2026-09-23 deploys exist — **PENDING** (human queue item 15 runs the live drill) |
 
 ## Diligence Interpretation
 
