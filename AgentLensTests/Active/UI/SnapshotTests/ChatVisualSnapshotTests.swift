@@ -9,21 +9,21 @@ import SnapshotTesting
 @MainActor
 final class ChatVisualSnapshotTests: XCTestCase {
 
-    func test_chatMessageView_user() {
+    func test_chatMessageView_user() throws {
         let message = ViewTestFixtures.makeUserMessage(content: "What's my burn rate today?")
         let view = ChatMessageView(
             message: message,
             isStreaming: false,
             showViaBadge: false
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 400, height: 80),
             named: "chatVisual.userMessage"
         )
     }
 
-    func test_chatMessageView_hermesWithBadge() {
+    func test_chatMessageView_hermesWithBadge() throws {
         let message = ViewTestFixtures.makeHermesAssistantMessage(
             textPieces: ["Your burn rate is $4.20 today."],
             toolPieces: [],
@@ -35,25 +35,25 @@ final class ChatVisualSnapshotTests: XCTestCase {
             showViaBadge: true,
             isHermes: true
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 400, height: 120),
             named: "chatVisual.hermesBadge"
         )
     }
 
-    func test_chatFAB_withInsights() {
+    func test_chatFAB_withInsights() throws {
         let view = ChatFAB(hasNewInsights: true, action: {})
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 80, height: 80),
             named: SnapshotName.chatFAB
         )
     }
 
-    func test_chatFAB_withoutInsights() {
+    func test_chatFAB_withoutInsights() throws {
         let view = ChatFAB(hasNewInsights: false, action: {})
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 80, height: 80),
             named: "chatFAB.noInsights"

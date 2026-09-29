@@ -6,13 +6,6 @@ import OpenBurnBarCore
 
 @MainActor
 final class AgentWatchLiveActivityManagerTests: XCTestCase {
-    // Wave 4: one class-wide ActivityKit floor instead of a per-test guard in
-    // every method. Tests needing newer OSes keep their own finer guards.
-    override nonisolated func setUpWithError() throws {
-        try super.setUpWithError()
-        guard #available(iOS 16.1, *) else { try skipActivityKitUnavailable() }
-    }
-
     /// Shared iOS 17 intents skip for the three intent tests below (was: an
     /// identical guard+skip in each). The `guard #available` stays at the call
     /// site so availability narrowing is preserved; only the throw moves here.

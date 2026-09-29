@@ -27,6 +27,17 @@ func openBurnBarShouldSkipVisualSnapshots(sourceFile: StaticString = #filePath) 
         || openBurnBarIsGitHubActionsRunner(sourceFile: sourceFile)
 }
 
+/// Visual snapshots render only where `OPENBURNBAR_RUN_SNAPSHOT_TESTS=YES` (or a
+/// record run) turns them on: the app-test host and every CI runner skip them
+/// because rendering can wedge the full-suite host. They used to `return`
+/// early, so 23 tests over 48 reference images counted as passes while
+/// asserting nothing; now they are reported as skipped.
+func requireVisualSnapshotHost() throws {
+    if openBurnBarShouldSkipVisualSnapshots() {
+        throw XCTSkip("Visual snapshot not compared on this host; run scripts/test-openburnbar-app.sh with OPENBURNBAR_RUN_SNAPSHOT_TESTS=YES.") // env-guard: OPENBURNBAR_RUN_SNAPSHOT_TESTS=YES on a local Mac
+    }
+}
+
 // MARK: - Visual Regression Support
 
 /// Renders a SwiftUI view into an NSImage at a fixed size and color scheme,
@@ -95,10 +106,8 @@ func XCTAssertAdaptiveSnapshot<V: View>(
     file: StaticString = #file,
     testName: String = #function,
     line: UInt = #line
-) {
-    if openBurnBarShouldSkipVisualSnapshots() {
-        return
-    }
+) throws {
+    try requireVisualSnapshotHost()
 
     for scheme in [ColorScheme.dark, ColorScheme.light] {
         let image = renderViewSnapshot(view, size: size, colorScheme: scheme)
@@ -126,10 +135,8 @@ func assertViewSnapshot<V: View>(
     file: StaticString = #file,
     testName: String = #function,
     line: UInt = #line
-) {
-    if openBurnBarShouldSkipVisualSnapshots() {
-        return
-    }
+) throws {
+    try requireVisualSnapshotHost()
 
     let image = renderViewSnapshot(view, size: size, colorScheme: colorScheme)
     assertSnapshot(

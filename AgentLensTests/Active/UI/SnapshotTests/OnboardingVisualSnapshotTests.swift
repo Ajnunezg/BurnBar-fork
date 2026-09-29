@@ -12,28 +12,28 @@ private typealias AppAgentProvider = OpenBurnBar.AgentProvider
 @MainActor
 final class OnboardingVisualSnapshotTests: XCTestCase {
 
-    func test_onboardingProviderPill_selected() {
+    func test_onboardingProviderPill_selected() throws {
         let view = OnboardingProviderPill(
             provider: AppAgentProvider.factory,
             isSelected: true,
             isDetected: true,
             onTap: {}
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 180, height: 50),
             named: "onboardingProviderPill.selected"
         )
     }
 
-    func test_onboardingProviderPill_unselected() {
+    func test_onboardingProviderPill_unselected() throws {
         let view = OnboardingProviderPill(
             provider: AppAgentProvider.claudeCode,
             isSelected: false,
             isDetected: false,
             onTap: {}
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 180, height: 50),
             named: "onboardingProviderPill.unselected"
@@ -48,7 +48,7 @@ final class OnboardingVisualSnapshotTests: XCTestCase {
             onOpenDashboard: {},
             onDismiss: {}
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 400, height: 300),
             named: SnapshotName.onboardingComplete

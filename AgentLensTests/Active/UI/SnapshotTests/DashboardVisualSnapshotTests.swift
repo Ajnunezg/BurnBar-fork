@@ -11,7 +11,7 @@ import OpenBurnBarCore
 @MainActor
 final class DashboardVisualSnapshotTests: XCTestCase {
 
-    func test_castleGreatHall_mixedVerdicts() {
+    func test_castleGreatHall_mixedVerdicts() throws {
         let previousSkin = UserDefaults.standard.string(forKey: AppSkin.storageKey)
         UserDefaults.standard.set(AppSkin.aurora.rawValue, forKey: AppSkin.storageKey)
         defer {
@@ -37,7 +37,7 @@ final class DashboardVisualSnapshotTests: XCTestCase {
         .padding(20)
         .background(DesignSystem.Colors.background)
 
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 860, height: 520),
             named: SnapshotName.castleGreatHall,
@@ -45,42 +45,42 @@ final class DashboardVisualSnapshotTests: XCTestCase {
         )
     }
 
-    func test_miniSparkline_flat() {
+    func test_miniSparkline_flat() throws {
         let view = MiniSparkline(
             data: [1, 1, 1, 1, 1, 1, 1],
             color: DesignSystem.Colors.ember,
             width: 120,
             height: 40
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 140, height: 60),
             named: SnapshotName.miniSparklineFlat
         )
     }
 
-    func test_miniSparkline_rising() {
+    func test_miniSparkline_rising() throws {
         let view = MiniSparkline(
             data: [1, 2, 3, 5, 8, 13, 21],
             color: DesignSystem.Colors.success,
             width: 120,
             height: 40
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 140, height: 60),
             named: SnapshotName.miniSparklineRising
         )
     }
 
-    func test_miniSparkline_falling() {
+    func test_miniSparkline_falling() throws {
         let view = MiniSparkline(
             data: [21, 13, 8, 5, 3, 2, 1],
             color: DesignSystem.Colors.error,
             width: 120,
             height: 40
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 140, height: 60),
             named: SnapshotName.miniSparklineFalling
