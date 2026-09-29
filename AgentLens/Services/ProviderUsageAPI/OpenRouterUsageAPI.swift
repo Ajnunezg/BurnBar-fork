@@ -101,10 +101,13 @@ final class OpenRouterUsageAPI: ProviderUsageAPI, Sendable {
 
         // Use OpenRouter's reported cost if available, otherwise compute
         let finalCost: Double
+        let pricingSource: UsagePricingSource
         if cost > 0 {
             finalCost = cost
+            pricingSource = .reported
         } else {
             let pricing = OpenBurnBarLogParsers.ModelPricing.lookup(model: model)
+            pricingSource = pricing.source
             guard let computedCost = AppLogger.shared.silentlyOptional("domain_core_pricing_cost", try pricing.cost(
                 inputTokens: finalInput,
                 outputTokens: finalOutput
@@ -121,7 +124,8 @@ final class OpenRouterUsageAPI: ProviderUsageAPI, Sendable {
             cacheReadTokens: 0,
             cacheCreationTokens: 0,
             costUSD: finalCost,
-            requestCount: requests
+            requestCount: requests,
+            pricingSource: pricingSource
         )
     }
 }

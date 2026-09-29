@@ -377,6 +377,7 @@ public final class GeminiCLIParser: LogParser, Sendable {
             cacheCreationTokens: 0,
             cacheReadTokens: acc.cacheReadTokens,
             costUSD: cost,
+            pricingSource: pricing.source,
             startTime: startTime,
             endTime: endTime,
             provenanceMethod: .providerLog,
@@ -423,6 +424,7 @@ private struct GeminiUsageCacheEntry: Codable, Equatable, Sendable {
     let startTime: Date
     let endTime: Date
     let costUSD: Double
+    let pricingSource: UsagePricingSource
 
     init(signature: FileSignature, usage: TokenUsage) {
         self.signature = signature
@@ -433,6 +435,7 @@ private struct GeminiUsageCacheEntry: Codable, Equatable, Sendable {
         self.startTime = usage.startTime
         self.endTime = usage.endTime
         self.costUSD = usage.costUSD
+        self.pricingSource = usage.pricingSource
     }
 
     func makeUsage(sessionId: String, projectName: String) -> TokenUsage {
@@ -446,6 +449,7 @@ private struct GeminiUsageCacheEntry: Codable, Equatable, Sendable {
             cacheCreationTokens: 0,
             cacheReadTokens: cacheReadTokens,
             costUSD: costUSD,
+            pricingSource: pricingSource,
             startTime: startTime,
             endTime: endTime,
             provenanceMethod: .providerLog,

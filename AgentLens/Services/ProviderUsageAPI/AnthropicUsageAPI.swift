@@ -132,7 +132,8 @@ final class AnthropicUsageAPI: ProviderUsageAPI, Sendable {
             cacheReadTokens: cachedInput,
             cacheCreationTokens: cacheCreation,
             costUSD: cost,
-            requestCount: bucket["num_requests"] as? Int ?? 1
+            requestCount: bucket["num_requests"] as? Int ?? 1,
+            pricingSource: pricing.source
         )]
     }
 

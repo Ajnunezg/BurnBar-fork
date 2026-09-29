@@ -7,8 +7,29 @@ import OpenBurnBarUI
 import OpenBurnBarData
 
 extension UsageStore {
+    /// Precedence of a row's TOKEN counts on the upsert ladder (exact 4 …
+    /// unknown 0). The ladder compares token confidence, never the row's
+    /// overall confidence: a fallback-priced row is capped at a low-confidence
+    /// estimate for its dollars, and that cap must not let lower-quality token
+    /// counts overwrite it, nor stop the same source refreshing it. Rows
+    /// written before v71 carry no `tokenConfidence`; pricing never capped
+    /// them, so their `provenanceConfidence` is their token confidence.
+    static func tokenPrecedenceSQL(_ table: String) -> String {
+        """
+        CASE COALESCE(\(table).tokenConfidence, \(table).provenanceConfidence)
+            WHEN 'exact' THEN 4
+            WHEN 'derived_exact' THEN 3
+            WHEN 'high_confidence_estimate' THEN 2
+            WHEN 'low_confidence_estimate' THEN 1
+            ELSE 0
+        END
+        """
+    }
+
     func upsertUsage(_ usage: TokenUsage, in db: Database) throws { // pure-move: was private
         let usagePartition = Self.usagePartitionToken(from: usage.providerAccountID)
+        let incomingPrecedence = Self.tokenPrecedenceSQL("excluded")
+        let storedPrecedence = Self.tokenPrecedenceSQL("token_usage")
         let statement = try db.cachedStatement(
             sql: """
                 INSERT INTO token_usage (
@@ -20,8 +41,8 @@ extension UsageStore {
                     sourceDeviceId, sourceDeviceName, isRemote,
                     providerID, providerAccountID, providerAccountLabel, providerAccountSource,
                     provenanceMethod, provenanceConfidence, estimatorVersion, parentRequestID,
-                    billingKind
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    billingKind, pricingSource, tokenConfidence
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(provider, sessionId, model, COALESCE(sourceDeviceId, ''), COALESCE(providerAccountID, '')) DO UPDATE SET
                     projectName = excluded.projectName,
                     inputTokens = excluded.inputTokens,
@@ -37,22 +58,7 @@ extension UsageStore {
                     -- VAL-TOKEN-009: Preserve source identity on equal-confidence upserts.
                     -- Only update usageSource when incoming confidence is strictly higher.
                     usageSource = CASE
-                        WHEN
-                            CASE excluded.provenanceConfidence
-                                WHEN 'exact' THEN 4
-                                WHEN 'derived_exact' THEN 3
-                                WHEN 'high_confidence_estimate' THEN 2
-                                WHEN 'low_confidence_estimate' THEN 1
-                                ELSE 0
-                            END
-                            >
-                            CASE token_usage.provenanceConfidence
-                                WHEN 'exact' THEN 4
-                                WHEN 'derived_exact' THEN 3
-                                WHEN 'high_confidence_estimate' THEN 2
-                                WHEN 'low_confidence_estimate' THEN 1
-                                ELSE 0
-                            END
+                        WHEN \(incomingPrecedence) > \(storedPrecedence)
                         THEN excluded.usageSource
                         ELSE token_usage.usageSource
                     END,
@@ -110,25 +116,17 @@ extension UsageStore {
                     providerAccountSource = excluded.providerAccountSource,
                     provenanceMethod = excluded.provenanceMethod,
                     provenanceConfidence = CASE
-                        WHEN
-                            CASE excluded.provenanceConfidence
-                                WHEN 'exact' THEN 4
-                                WHEN 'derived_exact' THEN 3
-                                WHEN 'high_confidence_estimate' THEN 2
-                                WHEN 'low_confidence_estimate' THEN 1
-                                ELSE 0
-                            END
-                            >=
-                            CASE token_usage.provenanceConfidence
-                                WHEN 'exact' THEN 4
-                                WHEN 'derived_exact' THEN 3
-                                WHEN 'high_confidence_estimate' THEN 2
-                                WHEN 'low_confidence_estimate' THEN 1
-                                ELSE 0
-                            END
+                        WHEN \(incomingPrecedence) >= \(storedPrecedence)
                         THEN excluded.provenanceConfidence
                         ELSE token_usage.provenanceConfidence
                     END,
+                    tokenConfidence = CASE
+                        WHEN \(incomingPrecedence) >= \(storedPrecedence)
+                        THEN excluded.tokenConfidence
+                        ELSE token_usage.tokenConfidence
+                    END,
+                    -- The pricing source describes the cost just written.
+                    pricingSource = excluded.pricingSource,
                     estimatorVersion = excluded.estimatorVersion,
                     -- Fusion linkage is sticky: once a daemon row records the
                     -- elderwand parentRequestID, a later non-daemon correction
@@ -148,43 +146,14 @@ extension UsageStore {
                     billingKind = CASE
                         WHEN excluded.billingKind = 'unknown' THEN token_usage.billingKind
                         WHEN token_usage.billingKind = 'unknown' THEN excluded.billingKind
-                        WHEN
-                            CASE excluded.provenanceConfidence
-                                WHEN 'exact' THEN 4
-                                WHEN 'derived_exact' THEN 3
-                                WHEN 'high_confidence_estimate' THEN 2
-                                WHEN 'low_confidence_estimate' THEN 1
-                                ELSE 0
-                            END
-                            >
-                            CASE token_usage.provenanceConfidence
-                                WHEN 'exact' THEN 4
-                                WHEN 'derived_exact' THEN 3
-                                WHEN 'high_confidence_estimate' THEN 2
-                                WHEN 'low_confidence_estimate' THEN 1
-                                ELSE 0
-                            END
+                        WHEN \(incomingPrecedence) > \(storedPrecedence)
                         THEN excluded.billingKind
                         WHEN excluded.usageSource = token_usage.usageSource THEN excluded.billingKind
                         ELSE token_usage.billingKind
                     END,
                     syncedAt = NULL
                 WHERE
-                    CASE excluded.provenanceConfidence
-                        WHEN 'exact' THEN 4
-                        WHEN 'derived_exact' THEN 3
-                        WHEN 'high_confidence_estimate' THEN 2
-                        WHEN 'low_confidence_estimate' THEN 1
-                        ELSE 0
-                    END
-                    >=
-                    CASE token_usage.provenanceConfidence
-                        WHEN 'exact' THEN 4
-                        WHEN 'derived_exact' THEN 3
-                        WHEN 'high_confidence_estimate' THEN 2
-                        WHEN 'low_confidence_estimate' THEN 1
-                        ELSE 0
-                    END
+                    \(incomingPrecedence) >= \(storedPrecedence)
                     AND (
                         token_usage.projectName != excluded.projectName
                         OR token_usage.inputTokens != excluded.inputTokens
@@ -215,6 +184,12 @@ extension UsageStore {
                         -- precedence CASE in the SET clause above.
                         OR (excluded.billingKind != 'unknown'
                             AND token_usage.billingKind != excluded.billingKind)
+                        -- Pricing provenance: a pre-v71 row learns where its
+                        -- dollars came from (and drops `exact` if they were a
+                        -- fallback estimate) even when its tokens are unchanged.
+                        OR token_usage.pricingSource != excluded.pricingSource
+                        OR token_usage.provenanceConfidence != excluded.provenanceConfidence
+                        OR COALESCE(token_usage.tokenConfidence, '') != COALESCE(excluded.tokenConfidence, '')
                     )
                 """,
         )
@@ -257,7 +232,9 @@ extension UsageStore {
                         provider: usage.provider,
                         usageSource: usage.usageSource
                     )
-                    : usage.billingKind).rawValue
+                    : usage.billingKind).rawValue,
+                usage.pricingSource.rawValue,
+                usage.tokenConfidence.rawValue
             ]
         )
     }
@@ -290,6 +267,12 @@ extension UsageStore {
         let provenanceMethod = provenanceMethodRaw.flatMap { UsageProvenanceMethod(rawValue: $0) } ?? .unknown
         let provenanceConfidenceRaw = indexed(row, UsageDecodeCol.provenanceConfidence.rawValue) as? String
         let provenanceConfidence = provenanceConfidenceRaw.flatMap { UsageProvenanceConfidence(rawValue: $0) } ?? .unknown
+        // Pre-v71 rows: no token confidence (their row confidence is it) and
+        // an `unknown` pricing source.
+        let tokenConfidence = (indexed(row, UsageDecodeCol.tokenConfidence.rawValue) as? String)
+            .flatMap { UsageProvenanceConfidence(rawValue: $0) } ?? provenanceConfidence
+        let pricingSource = (indexed(row, UsageDecodeCol.pricingSource.rawValue) as? String)
+            .flatMap(UsagePricingSource.init(rawValue:)) ?? .unknown
         let estimatorVersion = indexed(row, UsageDecodeCol.estimatorVersion.rawValue) as? String ?? ""
         let costValue = indexed(row, UsageDecodeCol.cost.rawValue)
         let cost = (costValue as? Double) ?? ((costValue as? NSNumber)?.doubleValue) ?? 0
@@ -313,6 +296,7 @@ extension UsageStore {
             cacheReadTokens: cacheReadTokens,
             reasoningTokens: reasoningTokens,
             costUSD: cost,
+            pricingSource: pricingSource,
             startTime: startTime,
             endTime: endTime,
             createdAt: createdAt,
@@ -329,7 +313,7 @@ extension UsageStore {
             providerAccountLabel: indexed(row, UsageDecodeCol.providerAccountLabel.rawValue) as? String,
             providerAccountSource: providerAccountSourceRaw.flatMap { ProviderAccountStorageScope(rawValue: $0) },
             provenanceMethod: provenanceMethod,
-            provenanceConfidence: provenanceConfidence,
+            provenanceConfidence: tokenConfidence,
             estimatorVersion: estimatorVersion,
             parentRequestID: indexed(row, UsageDecodeCol.parentRequestID.rawValue) as? String,
             billingKind: (indexed(row, UsageDecodeCol.billingKind.rawValue) as? String)

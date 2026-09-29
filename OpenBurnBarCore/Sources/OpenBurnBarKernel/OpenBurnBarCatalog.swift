@@ -102,7 +102,13 @@ public struct BurnBarCatalogModel: Codable, Hashable, Sendable {
     public let visibility: BurnBarCatalogVisibility
     public let aliases: [String]
     public let matchers: [BurnBarModelMatcher]
+    /// The model's rates — `.defaultFallback` when the catalog lists none, so
+    /// routing always has a number to rank by. Anything that reports spend
+    /// must check `hasListedPricing` before presenting a cost as exact.
     public let pricing: BurnBarModelPricing
+    /// False when the catalog entry carries no `pricing` block (or `null`):
+    /// `pricing` is then the fallback table, not a rate anyone published.
+    public let hasListedPricing: Bool
     /// Exact model identity for same-model failover. This is stricter than
     /// capability class: it proves the route serves the requested model, not a
     /// neighboring model in the same broad family.
@@ -125,6 +131,7 @@ public struct BurnBarCatalogModel: Codable, Hashable, Sendable {
         aliases: [String] = [],
         matchers: [BurnBarModelMatcher] = [],
         pricing: BurnBarModelPricing,
+        hasListedPricing: Bool = true,
         canonicalModelID: String? = nil,
         capabilityClassID: String? = nil,
         capabilityClassRank: Int? = nil,
@@ -136,6 +143,7 @@ public struct BurnBarCatalogModel: Codable, Hashable, Sendable {
         self.aliases = aliases
         self.matchers = matchers
         self.pricing = pricing
+        self.hasListedPricing = hasListedPricing
         self.canonicalModelID = Self.normalizedCanonicalModelID(canonicalModelID)
         self.capabilityClassID = capabilityClassID
         self.capabilityClassRank = capabilityClassRank
@@ -149,13 +157,33 @@ public struct BurnBarCatalogModel: Codable, Hashable, Sendable {
         self.visibility = try container.decode(BurnBarCatalogVisibility.self, forKey: .visibility)
         self.aliases = try container.decodeIfPresent([String].self, forKey: .aliases) ?? []
         self.matchers = try container.decodeIfPresent([BurnBarModelMatcher].self, forKey: .matchers) ?? []
-        self.pricing = try container.decodeIfPresent(BurnBarModelPricing.self, forKey: .pricing) ?? .defaultFallback
+        let listedPricing = try container.decodeIfPresent(BurnBarModelPricing.self, forKey: .pricing)
+        self.pricing = listedPricing ?? .defaultFallback
+        self.hasListedPricing = listedPricing != nil
         self.canonicalModelID = Self.normalizedCanonicalModelID(
             try container.decodeIfPresent(String.self, forKey: .canonicalModelID)
         )
         self.capabilityClassID = try container.decodeIfPresent(String.self, forKey: .capabilityClassID)
         self.capabilityClassRank = try container.decodeIfPresent(Int.self, forKey: .capabilityClassRank)
         self.modelCapabilities = try container.decodeIfPresent(ModelIOCapabilities.self, forKey: .modelCapabilities)
+    }
+
+    /// Mirrors the decoder: an unlisted model encodes without `pricing`, so a
+    /// round trip cannot turn the fallback table into a listed rate.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(displayName, forKey: .displayName)
+        try container.encode(visibility, forKey: .visibility)
+        try container.encode(aliases, forKey: .aliases)
+        try container.encode(matchers, forKey: .matchers)
+        if hasListedPricing {
+            try container.encode(pricing, forKey: .pricing)
+        }
+        try container.encodeIfPresent(canonicalModelID, forKey: .canonicalModelID)
+        try container.encodeIfPresent(capabilityClassID, forKey: .capabilityClassID)
+        try container.encodeIfPresent(capabilityClassRank, forKey: .capabilityClassRank)
+        try container.encodeIfPresent(modelCapabilities, forKey: .modelCapabilities)
     }
 
     public func matches(modelName: String) -> Bool {
@@ -374,10 +402,7 @@ public struct BurnBarCatalog: Codable, Hashable, Sendable {
     }
 
     public func pricing(forModelName modelName: String) -> BurnBarModelPricing? {
-        let normalized = modelName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !normalized.isEmpty else { return nil }
-
-        return bestModelMatch(named: normalized)?.model.pricing
+        pricedModel(forModelName: modelName)?.pricing
     }
 
     public func pricing(
@@ -385,6 +410,23 @@ public struct BurnBarCatalog: Codable, Hashable, Sendable {
         providerID: String,
         includeHidden: Bool = true
     ) -> BurnBarModelPricing? {
+        pricedModel(forModelName: modelName, providerID: providerID, includeHidden: includeHidden)?.pricing
+    }
+
+    /// The catalog model that prices `modelName` (optionally within one
+    /// provider). Check `hasListedPricing` before treating its rate as real.
+    public func pricedModel(forModelName modelName: String) -> BurnBarCatalogModel? {
+        let normalized = modelName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return nil }
+
+        return bestModelMatch(named: normalized)?.model
+    }
+
+    public func pricedModel(
+        forModelName modelName: String,
+        providerID: String,
+        includeHidden: Bool = true
+    ) -> BurnBarCatalogModel? {
         let normalized = modelName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalized.isEmpty, let provider = provider(id: providerID) else { return nil }
 
@@ -399,7 +441,7 @@ public struct BurnBarCatalog: Codable, Hashable, Sendable {
             models: models,
             formatFamily: provider.formatFamily
         )
-        return bestModelMatch(named: normalized, providersToSearch: [scopedProvider])?.model.pricing
+        return bestModelMatch(named: normalized, providersToSearch: [scopedProvider])?.model
     }
 
     /// Returns the catalog provider (vendor) that owns a given model name, if any.

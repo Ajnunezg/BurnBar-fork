@@ -398,6 +398,7 @@ public final class FactoryDroidParser: LogParser, Sendable {
             cacheCreationTokens: tokenData.cacheCreation,
             cacheReadTokens: tokenData.cacheRead,
             costUSD: cost,
+            pricingSource: pricing.source,
             startTime: startTime,
             endTime: endTime,
             provenanceMethod: .providerLog,

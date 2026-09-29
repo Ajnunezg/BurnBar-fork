@@ -173,7 +173,8 @@ final class GitHubCopilotUsageAPI: ProviderUsageAPI, Sendable {
                         cacheReadTokens: 0,
                         cacheCreationTokens: 0,
                         costUSD: cost,
-                        requestCount: requests
+                        requestCount: requests,
+                        pricingSource: pricing.source
                     ))
                 }
             }
@@ -202,7 +203,8 @@ final class GitHubCopilotUsageAPI: ProviderUsageAPI, Sendable {
                     cacheReadTokens: 0,
                     cacheCreationTokens: 0,
                     costUSD: cost,
-                    requestCount: entry["total_active_users"] as? Int ?? 1
+                    requestCount: entry["total_active_users"] as? Int ?? 1,
+                    pricingSource: pricing.source
                 ))
             }
         }

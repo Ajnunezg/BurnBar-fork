@@ -325,7 +325,11 @@ extension ChartsSnapshot {
         var provenanceCosts: [String: Double] = [:]
         var exactCost: Double = 0
         for row in rows {
-            let label = provenanceLabel(row.provenanceConfidence)
+            // Dollars priced at the fallback table are their own slice: the
+            // tokens may be exact, the price is a guess.
+            let label = row.pricingSource.isEstimated
+                ? Self.estimatedPriceLabel
+                : provenanceLabel(row.provenanceConfidence)
             provenanceCosts[label, default: 0] += row.cost
             if row.provenanceConfidence == .exact || row.provenanceConfidence == .derivedExact {
                 exactCost += row.cost
@@ -555,6 +559,8 @@ extension ChartsSnapshot {
             projectedMonthEndSpend: projectedMonthEnd
         )
     }
+
+    static let estimatedPriceLabel = "Estimated price"
 
     private static func provenanceLabel(_ confidence: UsageProvenanceConfidence) -> String {
         switch confidence {

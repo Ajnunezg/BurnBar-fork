@@ -38,7 +38,10 @@ final class LiftedParserBoundaryTests: XCTestCase {
         XCTAssertEqual(usage.model, "cursor-agent-pro")
         XCTAssertGreaterThan(usage.inputTokens, 0)
         XCTAssertGreaterThan(usage.outputTokens, 0)
-        XCTAssertEqual(usage.provenanceConfidence, .exact)
+        XCTAssertEqual(usage.tokenConfidence, .exact)
+        // `cursor-agent-pro` has no listed rate: the dollars are an estimate.
+        XCTAssertEqual(usage.pricingSource, .fallback)
+        XCTAssertEqual(usage.provenanceConfidence, .lowConfidenceEstimate)
 
         let conversation = try XCTUnwrap(result.conversations.first)
         XCTAssertEqual(conversation.provider, .cursorAgent)

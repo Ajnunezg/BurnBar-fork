@@ -88,12 +88,12 @@ test("extracts only complete migration contracts", () => {
 });
 
 test("current migration surfaces, catalog, and generated documentation agree", () => {
-  // 71 as of v70_agent_memories_index_backfill. This literal is a deliberate
+  // 72 as of v71_token_usage_pricing_provenance. This literal is a deliberate
   // tripwire, not a derived value: pinning it means adding a migration cannot
   // quietly pass by agreeing with itself, and forces the author past every
   // mirror. Bump it ONLY together with the migrator, the rollback catalog, the
   // Windows endpoint/count, and the byte-compat vector.
-  assert.equal(verifyMigrationRollbackCatalog(repoRoot), 71);
+  assert.equal(verifyMigrationRollbackCatalog(repoRoot), 72);
 });
 
 test("registration reorder fails closed", (t) => {
@@ -129,8 +129,8 @@ test("catalog missing a migration fails closed", (t) => {
   mutate(
     root,
     "scripts/rollback-migration.sh",
-    '"v70_agent_memories_index_backfill|atomic|unapplied-only|backup-restore|',
-    '"v70_agent_memories_index_backfill|atomic|unapplied-only|dropped|'
+    '"v71_token_usage_pricing_provenance|atomic|unapplied-only|backup-restore|',
+    '"v71_token_usage_pricing_provenance|atomic|unapplied-only|dropped|'
   );
   assert.throws(() => verifyMigrationRollbackCatalog(root), /rollback catalog order differs from migrator/u);
 });

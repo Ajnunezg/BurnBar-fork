@@ -3,7 +3,7 @@
      parity-baseline change; CI fails on any drift. -->
 # Windows Storage Schema Subset (experimental)
 
-Canonical endpoint: `v70_agent_memories_index_backfill` (71 migrations). Windows journal: 71 identifiers ending at `v70_agent_memories_index_backfill` (count 71).
+Canonical endpoint: `v71_token_usage_pricing_provenance` (72 migrations). Windows journal: 72 identifiers ending at `v71_token_usage_pricing_provenance` (count 72).
 
 Windows fresh-install provisioning mirrors only the shipped Windows subsystems (token usage, conversations + standalone FTS, chat threads/messages, budgets, switcher). Tables outside that subset are NOT created by the provisioner; Windows reads them only from Mac-transferred databases where the Mac migrator created them. The full canonical schema is `docs/SCHEMA_SQLITE.sql` (generated from the live migrator); per-object drift is enforced by `scripts/check-migrator-parity.mjs` with annotated reasons in `budgets/migrator-parity-baseline.json` — this doc renders that fence readably, it does not define it.
 
@@ -37,7 +37,7 @@ Windows fresh-install provisioning mirrors only the shipped Windows subsystems (
 | `standing_orders` | `id`, `title`, `instruction`, `cadenceKind`, `cadenceMinutes`, `cadenceHour`, `cadenceMinute`, `cadenceWeekday`, `targetBodyId`, `requiredCapabilities`, `isEnabled`, `lastFiredAt`, `createdAt`, `updatedAt` |  |
 | `switcher_active_profile` | `activeProfileID`, `providerID`, `updatedAt` |  |
 | `switcher_profiles` | `id`, `targetKind`, `browserType`, `browserMetadataJSON`, `cliType`, `cliMetadataJSON`, `sortKey`, `createdAt`, `updatedAt` |  |
-| `token_usage` | `id`, `provider`, `sessionId`, `projectName`, `model`, `inputTokens`, `outputTokens`, `cacheCreationTokens`, `cacheReadTokens`, `reasoningTokens`, `totalTokens`, `cost`, `startTime`, `endTime`, `createdAt`, `usageSource`, `executionSourceID`, `executionSourceName`, `executionSourceKind`, `executionSourceConfidence`, `sourceDeviceId`, `sourceDeviceName`, `isRemote`, `providerID`, `providerAccountID`, `providerAccountLabel`, `providerAccountSource`, `provenanceMethod`, `provenanceConfidence`, `estimatorVersion`, `parentRequestID`, `billingKind`, `originatorKind`, `originatorRef` | token_usage.syncedAt is Mac cloud-sync bookkeeping (v22 cross-device sync); the Windows port has no sync engine yet and its write seams never populate it. |
+| `token_usage` | `id`, `provider`, `sessionId`, `projectName`, `model`, `inputTokens`, `outputTokens`, `cacheCreationTokens`, `cacheReadTokens`, `reasoningTokens`, `totalTokens`, `cost`, `startTime`, `endTime`, `createdAt`, `usageSource`, `executionSourceID`, `executionSourceName`, `executionSourceKind`, `executionSourceConfidence`, `sourceDeviceId`, `sourceDeviceName`, `isRemote`, `providerID`, `providerAccountID`, `providerAccountLabel`, `providerAccountSource`, `provenanceMethod`, `provenanceConfidence`, `estimatorVersion`, `parentRequestID`, `billingKind`, `originatorKind`, `originatorRef`, `pricingSource`, `tokenConfidence` | token_usage.syncedAt is Mac cloud-sync bookkeeping (v22 cross-device sync); the Windows port has no sync engine yet and its write seams never populate it. |
 | `conversations_fts` (FTS virtual) | `inferredTaskTitle`, `fullText` |  |
 
 ## Not ported (44)

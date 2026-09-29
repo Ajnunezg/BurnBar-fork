@@ -270,6 +270,7 @@ public final class KimiParser: LogParser, Sendable {
             cacheCreationTokens: cacheCreationTokens,
             cacheReadTokens: cacheReadTokens,
             costUSD: cost,
+            pricingSource: pricing.source,
             startTime: resolvedStart,
             endTime: resolvedEnd,
             provenanceMethod: wireTokens != nil ? .providerLog : .heuristicEstimate,

@@ -158,6 +158,8 @@ final class UsageStore: Sendable {
             hasher.combine(usage.executionSourceConfidence)
             hasher.combine(usage.provenanceMethod)
             hasher.combine(usage.provenanceConfidence)
+            hasher.combine(usage.tokenConfidence)
+            hasher.combine(usage.pricingSource)
             hasher.combine(usage.providerAccountID)
             hasher.combine(usage.providerAccountLabel)
             hasher.combine(usage.providerAccountSource)

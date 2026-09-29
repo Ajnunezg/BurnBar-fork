@@ -144,7 +144,8 @@ final class OpenAIUsageAPI: ProviderUsageAPI, Sendable {
             cacheReadTokens: cached,
             cacheCreationTokens: 0,
             costUSD: cost,
-            requestCount: requests
+            requestCount: requests,
+            pricingSource: pricing.source
         )
     }
 }

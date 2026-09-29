@@ -439,6 +439,7 @@ public final class CursorAgentParser: LogParser, Sendable {
             cacheCreationTokens: cacheCreationTokens,
             cacheReadTokens: cacheReadTokens,
             costUSD: cost,
+            pricingSource: pricing.source,
             startTime: finalStartTime,
             endTime: finalEndTime,
             provenanceMethod: .providerLog,

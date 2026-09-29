@@ -362,6 +362,7 @@ public final class ClineFormatParser: LogParser, Sendable {
                 cacheCreationTokens: tokens.cacheCreationTokens,
                 cacheReadTokens: tokens.cacheReadTokens,
                 costUSD: cost,
+                pricingSource: pricing.source,
                 startTime: modelStart,
                 endTime: tokens.lastTimestamp ?? max(endTime, modelStart),
                 provenanceMethod: usedHeuristicEstimate ? .heuristicEstimate : .providerLog,

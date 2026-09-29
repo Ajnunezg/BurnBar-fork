@@ -488,6 +488,7 @@ public final class ClaudeCodeParser: LogParser, Sendable {
                 cacheCreationTokens: tokens.cacheCreationTokens,
                 cacheReadTokens: tokens.cacheReadTokens,
                 costUSD: cost,
+                pricingSource: pricing.source,
                 startTime: startTime,
                 endTime: tokens.endTime ?? max(sessionEndTime, startTime),
                 provenanceMethod: .providerLog,

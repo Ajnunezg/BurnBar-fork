@@ -31,6 +31,8 @@ struct ChartFactRow: Sendable, Equatable {
     let totalTokens: Int
     let provenanceConfidence: UsageProvenanceConfidence
     let isRemote: Bool
+    /// Where the row's dollars came from; `.fallback` rows are estimates.
+    var pricingSource: UsagePricingSource = .unknown
 }
 
 extension ChartFactRow: ChartWindowRow {
@@ -51,6 +53,7 @@ extension ChartFactRow: ChartWindowRow {
         totalTokens = usage.totalTokens
         provenanceConfidence = usage.provenanceConfidence
         isRemote = usage.isRemote
+        pricingSource = usage.pricingSource
     }
 
     func intersects(dateRange: ClosedRange<Date>) -> Bool {

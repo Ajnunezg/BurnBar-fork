@@ -166,6 +166,7 @@ enum LocalUsageParserSupport {
         cacheRead: Int = 0,
         reasoning: Int = 0,
         cost: Double,
+        pricingSource: UsagePricingSource,
         start: Date,
         end: Date,
         method: UsageProvenanceMethod,
@@ -184,6 +185,7 @@ enum LocalUsageParserSupport {
             cacheReadTokens: cacheRead,
             reasoningTokens: reasoning,
             costUSD: cost,
+            pricingSource: pricingSource,
             startTime: start,
             endTime: end,
             provenanceMethod: method,
@@ -429,8 +431,9 @@ public final class AiderParser: LogParser, Sendable {
             let model = TokenExtractionUtility.normalizeModelName(session.model)
             let start = session.start ?? LocalUsageParserSupport.modificationDate(files.first ?? root) ?? Date()
             let end = session.end ?? start
-            let cost = session.cost > 0 ? session.cost : (try? ModelPricing.lookup(model: model).cost(inputTokens: session.input, outputTokens: session.output)) ?? 0
-            return LocalUsageParserSupport.usage(provider: .aider, sessionID: "aider-\(index)-\(Int(start.timeIntervalSince1970))", project: "Aider", model: model, input: session.input, output: session.output, cost: cost, start: start, end: end, method: .providerLog, confidence: .exact)
+            let pricing = ModelPricing.lookup(model: model)
+            let cost = session.cost > 0 ? session.cost : (try? pricing.cost(inputTokens: session.input, outputTokens: session.output)) ?? 0
+            return LocalUsageParserSupport.usage(provider: .aider, sessionID: "aider-\(index)-\(Int(start.timeIntervalSince1970))", project: "Aider", model: model, input: session.input, output: session.output, cost: cost, pricingSource: session.cost > 0 ? .reported : pricing.source, start: start, end: end, method: .providerLog, confidence: .exact)
         }
         if let signature {
             parseCache.fileEntries = [cacheKey: CachedUsageBundleEntry(signature: signature, usages: usages)]
@@ -510,8 +513,9 @@ public final class CursorParser: LogParser, Sendable {
             let end = max(start, TimestampNormalizationUtility.date(fromEpoch: row.double("last_seen"), fallback: start))
             let input = count * 500
             let output = count * 150
-            let cost = (try? ModelPricing.lookup(model: model).cost(inputTokens: input, outputTokens: output)) ?? 0
-            return LocalUsageParserSupport.usage(provider: .cursor, sessionID: session, project: "Cursor", model: model, input: input, output: output, cost: cost, start: start, end: end, method: .heuristicEstimate, confidence: .lowConfidenceEstimate, estimatorVersion: "cursor-hash-count-v1")
+            let pricing = ModelPricing.lookup(model: model)
+            let cost = (try? pricing.cost(inputTokens: input, outputTokens: output)) ?? 0
+            return LocalUsageParserSupport.usage(provider: .cursor, sessionID: session, project: "Cursor", model: model, input: input, output: output, cost: cost, pricingSource: pricing.source, start: start, end: end, method: .heuristicEstimate, confidence: .lowConfidenceEstimate, estimatorVersion: "cursor-hash-count-v1")
         }
         if let signature {
             parseCache.fileEntries = [cacheKey: CachedUsageBundleEntry(signature: signature, usages: usages)]
@@ -691,7 +695,9 @@ public final class OpenCodeParser: LogParser, Sendable {
             let start = meta?.created ?? TimestampNormalizationUtility.date(fromEpoch: ordered.first?.time)
             let end = meta?.updated ?? TimestampNormalizationUtility.date(fromEpoch: ordered.last?.time, fallback: start)
             let costFromRows = ordered.compactMap(\.cost).reduce(0, +)
-            let cost = costFromRows > 0 ? costFromRows : ((try? ModelPricing.lookup(model: model).cost(inputTokens: input, outputTokens: output, cacheCreationTokens: cacheCreation, cacheReadTokens: cacheRead)) ?? 0)
+            let pricing = ModelPricing.lookup(model: model)
+            let cost = costFromRows > 0 ? costFromRows : ((try? pricing.cost(inputTokens: input, outputTokens: output, cacheCreationTokens: cacheCreation, cacheReadTokens: cacheRead)) ?? 0)
+            let pricingSource: UsagePricingSource = costFromRows > 0 ? .reported : pricing.source
             let project = meta?.directory.map { URL(fileURLWithPath: $0).lastPathComponent } ?? session
             let estimatorVersion = method == .heuristicEstimate
                 ? TokenExtractionUtility.currentEstimatorVersion
@@ -706,6 +712,7 @@ public final class OpenCodeParser: LogParser, Sendable {
                 cacheCreation: cacheCreation,
                 cacheRead: cacheRead,
                 cost: cost,
+                pricingSource: pricingSource,
                 start: start,
                 end: end,
                 method: method,
@@ -979,7 +986,8 @@ public final class PiAgentParser: LogParser, Sendable {
             input = estimate.input; output = estimate.output; method = .heuristicEstimate; confidence = .lowConfidenceEstimate
         }
         let startTime = start ?? mtime, endTime = end ?? startTime
-        let cost = (try? ModelPricing.lookup(model: model).cost(inputTokens: input, outputTokens: output, cacheCreationTokens: cacheCreation, cacheReadTokens: cacheRead)) ?? 0
+        let pricing = ModelPricing.lookup(model: model)
+        let cost = (try? pricing.cost(inputTokens: input, outputTokens: output, cacheCreationTokens: cacheCreation, cacheReadTokens: cacheRead)) ?? 0
         let project = cwd.map { URL(fileURLWithPath: $0).lastPathComponent } ?? sessionID
         let estimatorVersion = method == .heuristicEstimate
             ? TokenExtractionUtility.currentEstimatorVersion
@@ -994,6 +1002,7 @@ public final class PiAgentParser: LogParser, Sendable {
             cacheCreation: cacheCreation,
             cacheRead: cacheRead,
             cost: cost,
+            pricingSource: pricing.source,
             start: startTime,
             end: endTime,
             method: method,
@@ -1279,7 +1288,8 @@ public final class OpenClawParser: LogParser, Sendable {
                 method = .heuristicEstimate
                 confidence = .lowConfidenceEstimate
             }
-            let cost = (try? ModelPricing.lookup(model: model).cost(
+            let pricing = ModelPricing.lookup(model: model)
+            let cost = (try? pricing.cost(
                 inputTokens: input,
                 outputTokens: output,
                 cacheReadTokens: cacheRead
@@ -1297,6 +1307,7 @@ public final class OpenClawParser: LogParser, Sendable {
                 output: output,
                 cacheRead: cacheRead,
                 cost: cost,
+                pricingSource: pricing.source,
                 start: startTime,
                 end: endTime,
                 method: method,
@@ -1401,9 +1412,10 @@ public final class OllamaParser: LogParser, Sendable {
             }
             guard input > 0 || output > 0 else { continue }
             let mtime = LocalUsageParserSupport.modificationDate(file) ?? Date(); let startTime = start ?? mtime; let endTime = end ?? startTime
-            let cost = (try? ModelPricing.lookup(model: model).cost(inputTokens: input, outputTokens: output)) ?? 0
+            let pricing = ModelPricing.lookup(model: model)
+            let cost = (try? pricing.cost(inputTokens: input, outputTokens: output)) ?? 0
             let session = "ollama-\(file.deletingPathExtension().lastPathComponent)"
-            if let usage = LocalUsageParserSupport.usage(provider: .ollama, sessionID: session, project: "Ollama", model: model, input: input, output: output, cost: cost, start: startTime, end: endTime, method: .providerLog, confidence: .exact) {
+            if let usage = LocalUsageParserSupport.usage(provider: .ollama, sessionID: session, project: "Ollama", model: model, input: input, output: output, cost: cost, pricingSource: pricing.source, start: startTime, end: endTime, method: .providerLog, confidence: .exact) {
                 usages.append(usage)
                 if let signature {
                     parseCache.fileEntries[cacheKey] = CachedUsageBundleEntry(signature: signature, usages: [usage])

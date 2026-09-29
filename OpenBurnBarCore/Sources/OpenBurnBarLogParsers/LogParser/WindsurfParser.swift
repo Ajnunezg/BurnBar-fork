@@ -235,6 +235,7 @@ public final class WindsurfParser: LogParser, Sendable {
                     cacheCreationTokens: 0,
                     cacheReadTokens: 0,
                     costUSD: cost,
+                    pricingSource: pricing.source,
                     startTime: created,
                     endTime: modified,
                     provenanceMethod: .heuristicEstimate,

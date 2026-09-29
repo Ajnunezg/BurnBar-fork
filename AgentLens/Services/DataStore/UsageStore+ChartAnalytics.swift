@@ -73,7 +73,9 @@ extension UsageStore {
             ),
             provenanceConfidence: (indexed(row, ChartFactCol.provenanceConfidence.rawValue) as? String)
                 .flatMap(UsageProvenanceConfidence.init(rawValue:)) ?? .unknown,
-            isRemote: intValue(indexed(row, ChartFactCol.isRemote.rawValue)) != 0
+            isRemote: intValue(indexed(row, ChartFactCol.isRemote.rawValue)) != 0,
+            pricingSource: (indexed(row, ChartFactCol.pricingSource.rawValue) as? String)
+                .flatMap(UsagePricingSource.init(rawValue:)) ?? .unknown
         )
     }
 
