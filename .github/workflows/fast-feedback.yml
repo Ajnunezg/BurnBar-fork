@@ -142,6 +142,12 @@ jobs:
           node --test scripts/ci/check-callable-validation.test.mjs
           node scripts/ci/check-callable-validation.mjs
 
+      - name: Callable + onRequest structured logging (every firebase.json codebase)
+        # Was weekly-only (Ops Confidence) and silently scanned functions/src
+        # alone after the codebase split; it is sub-second, so it rides the door
+        # with its negative controls.
+        run: bash scripts/ci/verify-callable-logging.test.sh
+
       - name: Local-service endpoint literals ratchet
         run: node scripts/ci/check-local-service-literals.mjs
 
@@ -1417,6 +1423,10 @@ jobs:
       - name: Verify PR harness aggregate gates
         run: node scripts/ci/verify-pr-harness-aggregate-gates.mjs
 
+      - name: Self-test PR harness required/informational split
+        # Was wired nowhere and had gone red on HEAD (standing-failure job).
+        run: node scripts/ci/verify-pr-harness-required-informational-split.test.mjs
+
       - name: Self-test launch evidence capture permissions
         run: node scripts/test-capture-commercial-launch-evidence.mjs
 
@@ -1640,7 +1650,9 @@ jobs:
         run: ./scripts/ci/check-no-committed-build-artifacts.sh
 
       - name: No stale failed launch evidence
-        run: ./scripts/ci/check-no-stale-launch-evidence.sh
+        run: |
+          node --test scripts/ci/check-no-stale-launch-evidence.test.mjs
+          ./scripts/ci/check-no-stale-launch-evidence.sh
 
       - name: Root inventory ratchet (shrink-only)
         run: ./scripts/ci/check-root-inventory.sh
