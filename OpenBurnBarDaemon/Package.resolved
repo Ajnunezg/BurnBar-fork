@@ -1,5 +1,5 @@
 {
-  "originHash" : "6de4624b7c27869b3bf66e13cb317fadaddcda3248e05b72cd9a798801649a4f",
+  "originHash" : "ca6fef9c69a1992d8c73ec998d3a7f5c2677b4154c8a4e4c1f5517d9501806fa",
   "pins" : [
     {
       "identity" : "sentry-cocoa",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto.git",
       "state" : {
-        "revision" : "95ba0316a9b733e92bb6b071255ff46263bbe7dc",
-        "version" : "3.15.1"
+        "revision" : "a9d1d5ab8951ada40cafff8c8e2b551dfde4f390",
+        "version" : "5.0.0"
       }
     }
   ],

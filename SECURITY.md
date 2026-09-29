@@ -137,7 +137,7 @@ and Android; what remains are process gates that no commit can close:
    platforms (`OBBSignalInteropKatTests` opens `android-alice-to-swift-bob.json`;
    `AndroidSignalInteropKatTest` opens `swift-alice-to-android-bob.json`), the sender-auth
    signed-message KAT is committed on both sides, and `scripts/ci/verify-signal-cross-device-kats.sh`
-   pins the fixtures + crypto-proof harness in CI. `Vendor/libsignal` is pinned at v0.94.4
+   pins the fixtures + crypto-proof harness in CI. `Vendor/libsignal` is pinned at v0.103.0
    (`scripts/ci/verify-libsignal-pin.sh`); run it with `--network` at release time to verify
    the vendored tree byte-matches official upstream.
 6. **Revocation rewrap.** CloudVault rotation and client-side rewrap workers now exist, including

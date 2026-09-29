@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Official libsignal pin moved from v0.94.4 to v0.103.0 on every consumer** —
+  the `Vendor/libsignal` fork (rebased onto the official v0.103.0 tag; its
+  delta is now only the Swift FFI packaging and the Swift 6.4 async
+  sendability shim), Android `org.signal:libsignal-android` /
+  `libsignal-client`, and Node `@signalapp/libsignal-client`. No wire-format
+  migration: the committed cross-platform KAT vectors produced at v0.94.4
+  still open on Node, Swift and Kotlin at v0.103.0, and freshly generated
+  v0.103.0 vectors round-trip Android↔Swift. The rust-core bridge evidence was
+  regenerated against the new tree.
+- **SwiftPM: swift-crypto 5.0.0 and swift-testing 6.3.2** (Swift 6.2+
+  toolchains) are resolved consistently across OpenBurnBarCore, the daemon,
+  the app workspace, the matched-performance probe and the Linux-port
+  harnesses.
 - **AgentLens/Services has an enforced dependency direction** — a new fitness
   gate (`scripts/debt/check-services-layering.sh`, ADR 017) resolves every type
   reference in the macOS app to a layered component and fails CI on any new

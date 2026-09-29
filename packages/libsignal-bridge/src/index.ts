@@ -11,11 +11,11 @@ export * from "./protocolHarness.js";
 
 export const LIBSIGNAL_PIN = {
   packageName: "@signalapp/libsignal-client",
-  version: "0.94.4",
+  version: "0.103.0",
   upstreamRepository: "https://github.com/signalapp/libsignal",
-  upstreamTag: "v0.94.4",
-  upstreamTagObject: "03c449017b57eccbda715b8b018dce5dff603ac6",
-  upstreamCommit: "46d867c986f66201e34e7ae20ce423eec742bf3f",
+  upstreamTag: "v0.103.0",
+  upstreamTagObject: "6c573a122a5e1055408d7de00388ac9d6e7dfdf4",
+  upstreamCommit: "ba133bd3457f556fbf56db0a5ab985de0af79da6",
   license: "AGPL-3.0-only",
 } as const;
 

@@ -32,8 +32,8 @@ require_file scripts/ci/verify-libsignal-runtime-readiness.sh
 grep -q "GNU AFFERO GENERAL PUBLIC LICENSE" LICENSE || fail "root LICENSE is not AGPLv3 text"
 grep -q "MIT License" LICENSES/MIT-legacy.txt || fail "legacy MIT notice is missing"
 grep -q "AGPL-3.0-only" NOTICE || fail "NOTICE does not identify AGPL-3.0-only"
-grep -q "46d867c986f66201e34e7ae20ce423eec742bf3f" third_party/libsignal/manifest.json || fail "libsignal commit pin drifted"
-grep -q "v0.94.4" THIRD_PARTY_NOTICES.md || fail "third-party notices do not record the libsignal tag"
+grep -q "ba133bd3457f556fbf56db0a5ab985de0af79da6" third_party/libsignal/manifest.json || fail "libsignal commit pin drifted"
+grep -q "v0.103.0" THIRD_PARTY_NOTICES.md || fail "third-party notices do not record the libsignal tag"
 
 node <<'NODE'
 const fs = require('node:fs');
@@ -71,9 +71,9 @@ if (failures.length) {
 
 const manifest = JSON.parse(fs.readFileSync('third_party/libsignal/manifest.json', 'utf8'));
 if (manifest.license !== 'AGPL-3.0-only') throw new Error('libsignal manifest license drifted');
-if (manifest.pinnedTag !== 'v0.94.4') throw new Error('libsignal manifest tag drifted');
-if (manifest.pinnedTagObject !== '03c449017b57eccbda715b8b018dce5dff603ac6') throw new Error('libsignal manifest tag object drifted');
-if (manifest.pinnedCommit !== '46d867c986f66201e34e7ae20ce423eec742bf3f') throw new Error('libsignal manifest commit drifted');
+if (manifest.pinnedTag !== 'v0.103.0') throw new Error('libsignal manifest tag drifted');
+if (manifest.pinnedTagObject !== '6c573a122a5e1055408d7de00388ac9d6e7dfdf4') throw new Error('libsignal manifest tag object drifted');
+if (manifest.pinnedCommit !== 'ba133bd3457f556fbf56db0a5ab985de0af79da6') throw new Error('libsignal manifest commit drifted');
 if (manifest.artifacts?.node?.package !== '@signalapp/libsignal-client') throw new Error('libsignal node artifact missing');
 
 const runtime = JSON.parse(fs.readFileSync('third_party/libsignal/runtime-readiness.json', 'utf8'));
