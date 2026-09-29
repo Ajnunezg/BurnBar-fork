@@ -194,6 +194,105 @@ final class ChartFactRowSQLTests: XCTestCase {
         )
     }
 
+    // MARK: - All-time SQL aggregates
+
+    func test_allTimeAggregates_matchPerRowSnapshot_withFactsBoundedBySlotAndDimensions() async throws {
+        let (usageStore, now) = try await aggregateSeededStore()
+        let recent = ChartsDataService.recentRange(now: now)
+        let perRow = try await usageStore.fetchChartFactRows(in: nil)
+        XCTAssertEqual(perRow.count, 1_560)
+        let windows = ChartsDataService.deriveWindows(coveringRows: perRow, requestedRange: nil, recentRange: recent)
+        let fromRows = ChartsSnapshot.build(
+            rows: windows.selected, recentRows: windows.recent, timeRange: .allTime, usagesVersion: 4, now: now
+        )
+
+        let aggregates = try await usageStore.fetchChartAggregates(recentRange: recent)
+        let fromAggregates = ChartsSnapshot.build(
+            facts: aggregates.facts,
+            recentFacts: aggregates.recentFacts,
+            sessions: aggregates.sessions,
+            timeRange: .allTime,
+            usagesVersion: 4,
+            now: now
+        )
+
+        // One fact per (15-minute slot, every chart dimension, recent 31-day
+        // membership): the grain is pinned exactly, and it is bounded by time ×
+        // dimensions — a fraction of the 1,560 rows / 1,400 sessions.
+        struct Grain: Hashable {
+            let slot: Int, project: String, model: String, provider: AgentProvider
+            let billing: BurnBarBillingKind, source: UsageSource, provenance: UsageProvenanceConfidence
+            let isRemote: Bool, inRecent: Bool
+        }
+        let grains = Set(perRow.map {
+            Grain(
+                slot: Int(($0.startTime.timeIntervalSince1970 / Double(UsageStore.chartAggregateSlotSeconds)).rounded(.down)),
+                project: $0.projectName, model: $0.model, provider: $0.provider,
+                billing: $0.billingKind, source: $0.usageSource, provenance: $0.provenanceConfidence,
+                isRemote: $0.isRemote, inRecent: $0.intersects(dateRange: recent)
+            )
+        })
+        XCTAssertEqual(aggregates.facts.count, grains.count)
+        XCTAssertLessThan(aggregates.facts.count, perRow.count / 5)
+        XCTAssertEqual(aggregates.recentFacts.count, grains.filter(\.inRecent).count)
+        XCTAssertEqual(aggregates.sessions.count, 1_400)
+        XCTAssertEqual(aggregates.sessions.costs.count, 1_400)
+        XCTAssertEqual(
+            fromAggregates.outlierSessions.map(\.sessionId),
+            ["agg-session-1391", "agg-session-1392", "agg-session-1393", "agg-session-1394", "agg-session-1370"]
+        )
+
+        Self.assertEquivalent(fromAggregates, fromRows)
+    }
+
+    func test_allTimeAggregates_dropTheRowsThePerRowScanCannotDecode() async throws {
+        let (usageStore, now) = try await aggregateSeededStore()
+        try await usageStore.dbQueue.write { db in
+            try db.execute(sql: "UPDATE token_usage SET provider = 'retired-provider' WHERE sessionId = 'agg-session-707'")
+            try db.execute(sql: "UPDATE token_usage SET startTime = 'not-a-date' WHERE sessionId = 'agg-session-911'")
+        }
+        let recent = ChartsDataService.recentRange(now: now)
+        let perRow = try await usageStore.fetchChartFactRows(in: nil)
+        XCTAssertEqual(perRow.count, 1_558)
+        let windows = ChartsDataService.deriveWindows(coveringRows: perRow, requestedRange: nil, recentRange: recent)
+        let fromRows = ChartsSnapshot.build(
+            rows: windows.selected, recentRows: windows.recent, timeRange: .allTime, usagesVersion: 5, now: now
+        )
+        let aggregates = try await usageStore.fetchChartAggregates(recentRange: recent)
+        XCTAssertEqual(aggregates.sessions.count, 1_398)
+
+        Self.assertEquivalent(
+            ChartsSnapshot.build(
+                facts: aggregates.facts,
+                recentFacts: aggregates.recentFacts,
+                sessions: aggregates.sessions,
+                timeRange: .allTime,
+                usagesVersion: 5,
+                now: now
+            ),
+            fromRows
+        )
+    }
+
+    func test_emptyLedger_allTimeAggregatesBuildTheEmptySnapshot() async throws {
+        let queue = try DatabaseQueue()
+        _ = try DataStore(databaseQueue: queue, runMigrations: true, refreshOnInit: false)
+        let usageStore = UsageStore(dbQueue: queue)
+        let now = Date()
+        let aggregates = try await usageStore.fetchChartAggregates(recentRange: ChartsDataService.recentRange(now: now))
+        XCTAssertTrue(aggregates.facts.isEmpty)
+        XCTAssertEqual(aggregates.sessions, ChartSessionTotals(count: 0, costs: [], outlierSessions: []))
+        let snapshot = ChartsSnapshot.build(
+            facts: aggregates.facts,
+            recentFacts: aggregates.recentFacts,
+            sessions: aggregates.sessions,
+            timeRange: .allTime,
+            usagesVersion: 0,
+            now: now
+        )
+        XCTAssertEqual(snapshot, ChartsSnapshot.build(rows: [ChartFactRow](), recentRows: [], timeRange: .allTime, usagesVersion: 0, now: now))
+    }
+
     func test_selectColumnOrder_matchesIndexEnums() {
         XCTAssertEqual(
             UsageStore.usageDecodeSelectColumns[UsageStore.UsageDecodeCol.id.rawValue],
@@ -227,6 +326,11 @@ final class ChartFactRowSQLTests: XCTestCase {
             UsageStore.chartSessionSelectColumns.count,
             UsageStore.ChartSessionCol.provider.rawValue + 1
         )
+        XCTAssertEqual(
+            UsageStore.chartAggregateSelectColumns.count,
+            UsageStore.chartAggregateBilledTotalColumn + 1
+        )
+        XCTAssertEqual(UsageStore.chartAggregateRecentWindowColumn, UsageStore.chartAggregateBilledTotalColumn + 1)
     }
 
     func test_chartFactIndexDecode_matchesNamedColumnOracle() async throws {
@@ -499,6 +603,150 @@ final class ChartFactRowSQLTests: XCTestCase {
             billingKind: (row["billingKind"] as? String)
                 .flatMap(BurnBarBillingKind.init(rawValue:)) ?? .unknown
         )
+    }
+
+    /// 1,400 sessions (160 with a second model row) packed into 26 fifteen-
+    /// minute bursts from 30 minutes to ~83 days ago, plus a row just after
+    /// `now` that shares `now`'s slot and dimensions with one just before it,
+    /// one session spanning the 31-day edge, and rows that straddle the edge
+    /// inside one slot. Like real traffic, a burst mostly works one provider
+    /// and project; every grouped dimension varies inside it. Costs are
+    /// multiples of 1/8 so every sum is exact in any grouping or order. The four
+    /// costliest sessions are distinct and 21 tie for fifth, so the session-id
+    /// tie-break decides the last outlier.
+    private func aggregateSeededStore() async throws -> (UsageStore, Date) {
+        let queue = try DatabaseQueue()
+        _ = try DataStore(databaseQueue: queue, runMigrations: true, refreshOnInit: false)
+        let usageStore = UsageStore(dbQueue: queue)
+        let slotSeconds = TimeInterval(UsageStore.chartAggregateSlotSeconds)
+        // Mid-slot, so a row just before `now` and one just after share a slot.
+        let now = Date(timeIntervalSince1970: (Date().timeIntervalSince1970 / slotSeconds).rounded(.down) * slotSeconds + 450)
+        let burstHoursAgo: [Double] = [
+            0.5, 2, 5, 9, 26, 30, 49, 73, 97, 121, 150, 200, 260,
+            330, 400, 480, 560, 640, 720, 745, 760, 900, 1_100, 1_300, 1_500, 2_000
+        ]
+        let providers: [(AgentProvider, [String])] = [
+            (.claudeCode, ["claude-opus-4-8", "claude-sonnet-4-6"]),
+            (.codex, ["gpt-5.6", "gpt-5.6-mini"]),
+            (.cursor, ["cursor-fast", "cursor-max"])
+        ]
+        let projects = ["alpha", "beta", ""]
+        let provenance: [UsageProvenanceConfidence] = [.exact, .highConfidenceEstimate, .lowConfidenceEstimate]
+        let topCosts: [Int: Double] = [1_391: 400, 1_392: 350, 1_393: 300, 1_394: 250]
+        let tiedForFifth = 1_370..<1_391
+        var rows: [TokenUsage] = []
+        func row(_ index: Int, burst: Int, secondModel: Bool = false, start: Date, end: Date) -> TokenUsage {
+            // Each dimension also flips for a sparse subset of rows, so a burst
+            // splits into several facts and every GROUP BY key is exercised.
+            func flip(_ modulus: Int) -> Int { index % modulus == 0 ? 1 : 0 }
+            // A flipped provider keeps the burst's models: one model name can
+            // bill through two providers.
+            let provider = providers[(burst + flip(37)) % providers.count].0
+            let models = providers[burst % providers.count].1
+            return TokenUsage(
+                provider: provider,
+                sessionId: "agg-session-\(index)",
+                projectName: projects[(burst / 3 + flip(29)) % projects.count],
+                model: models[secondModel ? 1 : 0],
+                inputTokens: (index % 50) * 10 + 1,
+                outputTokens: (index % 17) * 3,
+                cacheCreationTokens: index % 4 == 0 ? 100 : 0,
+                cacheReadTokens: (index % 9) * 20,
+                reasoningTokens: index % 6 == 0 ? 40 : 0,
+                costUSD: topCosts[index] ?? (tiedForFifth.contains(index) ? 200 : Double((index * 7) % 29 + 1) / 8),
+                startTime: start,
+                endTime: end,
+                usageSource: flip(41) == 1 ? .billingAPI : .providerLog,
+                isRemote: index % 11 == 1,
+                provenanceConfidence: provenance[(burst + flip(31)) % provenance.count],
+                billingKind: (burst + flip(17)) % 4 == 0 ? .api : .unknown
+            )
+        }
+        for index in 0..<1_396 {
+            let burst = index % burstHoursAgo.count
+            let ordinal = index / burstHoursAgo.count
+            let hoursAgo = burstHoursAgo[burst]
+            let slotStart = ((now.timeIntervalSince1970 - hoursAgo * 3_600) / slotSeconds).rounded(.down) * slotSeconds
+            let start = Date(timeIntervalSince1970: slotStart + Double(ordinal % 840))
+            // In the 745h burst (just past the 31-day edge) every other row
+            // runs into the recent window: same slot, different membership.
+            let end = start.addingTimeInterval(hoursAgo == 745 && ordinal.isMultiple(of: 2) ? 7_200 : 30)
+            rows.append(row(index, burst: burst, start: start, end: end))
+            if index < 160 {
+                rows.append(row(index, burst: burst, secondModel: true, start: start.addingTimeInterval(2), end: end))
+            }
+        }
+        rows.append(row(1_396, burst: 0, start: now.addingTimeInterval(300), end: now.addingTimeInterval(360)))
+        rows.append(row(1_397, burst: 0, start: now.addingTimeInterval(-120), end: now.addingTimeInterval(-60)))
+        rows.append(row(1_398, burst: 2, start: now.addingTimeInterval(-3 * 3_600), end: now.addingTimeInterval(-2 * 3_600)))
+        rows.append(row(1_399, burst: 3, start: now.addingTimeInterval(-32 * 86_400), end: now.addingTimeInterval(-30 * 86_400)))
+        try await usageStore.insert(rows)
+        return (usageStore, now)
+    }
+
+    /// Field-by-field snapshot equality. Keyed mixes compare as dictionaries
+    /// (a cost tie may order differently when the fold sees facts instead of
+    /// rows); the two sums over dictionary values allow last-bit error.
+    private static func assertEquivalent(
+        _ lhs: ChartsSnapshot,
+        _ rhs: ChartsSnapshot,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertEqual(lhs.isEmpty, rhs.isEmpty, file: file, line: line)
+        XCTAssertEqual(lhs.totalCost, rhs.totalCost, file: file, line: line)
+        XCTAssertEqual(lhs.totalTokens, rhs.totalTokens, file: file, line: line)
+        XCTAssertEqual(lhs.sessionCount, rhs.sessionCount, file: file, line: line)
+        XCTAssertEqual(lhs.burnSeries, rhs.burnSeries, file: file, line: line)
+        XCTAssertEqual(lhs.burnTrendPercent, rhs.burnTrendPercent, file: file, line: line)
+        XCTAssertEqual(lhs.apiBurnSeries, rhs.apiBurnSeries, file: file, line: line)
+        XCTAssertEqual(lhs.subscriptionBurnSeries, rhs.subscriptionBurnSeries, file: file, line: line)
+        XCTAssertEqual(lhs.unknownBurnSeries, rhs.unknownBurnSeries, file: file, line: line)
+        XCTAssertEqual(lhs.apiCost, rhs.apiCost, file: file, line: line)
+        XCTAssertEqual(lhs.subscriptionCost, rhs.subscriptionCost, file: file, line: line)
+        XCTAssertEqual(lhs.unknownBillingCost, rhs.unknownBillingCost, file: file, line: line)
+        XCTAssertEqual(
+            Dictionary(uniqueKeysWithValues: lhs.providerShares.map { ($0.provider, $0.cost) }),
+            Dictionary(uniqueKeysWithValues: rhs.providerShares.map { ($0.provider, $0.cost) }),
+            file: file, line: line
+        )
+        XCTAssertEqual(
+            Dictionary(uniqueKeysWithValues: lhs.modelCosts.map { ($0.label, $0.value) }),
+            Dictionary(uniqueKeysWithValues: rhs.modelCosts.map { ($0.label, $0.value) }),
+            file: file, line: line
+        )
+        XCTAssertEqual(lhs.cacheHitRateSeries, rhs.cacheHitRateSeries, file: file, line: line)
+        XCTAssertEqual(lhs.cacheHitRate, rhs.cacheHitRate, file: file, line: line)
+        XCTAssertEqual(lhs.cacheReadTokens, rhs.cacheReadTokens, file: file, line: line)
+        XCTAssertEqual(lhs.cacheSavingsEstimate, rhs.cacheSavingsEstimate, file: file, line: line)
+        XCTAssertEqual(lhs.reasoningShareSeries, rhs.reasoningShareSeries, file: file, line: line)
+        XCTAssertEqual(lhs.reasoningShare, rhs.reasoningShare, file: file, line: line)
+        XCTAssertEqual(lhs.hourWeekdayCost, rhs.hourWeekdayCost, file: file, line: line)
+        XCTAssertEqual(lhs.peakWeekdayIndex, rhs.peakWeekdayIndex, file: file, line: line)
+        XCTAssertEqual(lhs.peakHour, rhs.peakHour, file: file, line: line)
+        XCTAssertEqual(lhs.thisWeekDaily, rhs.thisWeekDaily, file: file, line: line)
+        XCTAssertEqual(lhs.lastWeekDaily, rhs.lastWeekDaily, file: file, line: line)
+        XCTAssertEqual(lhs.weekOverWeekPercent, rhs.weekOverWeekPercent, file: file, line: line)
+        XCTAssertEqual(lhs.sessionCostBins, rhs.sessionCostBins, file: file, line: line)
+        XCTAssertEqual(lhs.medianSessionCost, rhs.medianSessionCost, file: file, line: line)
+        XCTAssertEqual(lhs.outlierSessions, rhs.outlierSessions, file: file, line: line)
+        XCTAssertEqual(lhs.projectDayStarts, rhs.projectDayStarts, file: file, line: line)
+        XCTAssertEqual(
+            Dictionary(uniqueKeysWithValues: lhs.projectSeries.map { ($0.projectName, $0.dailyCosts) }),
+            Dictionary(uniqueKeysWithValues: rhs.projectSeries.map { ($0.projectName, $0.dailyCosts) }),
+            file: file, line: line
+        )
+        XCTAssertEqual(lhs.projectEntropy, rhs.projectEntropy, accuracy: 1e-12, file: file, line: line)
+        XCTAssertEqual(lhs.forecast, rhs.forecast, file: file, line: line)
+        XCTAssertEqual(
+            Dictionary(uniqueKeysWithValues: lhs.provenanceShares.map { ($0.label, $0.value) }),
+            Dictionary(uniqueKeysWithValues: rhs.provenanceShares.map { ($0.label, $0.value) }),
+            file: file, line: line
+        )
+        XCTAssertEqual(lhs.exactShare, rhs.exactShare, file: file, line: line)
+        XCTAssertEqual(lhs.modelConcentrationIndex, rhs.modelConcentrationIndex, accuracy: 1e-12, file: file, line: line)
+        XCTAssertEqual(lhs.remoteCost, rhs.remoteCost, file: file, line: line)
+        XCTAssertEqual(lhs.localCost, rhs.localCost, file: file, line: line)
     }
 
     private func seededStore() async throws -> (UsageStore, Date) {

@@ -191,6 +191,29 @@ extension ChartsSnapshot {
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> ChartsSnapshot {
+        build(
+            facts: rows,
+            recentFacts: recentRows,
+            sessions: ChartSessionTotals(events: rows.map(ChartSessionAnalytics.Event.init)),
+            timeRange: timeRange,
+            usagesVersion: usagesVersion,
+            now: now,
+            calendar: calendar
+        )
+    }
+
+    /// Builds from facts that are either per-row or pre-aggregated in SQL
+    /// (`ChartAggregates`): every series below sums facts and reads no
+    /// session identity — the session cards come from `sessions`.
+    static func build(
+        facts rows: [ChartFactRow],
+        recentFacts recentRows: [ChartFactRow],
+        sessions: ChartSessionTotals,
+        timeRange: TimeRange,
+        usagesVersion: Int,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> ChartsSnapshot {
         let range = resolvedRange(for: timeRange, rows: rows, now: now, calendar: calendar)
         let bucketComponent: Calendar.Component = timeRange == .today ? .hour : .day
 
@@ -241,7 +264,6 @@ extension ChartsSnapshot {
 
         let totalCost = rows.reduce(0) { $0 + $1.cost }
         let totalTokens = rows.reduce(0) { $0 + $1.totalTokens }
-        let sessionIDs = Set(rows.map(\.sessionId))
 
         // Provider / model mixes
         var providerCosts: [AgentProvider: Double] = [:]
@@ -279,10 +301,11 @@ extension ChartsSnapshot {
         let reasoningTotal = rows.reduce(0) { $0 + $1.reasoningTokens }
         let reasoningShare = totalTokens > 0 ? Double(reasoningTotal) / Double(totalTokens) : 0
 
-        // Heatmap / outliers / entropy share one fold so the SQL narrow-scan
-        // path can match `ChartsSnapshot.build` bit-identically.
-        let sessionAnalytics = ChartSessionAnalytics.from(rows: rows, range: range, calendar: calendar)
-        let matrix = sessionAnalytics.hourWeekdayCost
+        // Heatmap / outliers / entropy share `ChartSessionAnalytics`'s folds so
+        // the SQL narrow-scan path can match `ChartsSnapshot.build`
+        // bit-identically.
+        let events = rows.map(ChartSessionAnalytics.Event.init)
+        let matrix = ChartSessionAnalytics.hourWeekdayCost(of: events, in: range, calendar: calendar)
         let peak = peakCell(in: matrix)
 
         // Week vs week (trailing fixed windows anchored at start of today)
@@ -292,13 +315,6 @@ extension ChartsSnapshot {
         let wowPercent: Double? = lastWeekTotal > 0
             ? ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100
             : nil
-
-        // Sessions
-        var sessionCosts: [String: Double] = [:]
-        for row in rows {
-            sessionCosts[row.sessionId, default: 0] += row.cost
-        }
-        let costsPerSession = Array(sessionCosts.values)
 
         // Project focus
         var projectCosts: [String: Double] = [:]
@@ -349,7 +365,7 @@ extension ChartsSnapshot {
             isEmpty: rows.isEmpty,
             totalCost: totalCost,
             totalTokens: totalTokens,
-            sessionCount: sessionIDs.count,
+            sessionCount: sessions.count,
             burnSeries: burnSeries,
             burnTrendPercent: halfOverHalfPercent(burnSeries.map(\.value)),
             apiBurnSeries: apiBurnSeries,
@@ -372,12 +388,12 @@ extension ChartsSnapshot {
             thisWeekDaily: thisWeek,
             lastWeekDaily: lastWeek,
             weekOverWeekPercent: wowPercent,
-            sessionCostBins: ChartBucketing.histogramLogBuckets(values: costsPerSession),
-            medianSessionCost: ChartBucketing.median(costsPerSession.filter { $0 > 0 }),
-            outlierSessions: sessionAnalytics.outlierSessions,
+            sessionCostBins: ChartBucketing.histogramLogBuckets(values: sessions.costs),
+            medianSessionCost: ChartBucketing.median(sessions.costs.filter { $0 > 0 }),
+            outlierSessions: sessions.outlierSessions,
             projectDayStarts: dayStarts,
             projectSeries: projectSeries,
-            projectEntropy: sessionAnalytics.projectEntropy,
+            projectEntropy: ChartSessionAnalytics.projectEntropy(of: events),
             forecast: forecast,
             provenanceShares: provenanceShares,
             exactShare: exactShare,
