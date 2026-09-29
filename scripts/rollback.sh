@@ -216,7 +216,7 @@ echo "=== Rollback Plan ==="
 echo "  From:   ${CURRENT_TAG}"
 echo "  To:     ${TARGET_TAG}"
 echo "  Commit: ${TARGET_COMMIT}"
-echo "  Config: functions/.env.burnbar.production (committed, reviewed)"
+echo "  Config: <codebase>/.env.burnbar.production for each codebase the target deploys (committed, reviewed)"
 echo ""
 
 if [[ ! -f "functions/.env.burnbar.production" ]]; then
@@ -224,12 +224,13 @@ if [[ ! -f "functions/.env.burnbar.production" ]]; then
   exit 1
 fi
 
-DIFF_STAT=$(git diff --stat "refs/tags/${TARGET_TAG}"...HEAD -- functions/ || true)
+DIFF_STAT=$(git diff --stat "refs/tags/${TARGET_TAG}"...HEAD -- \
+  functions/ functions-identity/ functions-sync/ functions-media/ packages/functions-shared/ || true)
 if [[ -n "$DIFF_STAT" ]]; then
-  echo "Files changed in functions/ since ${TARGET_TAG}:"
+  echo "Files changed in the Functions codebases since ${TARGET_TAG}:"
   echo "$DIFF_STAT"
 else
-  echo "No changes in functions/ since ${TARGET_TAG}."
+  echo "No changes in the Functions codebases since ${TARGET_TAG}."
 fi
 echo ""
 
@@ -275,21 +276,21 @@ fi
 
 # ── Execute rollback ─────────────────────────────────────────────────────
 
+# Reviewed Functions deploy codebases (Wave 3.5 split the monolith into these).
+REVIEWED_CODEBASES="functions functions-identity functions-sync functions-media"
+
 # H14: capture the committed, reviewed production runtime config from the
 # CURRENT tree BEFORE checking out the (older) target tag. The old tag may
-# predate this file, and a rollback must never ship with empty runtime config.
-# Both this script and the production deploy lane source the SAME file
-# (functions/.env.burnbar.production), so they can never disagree.
-PROD_CONFIG="functions/.env.burnbar.production"
-PROD_CONFIG_SNAPSHOT=""
-if [[ -f "$PROD_CONFIG" ]]; then
-  PROD_CONFIG_SNAPSHOT="$(mktemp)"
-  cp "$PROD_CONFIG" "$PROD_CONFIG_SNAPSHOT"
-else
-  echo "ERROR: Missing $PROD_CONFIG — refusing to roll back with empty runtime config." >&2
-  echo "       This file is the committed source of truth for production env." >&2
-  exit 1
-fi
+# predate these files, and a rollback must never ship with empty runtime config.
+# Both this script and the production deploy lane source the SAME files
+# (<codebase>/.env.burnbar.production), so they can never disagree.
+PROD_CONFIG_SNAPSHOTS="$(mktemp -d)"
+trap 'rm -rf "$PROD_CONFIG_SNAPSHOTS"' EXIT
+for codebase in $REVIEWED_CODEBASES; do
+  if [[ -f "${codebase}/.env.burnbar.production" ]]; then
+    cp "${codebase}/.env.burnbar.production" "${PROD_CONFIG_SNAPSHOTS}/${codebase}"
+  fi
+done
 
 ROLLBACK_BRANCH="rollback/${TARGET_TAG}-$(date +%Y%m%d%H%M%S)"
 echo "==> Creating rollback branch: ${ROLLBACK_BRANCH}"
@@ -299,27 +300,65 @@ if [[ "$(git rev-parse HEAD)" != "$TARGET_COMMIT" ]]; then
   exit 1
 fi
 
-# Materialize the current reviewed runtime config into the deploy env file so
-# the rolled-back functions deploy with the same non-secret IDs/URLs the live
-# deploy lane uses — never empty config from a year-old tree. Dynamic release
-# identity and Sentry values mirror deploy-production.yml exactly.
-echo "==> Applying production runtime config (${PROD_CONFIG})..."
-{
-  cat "$PROD_CONFIG_SNAPSHOT"
-  echo ""
-  echo "FUNCTION_VERSION=${TARGET_TAG}"
-  echo "OPENBURNBAR_SOURCE_COMMIT=${TARGET_COMMIT}"
-  echo "SENTRY_DSN=${SENTRY_DSN}"
-  echo "SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT}"
-} > "functions/.env.burnbar"
-rm -f "$PROD_CONFIG_SNAPSHOT"
+# The target tag's firebase.json decides which codebases deploy: tags before
+# the 3.5 split carry only `functions` (a missing firebase.json means the same).
+TARGET_CODEBASES="functions"
+if [[ -f firebase.json ]]; then
+  TARGET_CODEBASES="$(python3 -c '
+import json
+functions = json.load(open("firebase.json", encoding="utf-8")).get("functions", {})
+entries = functions if isinstance(functions, list) else [functions]
+print(" ".join(entry.get("source", "functions") for entry in entries))
+')"
+fi
+if [[ -z "$TARGET_CODEBASES" ]]; then
+  echo "ERROR: ${TARGET_TAG} firebase.json declares no Functions codebase." >&2
+  exit 1
+fi
+for codebase in $TARGET_CODEBASES; do
+  if [[ " ${REVIEWED_CODEBASES} " != *" ${codebase} "* ]]; then
+    echo "ERROR: ${TARGET_TAG} firebase.json names an unreviewed Functions codebase dir: ${codebase}" >&2
+    exit 1
+  fi
+  if [[ ! -f "${PROD_CONFIG_SNAPSHOTS}/${codebase}" ]]; then
+    echo "ERROR: Missing ${codebase}/.env.burnbar.production in the current tree — refusing to roll back with empty runtime config." >&2
+    exit 1
+  fi
+done
+
+# Materialize the current reviewed runtime config into each codebase's deploy
+# env file so the rolled-back functions deploy with the same non-secret IDs/URLs
+# the live deploy lane uses — never empty config from a year-old tree. Dynamic
+# release identity and Sentry values mirror deploy-production.yml exactly.
+for codebase in $TARGET_CODEBASES; do
+  echo "==> Applying production runtime config (${codebase}/.env.burnbar.production)..."
+  {
+    cat "${PROD_CONFIG_SNAPSHOTS}/${codebase}"
+    echo ""
+    echo "FUNCTION_VERSION=${TARGET_TAG}"
+    echo "OPENBURNBAR_SOURCE_COMMIT=${TARGET_COMMIT}"
+    echo "SENTRY_DSN=${SENTRY_DSN}"
+    echo "SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT}"
+  } > "${codebase}/.env.burnbar"
+done
 export FUNCTION_VERSION="$TARGET_TAG"
 export OPENBURNBAR_SOURCE_COMMIT="$TARGET_COMMIT"
 export SENTRY_ENVIRONMENT
 
-echo "==> Building functions for rollback..."
-npm ci --prefix functions
-npm run build --prefix functions
+echo "==> Building functions for rollback (${TARGET_CODEBASES})..."
+if [[ -f packages/functions-shared/package.json ]]; then
+  npm ci --prefix packages/functions-shared
+  for codebase in $TARGET_CODEBASES; do
+    npm ci --prefix "$codebase"
+  done
+  bash scripts/build-functions-all.sh
+elif [[ "$TARGET_CODEBASES" == "functions" ]]; then
+  npm ci --prefix functions
+  npm run build --prefix functions
+else
+  echo "ERROR: ${TARGET_TAG} declares several Functions codebases without packages/functions-shared: ${TARGET_CODEBASES}" >&2
+  exit 1
+fi
 
 echo "==> Deploying functions rollback..."
 FIREBASE_PROJECT=$(node -e "try{const r=require('./firebase.json');console.log(r.projectId||r.default||'')}catch{}" 2>/dev/null || cat .firebaserc | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('projects',{}).get('default',''))" 2>/dev/null || echo "")

@@ -1429,6 +1429,9 @@ jobs:
       - name: Verify production deploy auth boundary
         run: bash scripts/ci/verify-production-deploy-auth.sh
 
+      - name: Verify production Functions deploy follows every codebase
+        run: node --test scripts/ci/verify-functions-deploy-codebases.test.mjs
+
   # ── Mac/iOS Swift twin-basename gate (stop new forked twins) ───────────────
   twin-basenames:
     name: Swift twin basenames

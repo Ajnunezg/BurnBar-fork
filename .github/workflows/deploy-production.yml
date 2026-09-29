@@ -629,8 +629,39 @@ jobs:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -euo pipefail
-          npm ci --prefix functions
-          npm run build --prefix functions
+          # Wave 3.5 (2026-09-24) split Functions into up to four deploy
+          # codebases built over packages/functions-shared. The tag payload's
+          # firebase.json is the source of truth: an existing-tag retry or
+          # rollback of an older tag still carries the single `functions`
+          # codebase, so derive the list instead of assuming either layout.
+          # A `functions`-only install + build of a 3.5 payload fails in tsc
+          # (@openburnbar/functions-shared is never built), and staging only
+          # `functions/` breaks the portable Firebase config below.
+          mapfile -t codebases < <(jq -er '.functions | if type == "array" then . else [.] end | .[].source' firebase.json)
+          if [[ "${#codebases[@]}" -eq 0 ]]; then
+            echo "::error::firebase.json declares no Functions codebase."
+            exit 1
+          fi
+          for codebase in "${codebases[@]}"; do
+            case "$codebase" in
+              functions|functions-identity|functions-sync|functions-media) ;;
+              *) echo "::error::firebase.json names an unreviewed Functions codebase dir: $codebase"; exit 1 ;;
+            esac
+          done
+          if [[ -f packages/functions-shared/package.json ]]; then
+            npm ci --prefix packages/functions-shared
+            for codebase in "${codebases[@]}"; do
+              npm ci --prefix "$codebase"
+            done
+            bash scripts/build-functions-all.sh
+          elif [[ "${codebases[*]}" == "functions" ]]; then
+            npm ci --prefix functions
+            npm run build --prefix functions
+          else
+            echo "::error::Multiple Functions codebases without packages/functions-shared: ${codebases[*]}"
+            exit 1
+          fi
+          echo "codebases=${codebases[*]}" >> "$GITHUB_OUTPUT"
           node scripts/ci/resolve-domain-core-build-profile.mjs \
             --profile "${{ steps.tag.outputs.domain_core_profile }}" \
             --expected-candidate-commit "${{ steps.domain-core-profile.outputs.candidate_commit }}" \
@@ -747,37 +778,44 @@ jobs:
       - name: Stage immutable prepared deploy artifact
         if: steps.tag.outputs.dry_run != 'true'
         id: prepared-artifact
+        env:
+          FUNCTIONS_CODEBASES: ${{ steps.domain-core-build.outputs.codebases }}
         run: |
           set -euo pipefail
           stage="$RUNNER_TEMP/domain-core-functions-prepared-deploy"
           rm -rf "$stage"
           mkdir -p \
-            "$stage/functions" \
             "$stage/config" \
             "$stage/scripts/ci" \
             "$stage/scripts/lib"
-          rsync -aL --delete \
-            --exclude 'node_modules/.bin/' \
-            --exclude '.env*' \
-            functions/ "$stage/functions/"
-          node scripts/ci/prepare-functions-runtime-package.mjs \
-            --functions-dir "$stage/functions"
-          # rsync -aL would copy the rolldown-bundled bin into .bin, where
-          # require('../_virtual/rolldown_runtime.js') resolves to
-          # node_modules/_virtual instead of firebase-functions/lib/_virtual.
-          # Artifact policy forbids symlinks, so write a CJS shim.
-          mkdir -p "$stage/functions/node_modules/.bin"
-          printf '%s\n' \
-            '#!/usr/bin/env node' \
-            'require("../firebase-functions/lib/bin/firebase-functions.js");' \
-            > "$stage/functions/node_modules/.bin/firebase-functions"
-          chmod 0700 "$stage/functions/node_modules/.bin/firebase-functions"
-          test -f "$stage/functions/node_modules/firebase-functions/lib/bin/firebase-functions.js"
+          read -r -a codebases <<< "$FUNCTIONS_CODEBASES"
+          # Every codebase firebase.json names must sit beside the portable
+          # config (write-firebase-hosting-ci-config.mjs refuses otherwise).
+          for codebase in "${codebases[@]}"; do
+            mkdir -p "$stage/$codebase"
+            rsync -aL --delete \
+              --exclude 'node_modules/.bin/' \
+              --exclude '.env*' \
+              "$codebase/" "$stage/$codebase/"
+            node scripts/ci/prepare-functions-runtime-package.mjs \
+              --functions-dir "$stage/$codebase"
+            # rsync -aL would copy the rolldown-bundled bin into .bin, where
+            # require('../_virtual/rolldown_runtime.js') resolves to
+            # node_modules/_virtual instead of firebase-functions/lib/_virtual.
+            # Artifact policy forbids symlinks, so write a CJS shim.
+            mkdir -p "$stage/$codebase/node_modules/.bin"
+            printf '%s\n' \
+              '#!/usr/bin/env node' \
+              'require("../firebase-functions/lib/bin/firebase-functions.js");' \
+              > "$stage/$codebase/node_modules/.bin/firebase-functions"
+            chmod 0700 "$stage/$codebase/node_modules/.bin/firebase-functions"
+            test -f "$stage/$codebase/node_modules/firebase-functions/lib/bin/firebase-functions.js"
+            install -m 0600 "$codebase/.env.burnbar.production" "$stage/$codebase-production.env"
+          done
           mkdir -p "$stage/sentry-cli"
           rsync -aL --delete \
             --exclude 'node_modules/.bin/' \
             "$RUNNER_TEMP/sentry-cli/" "$stage/sentry-cli/"
-          install -m 0600 functions/.env.burnbar.production "$stage/functions-production.env"
           install -m 0600 "$RUNNER_TEMP/domain-core-functions.env" "$stage/domain-core-functions.env"
           node scripts/ci/write-firebase-hosting-ci-config.mjs \
             --mode functions \
@@ -866,7 +904,10 @@ jobs:
           && (needs.prepare-functions-deploy.outputs.domain_core_profile != 'public-production-rollback'
               || needs.authorize-domain-core-rollback.result == 'success') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # reason: the first full deploy since 2026-06-18 ships 227 functions across
+    # four codebases; a timeout mid-`firebase deploy` leaves a mixed-version
+    # fleet, so the cap covers a full fleet rollout, not a single codebase.
+    timeout-minutes: 60
     environment: production
     permissions:
       actions: read
@@ -941,15 +982,28 @@ jobs:
           find sentry-cli -type f -name sentry-cli -exec chmod 0700 {} +
           test -x sentry-cli/node_modules/@sentry/cli/bin/sentry-cli
           # Rewrite the analysis shim in case the artifact still has a
-          # dereference copy of the rolldown bundle.
-          mkdir -p functions/node_modules/.bin
-          printf '%s\n' \
-            '#!/usr/bin/env node' \
-            'require("../firebase-functions/lib/bin/firebase-functions.js");' \
-            > functions/node_modules/.bin/firebase-functions
-          chmod 0700 functions/node_modules/.bin/firebase-functions
-          test -f functions/node_modules/firebase-functions/lib/bin/firebase-functions.js
-          test -x functions/node_modules/.bin/firebase-functions
+          # dereference copy of the rolldown bundle. The Firebase CLI runs it
+          # in every staged codebase the portable config names.
+          mapfile -t codebases < <(jq -er '.functions | if type == "array" then . else [.] end | .[].source' firebase-functions.ci.json)
+          if [[ "${#codebases[@]}" -eq 0 ]]; then
+            echo "::error::firebase-functions.ci.json declares no Functions codebase."
+            exit 1
+          fi
+          for codebase in "${codebases[@]}"; do
+            case "$codebase" in
+              functions|functions-identity|functions-sync|functions-media) ;;
+              *) echo "::error::Prepared config names an unreviewed Functions codebase dir: $codebase"; exit 1 ;;
+            esac
+            mkdir -p "$codebase/node_modules/.bin"
+            printf '%s\n' \
+              '#!/usr/bin/env node' \
+              'require("../firebase-functions/lib/bin/firebase-functions.js");' \
+              > "$codebase/node_modules/.bin/firebase-functions"
+            chmod 0700 "$codebase/node_modules/.bin/firebase-functions"
+            test -f "$codebase/node_modules/firebase-functions/lib/bin/firebase-functions.js"
+            test -x "$codebase/node_modules/.bin/firebase-functions"
+          done
+          echo "FUNCTIONS_CODEBASES=${codebases[*]}" >> "$GITHUB_ENV"
           echo "FIREBASE_TOOLS_BIN=$PWD/functions/node_modules/firebase-tools/lib/bin/firebase.js" >> "$GITHUB_ENV"
           echo "SENTRY_CLI_BIN=$PWD/sentry-cli/node_modules/@sentry/cli/bin/sentry-cli" >> "$GITHUB_ENV"
 
@@ -1121,17 +1175,19 @@ jobs:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_FUNCTIONS }}
         run: |
           TAG="${{ needs.prepare-functions-deploy.outputs.tag }}"
-          ENV_FILE="functions/.env.burnbar"
-          PROD_CONFIG="functions-production.env"
+          read -r -a codebases <<< "${FUNCTIONS_CODEBASES:?Select verified deploy tools did not export FUNCTIONS_CODEBASES}"
 
           # H14: production runtime config is the committed, reviewed
-          # functions/.env.burnbar.production (non-secret public IDs/URLs).
-          # Both this deploy lane and scripts/rollback.sh source the SAME file,
-          # so a deploy and a rollback can never disagree or ship empty config.
-          if [[ ! -f "$PROD_CONFIG" ]]; then
-            echo "::error::Missing $PROD_CONFIG — refusing to deploy with empty runtime config."
-            exit 1
-          fi
+          # <codebase>/.env.burnbar.production (non-secret public IDs/URLs),
+          # staged per codebase as <codebase>-production.env. Both this deploy
+          # lane and scripts/rollback.sh source the SAME files, so a deploy and
+          # a rollback can never disagree or ship empty config.
+          for codebase in "${codebases[@]}"; do
+            if [[ ! -f "${codebase}-production.env" ]]; then
+              echo "::error::Missing ${codebase}-production.env — refusing to deploy with empty runtime config."
+              exit 1
+            fi
+          done
 
           # H13: Sentry must be provisioned for production functions, or the
           # crash-reporting surface ships dark. Fail closed at deploy time (not
@@ -1145,17 +1201,21 @@ jobs:
           # Per-deploy dynamic values are not committed; append them on top of
           # the reviewed static config. SENTRY_DSN is an Actions secret (not
           # committed). SENTRY_ENVIRONMENT is provisioned through the same env
-          # writer so functions/src/sentry.ts tags production events correctly.
-          {
-            cat "$PROD_CONFIG"
-            echo ""
-            cat domain-core-functions.env
-            echo "FUNCTION_VERSION=${TAG}"
-            echo "OPENBURNBAR_SOURCE_COMMIT=${OPENBURNBAR_SOURCE_COMMIT}"
-            echo "OPENBURNBAR_DOMAIN_CORE_RUNTIME_MANIFEST_SHA256=${{ needs.prepare-functions-deploy.outputs.runtime_manifest_sha256 }}"
-            echo "SENTRY_DSN=${SENTRY_DSN}"
-            echo "SENTRY_ENVIRONMENT=production"
-          } > "$ENV_FILE"
+          # writer so the shared Sentry init tags production events correctly.
+          # Every codebase gets the same release identity the pre-3.5
+          # monolith shipped to all of its functions.
+          for codebase in "${codebases[@]}"; do
+            {
+              cat "${codebase}-production.env"
+              echo ""
+              cat domain-core-functions.env
+              echo "FUNCTION_VERSION=${TAG}"
+              echo "OPENBURNBAR_SOURCE_COMMIT=${OPENBURNBAR_SOURCE_COMMIT}"
+              echo "OPENBURNBAR_DOMAIN_CORE_RUNTIME_MANIFEST_SHA256=${{ needs.prepare-functions-deploy.outputs.runtime_manifest_sha256 }}"
+              echo "SENTRY_DSN=${SENTRY_DSN}"
+              echo "SENTRY_ENVIRONMENT=production"
+            } > "${codebase}/.env.burnbar"
+          done
           export FUNCTION_VERSION="$TAG"
 
           if [[ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]]; then
@@ -1177,8 +1237,15 @@ jobs:
             extra+=(--debug)
             # Live production has team-* functions the 2026-09-02 tag payload
             # does not export. A full --only functions deploy would delete
-            # them. Break-glass ships identity/health only.
-            only="functions:healthReady,functions:healthLive,functions:healthCheck"
+            # them. Break-glass ships identity/health only — so healthReady's
+            # source.commit then describes the health endpoints, not the fleet
+            # (deploy-freshness reads every function's updateTime for that).
+            # Firebase CLI 15.x resolves an unqualified `functions:<name>` to
+            # the implicit `default` codebase, so a 3.5+ multi-codebase payload
+            # must name the codebase that owns the health endpoints.
+            health_codebase="$(jq -r '.functions | if type == "array" then . else [.] end | map(select(.source == "functions"))[0].codebase // ""' "$FIREBASE_FUNCTIONS_CI_CONFIG")"
+            prefix="functions:${health_codebase:+${health_codebase}:}"
+            only="${prefix}healthReady,${prefix}healthLive,${prefix}healthCheck"
           fi
           node "$FIREBASE_TOOLS_BIN" deploy \
             --only "$only" \
