@@ -359,7 +359,7 @@ final class UsageAggregatorParsersMattersTests: XCTestCase {
             fileManager: .default,
             appPaths: OpenBurnBarAppPaths(applicationSupportRoot: root.appendingPathComponent("support", isDirectory: true))
         )
-        let result = try await parser.parse(options: LogParseOptions())
+        let result = try await parser.parse(options: .usageAccounting())
 
         XCTAssertEqual(result.usages.map(\.inputTokens), [100])
         XCTAssertEqual(result.usages.map(\.outputTokens), [10])
