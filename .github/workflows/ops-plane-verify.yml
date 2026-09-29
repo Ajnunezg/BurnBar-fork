@@ -125,7 +125,7 @@ jobs:
           workload_identity_provider: ${{ vars.OPS_VERIFY_WIF_PROVIDER }}
           service_account: ${{ vars.OPS_VERIFY_SERVICE_ACCOUNT }}
 
-      # The three live checks below are independent planes; each runs whenever
+      # The four live checks below are independent planes; each runs whenever
       # authentication succeeded so one red surface never hides evidence about
       # another (same contract as the protected `verify` lane).
       - name: Branch-protection drift — live (ruleset + classic) vs committed source of truth
