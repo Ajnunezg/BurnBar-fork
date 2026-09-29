@@ -164,6 +164,18 @@ on:
       - "scripts/ops/run-firestore-restore-drill.test.sh"
       - "scripts/ops/ops-paging-drill.mjs"
       - "scripts/ops/ops-paging-drill.test.mjs"
+      - "scripts/ops/firestore-restore-drill-verify.mjs"
+      - "scripts/ops/firestore-restore-drill-verify.test.mjs"
+      - "scripts/ops/verify-firestore-disaster-recovery.sh"
+      - "docs/schemas/firestore-restore-drill-receipt.schema.json"
+      - "scripts/test-commercial-launch-gate-firestore-restore.mjs"
+      - "scripts/commercial-launch-gate.mjs"
+      - "scripts/lib/evaluate-firebase-app-check-enforcement.mjs"
+      - "scripts/lib/alert-delivery-drill.mjs"
+      - "scripts/lib/ops-alerts-gate.mjs"
+      - "scripts/validate-launch-evidence-bundle.mjs"
+      - "functions/scripts/billing-alert-policy-definitions.mjs"
+      - "functions/scripts/ops-alert-policy-definitions.mjs"
       - "scripts/ops/verify-firestore-app-check-enforcement.sh"
       - "scripts/ops/verify-firestore-app-check-enforcement.test.sh"
       - "scripts/test-openburnbar-mobile.sh"
@@ -320,6 +332,18 @@ on:
       - "scripts/ops/run-firestore-restore-drill.test.sh"
       - "scripts/ops/ops-paging-drill.mjs"
       - "scripts/ops/ops-paging-drill.test.mjs"
+      - "scripts/ops/firestore-restore-drill-verify.mjs"
+      - "scripts/ops/firestore-restore-drill-verify.test.mjs"
+      - "scripts/ops/verify-firestore-disaster-recovery.sh"
+      - "docs/schemas/firestore-restore-drill-receipt.schema.json"
+      - "scripts/test-commercial-launch-gate-firestore-restore.mjs"
+      - "scripts/commercial-launch-gate.mjs"
+      - "scripts/lib/evaluate-firebase-app-check-enforcement.mjs"
+      - "scripts/lib/alert-delivery-drill.mjs"
+      - "scripts/lib/ops-alerts-gate.mjs"
+      - "scripts/validate-launch-evidence-bundle.mjs"
+      - "functions/scripts/billing-alert-policy-definitions.mjs"
+      - "functions/scripts/ops-alert-policy-definitions.mjs"
       - "scripts/ops/verify-firestore-app-check-enforcement.sh"
       - "scripts/ops/verify-firestore-app-check-enforcement.test.sh"
       - "scripts/test-openburnbar-mobile.sh"
@@ -471,8 +495,13 @@ jobs:
       - name: Self-test packaged macOS release feed contract
         run: bash scripts/ci/verify-apple-appcheck-release-artifact.test.sh
 
-      - name: Self-test Firestore restore drill env validation
+      - name: Self-test Firestore restore drill (env validation and end-to-end drills on fakes)
         run: bash scripts/ops/run-firestore-restore-drill.test.sh
+
+      - name: Self-test Firestore restore-drill count verification and launch-gate receipt check
+        run: |
+          node --test scripts/ops/firestore-restore-drill-verify.test.mjs
+          node scripts/test-commercial-launch-gate-firestore-restore.mjs
 
       - name: Check functional QA runner syntax
         run: bash -n tools/qa/run-functional-qa.sh
