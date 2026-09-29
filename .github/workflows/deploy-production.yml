@@ -1,5 +1,5 @@
 name: Deploy Production (Cloud Functions)
-run-name: release-control/deploy-production/${{ inputs.dry_run && 'dry-run' || inputs.existing_tag_retry && 'existing-tag-retry' || github.event_name }}/${{ inputs.tag || github.ref_name }}/${{ inputs.candidate_sha || github.sha }}/${{ github.sha }}
+run-name: release-control/deploy-production/${{ inputs.dry_run && 'dry-run' || inputs.break_glass && 'existing-tag-retry-break-glass' || inputs.existing_tag_retry && 'existing-tag-retry' || github.event_name }}/${{ inputs.tag || github.ref_name }}/${{ inputs.candidate_sha || github.sha }}/${{ github.sha }}
 
 permissions:
   contents: read

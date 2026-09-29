@@ -90,7 +90,21 @@ checks the latest non-dry-run `deploy-production.yml` run and probes
 or retries a tag. The generated `deploy-lane-health.json` artifact is the
 machine-readable scoreboard.
 
-- **Green:** both the latest deploy and both public probes are successful.
+- **Production freshness:** the Functions lane also compares the commit the
+  fleet runs with `main`. The anchor is the latest successful deploy that was
+  not a break-glass retry (break-glass runs carry
+  `existing-tag-retry-break-glass` in their run name and ship only
+  `healthReady`/`healthLive`/`healthCheck`, so `healthReady.source.commit` can
+  move while every other function keeps older code); `healthReady` is the
+  fallback. The report always prints how many commits production is behind
+  main and whether Functions paths changed; it turns red (`behind-main`) when
+  Functions-relevant changes are unshipped and the deployed commit is older than
+  `DEPLOY_LANE_BEHIND_MAX_DAYS` (default 14, the deploy-freshness window). An
+  unknown commit or a failed/truncated comparison fails closed. The weekly
+  `ops-confidence.yml` `deploy-freshness` job remains the per-function
+  `updateTime` check (it needs the ops-verifier WIF).
+- **Green:** both the latest deploy and both public probes are successful and
+  production is not stale per the freshness rule above.
 - **Red or unavailable:** the workflow exits non-zero, records a
   `deploy-health` issue, and pages through the shared ops action with
   `repage-until-green` when the configured webhook is available: every red
