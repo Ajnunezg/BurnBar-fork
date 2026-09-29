@@ -116,7 +116,7 @@ dependencies {
     // primitive across our minSdk range.
     implementation("com.google.crypto.tink:tink-android:1.23.0")
 
-    // JNA 5.19.0 ships 16 KB page-size aligned native libjnidispatch slices.
+    // JNA 5.19.1 ships 16 KB page-size aligned native libjnidispatch slices.
     // UniFFI's generated Kotlin bindings use JNA to load the Rust AAR.
     api("net.java.dev.jna:jna:5.19.1@aar")
 
