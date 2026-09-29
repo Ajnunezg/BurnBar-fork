@@ -48,8 +48,12 @@ const months = [...groupedByMonth.keys()].sort((a, b) => (a < b ? 1 : -1));
           <span class="dot dot--ember"></span>
           {ALL_RUNDOWNS.length} dated rundown{ALL_RUNDOWNS.length === 1 ? "" : "s"}
         </li>
-        <li><span class="dot dot--mercury"></span> newest · {newestDate}</li>
-        <li><span class="dot dot--mercury"></span> oldest · {oldestDate}</li>
+        <li>
+          <span class="dot dot--mercury"></span> newest · {newestDate}
+        </li>
+        <li>
+          <span class="dot dot--mercury"></span> oldest · {oldestDate}
+        </li>
       </ul>
     </div>
   </section>
@@ -60,158 +64,151 @@ const months = [...groupedByMonth.keys()].sort((a, b) => (a < b ? 1 : -1));
         Benchmark signals are <strong>advisory</strong>. Each rundown shows what the daily model
         board recommended, not what the router actually ran — provider-family mode, user pinning,
         account auth, quota state, safety policy, availability, and exact-model failover rules all
-        override these recommendations at runtime. Use this archive to inspect <em>why</em> a given recommendation
-        was made, not as proof a given route was executed.
+        override these recommendations at runtime. Use this archive to inspect <em>why</em> a given
+        recommendation was made, not as proof a given route was executed.
       </p>
 
-      {
-        months.map((month) => (
-          <article class="month">
-            <header class="month__head">
-              <h2 class="month__h mono">{month}</h2>
-              <span class="month__count mono">
-                {groupedByMonth.get(month)?.length} rundown
-                {(groupedByMonth.get(month)?.length ?? 0) === 1 ? "" : "s"}
-              </span>
-            </header>
+      {months.map((month) => (
+        <article class="month">
+          <header class="month__head">
+            <h2 class="month__h mono">{month}</h2>
+            <span class="month__count mono">
+              {groupedByMonth.get(month)?.length} rundown
+              {(groupedByMonth.get(month)?.length ?? 0) === 1 ? "" : "s"}
+            </span>
+          </header>
 
-            <ul class="archive__list">
-              {groupedByMonth.get(month)?.map((rundown) => {
-                const codingTask =
-                  rundown.taskRankings.find((t) => t.taskID === "coding") ??
-                  rundown.taskRankings[0];
-                const top = codingTask?.recommendations[0];
-                const runnerUp = codingTask?.recommendations[1];
-                const freshSources = rundown.sourceStatuses.filter(
-                  (s) => s.status === "fresh"
-                ).length;
-                return (
-                  <li class="archcard">
-                    <a class="archcard__link" href={`/router/daily/${rundown.date}`}>
-                      <header class="archcard__head">
-                        <span class="archcard__date mono">{rundown.date}</span>
-                        <span class="archcard__time mono">
-                          {rundown.generatedAt.slice(11, 16)} UTC
-                        </span>
-                      </header>
+          <ul class="archive__list">
+            {groupedByMonth.get(month)?.map((rundown) => {
+              const codingTask =
+                rundown.taskRankings.find((t) => t.taskID === "coding") ?? rundown.taskRankings[0];
+              const top = codingTask?.recommendations[0];
+              const runnerUp = codingTask?.recommendations[1];
+              const freshSources = rundown.sourceStatuses.filter(
+                (s) => s.status === "fresh"
+              ).length;
+              return (
+                <li class="archcard">
+                  <a class="archcard__link" href={`/router/daily/${rundown.date}`}>
+                    <header class="archcard__head">
+                      <span class="archcard__date mono">{rundown.date}</span>
+                      <span class="archcard__time mono">
+                        {rundown.generatedAt.slice(11, 16)} UTC
+                      </span>
+                    </header>
 
-                      {top ? (
-                        <div class="archcard__top">
-                          <div class="archcard__topmodel">
-                            {top.providerLogo && (
-                              <img
-                                class="archcard__topimg"
-                                src={top.providerLogo}
-                                alt=""
-                                width="32"
-                                height="32"
-                                loading="lazy"
-                              />
-                            )}
-                            <div>
-                              <strong class="archcard__name">{top.modelDisplay}</strong>
-                              <span class="archcard__provider mono">{top.providerDisplay}</span>
-                            </div>
-                          </div>
-                          <span class="archcard__score mono">
-                            {pct(top.selectionScore ?? top.score)} / 100
-                          </span>
-                        </div>
-                      ) : (
-                        <p class="archcard__empty">No task rankings — sources were unavailable.</p>
-                      )}
-                      {top && runnerUp && (
-                        <p class="archcard__runnerup mono">
-                          next: {runnerUp.modelDisplay} ·{" "}
-                          {pct(runnerUp.selectionScore ?? runnerUp.score)}
-                        </p>
-                      )}
-
-                      <ul class="archcard__sources">
-                        {rundown.sourceStatuses.map((s) => (
-                          <li
-                            class={`archcard__src archcard__src--${freshnessTone(s.status)}`}
-                            title={`${s.attribution} · ${s.status}${s.ageHours != null ? " · " + formatAge(s.ageHours) : ""}`}
-                          >
+                    {top ? (
+                      <div class="archcard__top">
+                        <div class="archcard__topmodel">
+                          {top.providerLogo && (
                             <img
-                              src={s.logo}
-                              alt={s.attribution}
-                              width="18"
-                              height="18"
+                              class="archcard__topimg"
+                              src={top.providerLogo}
+                              alt=""
+                              width="32"
+                              height="32"
                               loading="lazy"
                             />
-                          </li>
-                        ))}
-                      </ul>
-
-                      <footer class="archcard__foot mono">
-                        <span>
-                          {rundown.taskRankings.length} task
-                          {rundown.taskRankings.length === 1 ? "" : "s"}
+                          )}
+                          <div>
+                            <strong class="archcard__name">{top.modelDisplay}</strong>
+                            <span class="archcard__provider mono">{top.providerDisplay}</span>
+                          </div>
+                        </div>
+                        <span class="archcard__score mono">
+                          {pct(top.selectionScore ?? top.score)} / 100
                         </span>
-                        <span>
-                          {freshSources}/{rundown.sourceStatuses.length} sources fresh
-                        </span>
-                        <span class="archcard__cta">inspect →</span>
-                      </footer>
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          </article>
-        ))
-      }
+                      </div>
+                    ) : (
+                      <p class="archcard__empty">No task rankings — sources were unavailable.</p>
+                    )}
+                    {top && runnerUp && (
+                      <p class="archcard__runnerup mono">
+                        next: {runnerUp.modelDisplay} ·{" "}
+                        {pct(runnerUp.selectionScore ?? runnerUp.score)}
+                      </p>
+                    )}
 
-      {
-        ALL_RUNDOWNS.length === 0 && (
-          <p class="archive__empty">
-            No dated rundowns are committed in this build. The daily generator (
-            <code>website/scripts/generate-rundown.mjs</code>) emits these from the production
-            benchmark pipeline; run it locally to populate the archive.
-          </p>
-        )
-      }
+                    <ul class="archcard__sources">
+                      {rundown.sourceStatuses.map((s) => (
+                        <li
+                          class={`archcard__src archcard__src--${freshnessTone(s.status)}`}
+                          title={`${s.attribution} · ${s.status}${s.ageHours != null ? " · " + formatAge(s.ageHours) : ""}`}
+                        >
+                          <img
+                            src={s.logo}
+                            alt={s.attribution}
+                            width="18"
+                            height="18"
+                            loading="lazy"
+                          />
+                        </li>
+                      ))}
+                    </ul>
+
+                    <footer class="archcard__foot mono">
+                      <span>
+                        {rundown.taskRankings.length} task
+                        {rundown.taskRankings.length === 1 ? "" : "s"}
+                      </span>
+                      <span>
+                        {freshSources}/{rundown.sourceStatuses.length} sources fresh
+                      </span>
+                      <span class="archcard__cta">inspect →</span>
+                    </footer>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </article>
+      ))}
+
+      {ALL_RUNDOWNS.length === 0 && (
+        <p class="archive__empty">
+          No dated rundowns are committed in this build. The daily generator (
+          <code>website/scripts/generate-rundown.mjs</code>) emits these from the production
+          benchmark pipeline; run it locally to populate the archive.
+        </p>
+      )}
 
       <div class="archive__sources">
         <h2 class="archive__sh mono">Sources we cite</h2>
         <p class="archive__sd">
           Each daily rundown attributes its claims back to a documented public source. Citations
-          carry logos so operators can audit provenance at a glance. We <em>never</em> fabricate benchmark
-          numbers, scrape authenticated dashboards, or persist API keys inside snapshots.
+          carry logos so operators can audit provenance at a glance. We <em>never</em> fabricate
+          benchmark numbers, scrape authenticated dashboards, or persist API keys inside snapshots.
         </p>
         <ul class="archive__srcgrid">
-          {
-            (
-              [
-                "artificial_analysis",
-                "terminal_bench",
-                "design_arena",
-                "huggingface",
-                "manual_fixture"
-              ] as const
-            ).map((id) => {
-              const m = sourceMeta(id);
-              return (
-                <li class="archsrc">
-                  <img src={m.logo} alt="" width="36" height="36" loading="lazy" />
-                  <div>
-                    <strong>{m.attribution}</strong>
-                    <span class="archsrc__short mono">{m.shortLabel}</span>
-                    <p>{m.blurb}</p>
-                    <a
-                      class="archsrc__link mono"
-                      href={m.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {m.url.replace(/^https?:\/\//, "")} →
-                    </a>
-                  </div>
-                </li>
-              );
-            })
-          }
+          {(
+            [
+              "artificial_analysis",
+              "terminal_bench",
+              "design_arena",
+              "huggingface",
+              "manual_fixture"
+            ] as const
+          ).map((id) => {
+            const m = sourceMeta(id);
+            return (
+              <li class="archsrc">
+                <img src={m.logo} alt="" width="36" height="36" loading="lazy" />
+                <div>
+                  <strong>{m.attribution}</strong>
+                  <span class="archsrc__short mono">{m.shortLabel}</span>
+                  <p>{m.blurb}</p>
+                  <a
+                    class="archsrc__link mono"
+                    href={m.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {m.url.replace(/^https?:\/\//, "")} →
+                  </a>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>

@@ -33,7 +33,9 @@ const subscriptionCatalog = Object.fromEntries(
     <div class="subscribe__glow" aria-hidden="true"></div>
     <div class="subscribe__shell">
       <header class="subscribe__heading">
-        <a class="subscribe__back mono" href="/pricing">← Compare plans</a>
+        <a class="subscribe__back mono" href="/pricing">
+          ← Compare plans
+        </a>
         <span class="eyebrow eyebrow--ember">BurnBar Cloud</span>
         <h1>Finish your subscription.</h1>
         <p>
@@ -61,15 +63,19 @@ const subscriptionCatalog = Object.fromEntries(
             id="cadence-monthly"
             type="button"
             data-cadence="monthly"
-            aria-pressed="true">Monthly</button
+            aria-pressed="true"
           >
+            Monthly
+          </button>
           <button
             class="cadence__option"
             id="cadence-annual"
             type="button"
             data-cadence="annual"
-            aria-pressed="false">Annual</button
+            aria-pressed="false"
           >
+            Annual
+          </button>
         </div>
 
         <div class="checkout-divider" aria-hidden="true"></div>
@@ -129,7 +135,9 @@ const subscriptionCatalog = Object.fromEntries(
               <span class="account-row__label mono">BurnBar account</span>
               <strong id="user-email">Signed in</strong>
             </div>
-            <button id="btn-signout" class="text-button" type="button">Change</button>
+            <button id="btn-signout" class="text-button" type="button">
+              Change
+            </button>
           </div>
           <button id="btn-checkout" class="btn btn--ember checkout-button" type="button">
             Continue to secure checkout <span aria-hidden="true">→</span>
@@ -146,14 +154,18 @@ const subscriptionCatalog = Object.fromEntries(
         </div>
 
         <div id="state-success" class="checkout-state hidden">
-          <div class="status-mark status-mark--success" aria-hidden="true">✓</div>
+          <div class="status-mark status-mark--success" aria-hidden="true">
+            ✓
+          </div>
           <h2>Checkout completed</h2>
           <p>
             BurnBar is confirming the payment and updating your entitlement. Signed-in apps refresh
             automatically after webhook reconciliation.
           </p>
           <div class="state-actions">
-            <a class="btn btn--ember" href="/download">Open the apps</a>
+            <a class="btn btn--ember" href="/download">
+              Open the apps
+            </a>
             <button class="btn btn--ghost" id="btn-success-portal" type="button">
               Manage billing
             </button>
@@ -161,7 +173,9 @@ const subscriptionCatalog = Object.fromEntries(
         </div>
 
         <div id="state-cancelled" class="checkout-state hidden">
-          <div class="status-mark" aria-hidden="true">↩</div>
+          <div class="status-mark" aria-hidden="true">
+            ↩
+          </div>
           <h2>Checkout cancelled</h2>
           <p>Nothing was charged. Your selected plan is still here when you are ready.</p>
           <button class="btn btn--ember" id="btn-cancelled-retry" type="button">
@@ -170,13 +184,17 @@ const subscriptionCatalog = Object.fromEntries(
         </div>
 
         <div id="state-error" class="checkout-state hidden">
-          <div class="status-mark status-mark--error" aria-hidden="true">!</div>
+          <div class="status-mark status-mark--error" aria-hidden="true">
+            !
+          </div>
           <h2 id="error-title">Checkout could not start</h2>
           <p id="error-message">
             Please try again. If the problem continues, contact support@burnbar.ai.
           </p>
           <div class="state-actions">
-            <button class="btn btn--ember" id="btn-retry" type="button">Try again</button>
+            <button class="btn btn--ember" id="btn-retry" type="button">
+              Try again
+            </button>
             <button class="btn btn--ghost hidden" id="btn-error-portal" type="button">
               Manage billing
             </button>

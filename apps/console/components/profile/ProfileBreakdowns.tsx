@@ -78,7 +78,7 @@ function ClickRow({
       <div
         className={cn(
           "group flex w-full min-w-0 items-center gap-token-2 rounded-md px-token-2 py-token-2 text-left text-sm transition-colors hover:bg-mercury-wash",
-          active && "bg-mercury-wash ring-1 ring-[color:var(--accent)]",
+          active && "bg-mercury-wash ring-1 ring-(--accent)",
         )}
       >
         <button
@@ -86,14 +86,14 @@ function ClickRow({
           onClick={onClick}
           aria-pressed={active}
           title={nameTitle}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)"
         >
           <BrandLogo id={logoId} label={logoLabel} size={18} />
           <span className="w-28 shrink-0 truncate text-content-bright sm:w-32">{name}</span>
           <span className="min-w-0 flex-1" role="img" aria-label={barLabel}>
             <ProportionBar value={barValue} color={barColor} />
           </span>
-          <span className="min-w-[4rem] shrink-0 whitespace-nowrap text-right text-content-mute tabular-nums">
+          <span className="min-w-16 shrink-0 whitespace-nowrap text-right text-content-mute tabular-nums">
             {value}
           </span>
         </button>
@@ -102,7 +102,7 @@ function ClickRow({
           onClick={onInspect}
           title={inspectLabel}
           aria-label={inspectLabel}
-          className="shrink-0 rounded border border-glass-line px-token-2 py-0.5 text-[0.68rem] text-content-mute transition-colors hover:border-accent hover:text-content-bright focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+          className="shrink-0 rounded border border-glass-line px-token-2 py-0.5 text-[0.68rem] text-content-mute transition-colors hover:border-accent hover:text-content-bright focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-(--accent)"
         >
           Inspect
         </button>
@@ -139,7 +139,7 @@ function SearchableList({
               onChange={(e) => setQ(e.target.value)}
               placeholder={`Search ${title.toLowerCase()}…`}
               aria-label={`Search ${title}`}
-              className="mb-token-2 w-full rounded-md bg-mercury-wash px-token-3 py-1.5 text-sm text-content-base outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+              className="mb-token-2 w-full rounded-md bg-mercury-wash px-token-3 py-1.5 text-sm text-content-base outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)"
               style={{ border: "1px solid var(--color-glass-line)" }}
             />
           )}
@@ -341,7 +341,7 @@ export function ProfileBreakdowns({
                     type="button"
                     onClick={() => onToggle({ kind: "harness", id: c.sourceId })}
                     title={`${c.sourceName} × ${c.model} · ${formatCompact(c.tokens)} tok — click to filter by ${c.sourceName}`}
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-sm text-left outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)"
                   >
                     <BrandLogo id={c.sourceId} label={c.sourceName} size={18} />
                     <span className="w-40 shrink-0 truncate text-content-bright sm:w-44">
@@ -358,7 +358,7 @@ export function ProfileBreakdowns({
                         color={providerBarFill(c.provider)}
                       />
                     </span>
-                    <span className="min-w-[4rem] shrink-0 whitespace-nowrap text-right text-content-mute tabular-nums">
+                    <span className="min-w-16 shrink-0 whitespace-nowrap text-right text-content-mute tabular-nums">
                       {fmtMetric(metric, cv(c))}
                     </span>
                   </button>
@@ -367,7 +367,7 @@ export function ProfileBreakdowns({
                     onClick={() => onInspect({ kind: "harness", id: c.sourceId })}
                     title={`Inspect ${c.sourceName} in the inspector`}
                     aria-label={`Inspect ${c.sourceName} in the inspector`}
-                    className="shrink-0 rounded border border-glass-line px-token-2 py-0.5 text-[0.68rem] text-content-mute transition-colors hover:border-accent hover:text-content-bright focus-visible:ring-2 focus-visible:ring-[color:var(--accent)]"
+                    className="shrink-0 rounded border border-glass-line px-token-2 py-0.5 text-[0.68rem] text-content-mute transition-colors hover:border-accent hover:text-content-bright focus-visible:ring-2 focus-visible:ring-(--accent)"
                   >
                     Inspect
                   </button>

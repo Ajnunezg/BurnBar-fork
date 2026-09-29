@@ -240,7 +240,7 @@ export function PensieveMemoryExplorer({
       {!hasVaultKey && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
           <div className="flex items-center gap-2">
-            <Lock className="size-4 text-amber-400 flex-shrink-0" />
+            <Lock className="size-4 text-amber-400 shrink-0" />
             <span>
               <strong>{totalCount.toLocaleString()} encrypted memory chunks</strong> are indexed in your private cloud vault. Unlock this browser to decrypt all plaintext on-device.
             </span>
@@ -323,7 +323,7 @@ export function PensieveMemoryExplorer({
             <div className="relative min-w-[240px] flex-1">
               <Search className="absolute left-2.5 top-2.5 size-4 text-content-dim" />
               <input
-                className="w-full rounded-md border border-glass-line bg-panel-subtle pl-9 pr-3 py-1.5 text-sm text-content-bright outline-none placeholder:text-content-dim focus:border-tier-end-to-end"
+                className="w-full rounded-md border border-glass-line bg-panel-subtle pl-9 pr-3 py-1.5 text-sm text-content-bright outline-hidden placeholder:text-content-dim focus:border-tier-end-to-end"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Filter by fact, concept, keyword, vector ID, or tag..."
@@ -384,7 +384,7 @@ export function PensieveMemoryExplorer({
                 aria-label="Sort memories"
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest" | "confidence")}
-                className="bg-transparent text-content-bright outline-none cursor-pointer"
+                className="bg-transparent text-content-bright outline-hidden cursor-pointer"
               >
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
@@ -450,7 +450,7 @@ export function PensieveMemoryExplorer({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 w-7 p-0 text-content-dim hover:text-[color:var(--color-seal-crimson)]"
+                          className="h-7 w-7 p-0 text-content-dim hover:text-seal-crimson"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleForget(item.vectorId);

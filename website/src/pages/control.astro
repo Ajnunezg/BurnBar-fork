@@ -27,7 +27,8 @@ const ladder = [
     <div class="container container--narrow pagehead__inner">
       <span class="eyebrow eyebrow--ember">{CONTROL.name}</span>
       <h1 class="pagehead__h">
-        Let an agent use the computer —<br /><span class="ember">only when you say so.</span>
+        Let an agent use the computer —<br />
+        <span class="ember">only when you say so.</span>
       </h1>
       <p class="lead pagehead__lead">
         Some jobs are just faster if the agent does them — clicks the buttons, fills the forms,
@@ -38,10 +39,12 @@ const ladder = [
         <span class="tag tag--ember tag--plain mono">{CONTROL.statusLabel}</span>
       </p>
       <div class="pagehead__ctas">
-        <a class="btn btn--ember" href="/download"
-          >Get OpenBurnBar <span aria-hidden="true">→</span></a
-        >
-        <a class="btn btn--ghost" href="#charge">Why it's safe</a>
+        <a class="btn btn--ember" href="/download">
+          Get OpenBurnBar <span aria-hidden="true">→</span>
+        </a>
+        <a class="btn btn--ghost" href="#charge">
+          Why it's safe
+        </a>
       </div>
     </div>
   </section>
@@ -129,17 +132,15 @@ const ladder = [
         </p>
       </header>
       <ol class="ladder">
-        {
-          ladder.map((step, i) => (
-            <li class="ladder__step glass-pane">
-              <span class="ladder__num mono">{String(i + 1).padStart(2, "0")}</span>
-              <div>
-                <h3>{step.rung}</h3>
-                <p>{step.body}</p>
-              </div>
-            </li>
-          ))
-        }
+        {ladder.map((step, i) => (
+          <li class="ladder__step glass-pane">
+            <span class="ladder__num mono">{String(i + 1).padStart(2, "0")}</span>
+            <div>
+              <h3>{step.rung}</h3>
+              <p>{step.body}</p>
+            </div>
+          </li>
+        ))}
       </ol>
     </div>
   </section>
@@ -154,7 +155,9 @@ const ladder = [
         </p>
       </header>
       <ul class="promiselist">
-        {CONTROL_PROMISES.map((p) => <li class="glass-pane">{p}</li>)}
+        {CONTROL_PROMISES.map((p) => (
+          <li class="glass-pane">{p}</li>
+        ))}
       </ul>
     </div>
   </section>
@@ -163,14 +166,16 @@ const ladder = [
     <div class="container container--narrow endcta__inner">
       <h2>Give it a job. Keep the&nbsp;keys.</h2>
       <p class="lead">
-        {CONTROL.name} comes with the direct download of OpenBurnBar. It stays off until you turn it on
-        — and you can always turn it back off.
+        {CONTROL.name} comes with the direct download of OpenBurnBar. It stays off until you turn it
+        on — and you can always turn it back off.
       </p>
       <div class="endcta__ctas">
-        <a class="btn btn--ember" href="/download"
-          >Download for macOS <span aria-hidden="true">→</span></a
-        >
-        <a class="btn btn--ghost" href="/security">See the security model</a>
+        <a class="btn btn--ember" href="/download">
+          Download for macOS <span aria-hidden="true">→</span>
+        </a>
+        <a class="btn btn--ghost" href="/security">
+          See the security model
+        </a>
       </div>
     </div>
   </section>

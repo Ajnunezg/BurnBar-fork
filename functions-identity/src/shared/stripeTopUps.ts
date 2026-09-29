@@ -10,6 +10,7 @@ import { db } from "@openburnbar/functions-shared/adminRuntime.js";
 import { type CloudProTopUpKind } from "@openburnbar/functions-shared/cloudProAllowanceCore.js";
 import { stripeWithResilience } from "@openburnbar/functions-shared/resilienceHelpers.js";
 import { creditCloudProTopUp, reconcileCloudProTopUpReversal } from "@openburnbar/functions-shared/shared/entitlements.js";
+import { isStripeTopUpDisputeStatus } from "@openburnbar/functions-shared/shared/stripeTopUpReversal.js";
 import { requiredIdentifier } from "@openburnbar/functions-shared/shared/validators.js";
 
 interface StripeTopUpPaymentMapping {
@@ -209,7 +210,7 @@ export async function reconcileStripeTopUpCharge(
     receiptID: mapping.receiptID,
     refundedAmountMinor: charge.amount_refunded,
     originalAmountMinor: charge.amount,
-    disputeStatus,
+    disputeStatus: disputeStatus !== undefined && isStripeTopUpDisputeStatus(disputeStatus) ? disputeStatus : undefined,
     sourceEventID: eventContext.eventID,
     sourceEventCreatedMillis: eventContext.eventCreatedMillis,
   });

@@ -115,7 +115,7 @@ export function ProfileHourGrid({
                       aria-label={`${label} ${hour}:00 UTC, ${formatCompact(cell.tokens)} tokens in ${cell.events} runs`}
                       className={cn(
                         "h-4 w-full min-w-0 rounded-[3px]",
-                        active && "hover:ring-1 hover:ring-[color:var(--accent-deep)]",
+                        active && "hover:ring-1 hover:ring-(--accent-deep)",
                       )}
                       style={{
                         background:

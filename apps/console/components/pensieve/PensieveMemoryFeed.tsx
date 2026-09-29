@@ -134,7 +134,7 @@ export function PensieveMemoryFeed() {
           {SAMPLE_FEED_ITEMS.map((item) => (
             <div key={item.id} className="relative group">
               {/* Timeline marker */}
-              <div className="absolute -left-[27px] top-1.5 size-3 rounded-full border-2 border-tier-end-to-end bg-panel-subtle" />
+              <div className="absolute left-[-27px] top-1.5 size-3 rounded-full border-2 border-tier-end-to-end bg-panel-subtle" />
 
               <div className="rounded-lg border border-glass-line bg-panel-subtle/80 p-token-3 transition-colors hover:border-tier-end-to-end/50 hover:bg-mercury-wash/30">
                 <div className="flex items-center justify-between gap-token-2 text-xs">

@@ -15,10 +15,9 @@ const updated = "July 17, 2026";
       <p class="muted small mono">Last updated: {updated}</p>
 
       <p class="lead">
-        This policy describes how <strong>{SITE.entity}</strong> handles your data when you use OpenBurnBar.
-        For an annotated, plain-English version with diagrams, see the <a href="/privacy"
-          >Privacy &amp; trust</a
-        > page.
+        This policy describes how <strong>{SITE.entity}</strong> handles your data when you use
+        OpenBurnBar. For an annotated, plain-English version with diagrams, see the{" "}
+        <a href="/privacy">Privacy &amp; trust</a> page.
       </p>
 
       <h2>1. Summary</h2>
@@ -30,32 +29,35 @@ const updated = "July 17, 2026";
       </p>
 
       <h2>2. Information we collect</h2>
-      <p><strong>By default:</strong> nothing leaves your device.</p>
       <p>
-        <strong>If you sign in and enable Firebase sync:</strong> usage row summaries (tokens, cost estimates,
-        timestamps, provider names), provider account metadata and quota snapshots (redacted labels, IDs,
-        refresh status, limits, remaining quota), in-app chat thread metadata (thread IDs, titles/previews
-        when enabled, timestamps, counts), conversation/session metadata and sync watermarks, shared artifact
-        metadata and revisions, and sync state metadata.
+        <strong>By default:</strong> nothing leaves your device.
+      </p>
+      <p>
+        <strong>If you sign in and enable Firebase sync:</strong> usage row summaries (tokens, cost
+        estimates, timestamps, provider names), provider account metadata and quota snapshots
+        (redacted labels, IDs, refresh status, limits, remaining quota), in-app chat thread metadata
+        (thread IDs, titles/previews when enabled, timestamps, counts), conversation/session
+        metadata and sync watermarks, shared artifact metadata and revisions, and sync state
+        metadata.
       </p>
       <p>
         <strong>If you have an active BurnBar Cloud or BurnBar Cloud Pro subscription</strong>
-        and enable the matching capability: chat message bodies, conversation metadata, session-log manifests
-        and chunks, and Cloud Pro cross-device relay traffic (encrypted end-to-end from OpenBurnBar's
-        perspective).
+        and enable the matching capability: chat message bodies, conversation metadata, session-log
+        manifests and chunks, and Cloud Pro cross-device relay traffic (encrypted end-to-end from
+        OpenBurnBar's perspective).
       </p>
       <p>
-        <strong>If you enable iCloud session-log mirroring:</strong> copies of selected local session
-        log files into the Apple iCloud Drive container
+        <strong>If you enable iCloud session-log mirroring:</strong> copies of selected local
+        session log files into the Apple iCloud Drive container
         <code>iCloud.com.openburnbar.app</code>. Mirrored files may contain prompts, assistant
         responses, file paths, and code snippets because they are copies of the originals. This uses
         your Apple ID; it is separate from our Firebase infrastructure.
       </p>
       <p>
-        <strong>If you add a hosted quota account:</strong> provider authentication material that you
-        explicitly provide. Secret values are stored in Google Cloud Secret Manager; Firestore stores
-        only a redacted label. Hosted quota refresh requires a valid subscription entitlement and may
-        be rate-limited.
+        <strong>If you add a hosted quota account:</strong> provider authentication material that
+        you explicitly provide. Secret values are stored in Google Cloud Secret Manager; Firestore
+        stores only a redacted label. Hosted quota refresh requires a valid subscription entitlement
+        and may be rate-limited.
       </p>
       <p>
         <strong>If you enable diagnostics:</strong> anonymized crash reports may be sent to Sentry.
@@ -95,25 +97,30 @@ const updated = "July 17, 2026";
       <h2>5. Sub-processors</h2>
       <ul>
         <li>
-          <strong>Google · Firebase / Google Cloud:</strong> authentication, Firestore, Cloud Functions,
-          Cloud Run, Secret Manager, App Check.
+          <strong>Google · Firebase / Google Cloud:</strong> authentication, Firestore, Cloud
+          Functions, Cloud Run, Secret Manager, App Check.
         </li>
-        <li><strong>Apple · iCloud Drive:</strong> the iCloud session mirror, when enabled.</li>
+        <li>
+          <strong>Apple · iCloud Drive:</strong> the iCloud session mirror, when enabled.
+        </li>
         <li>
           <strong>Apple · App Store / StoreKit:</strong> subscription billing, JWS receipt issuance.
         </li>
         <li>
-          <strong>Google · Play Billing:</strong> subscription billing for purchases made on Android.
+          <strong>Google · Play Billing:</strong> subscription billing for purchases made on
+          Android.
         </li>
         <li>
-          <strong>Microsoft · Microsoft Store:</strong> Windows package signing, acquisition, and updates.
-          The Store package is free and does not use Microsoft commerce for subscriptions.
+          <strong>Microsoft · Microsoft Store:</strong> Windows package signing, acquisition, and
+          updates. The Store package is free and does not use Microsoft commerce for subscriptions.
         </li>
         <li>
-          <strong>Stripe:</strong> subscription billing and checkout for purchases made on the web. Stripe
-          receives your payment details directly; we receive only the subscription status.
+          <strong>Stripe:</strong> subscription billing and checkout for purchases made on the web.
+          Stripe receives your payment details directly; we receive only the subscription status.
         </li>
-        <li><strong>Sentry:</strong> opt-in crash reports.</li>
+        <li>
+          <strong>Sentry:</strong> opt-in crash reports.
+        </li>
         <li>
           <strong>Amplitude · Analytics:</strong> opt-in product-usage analytics, when enabled in
           <em>Settings → Analytics</em>. Receives feature names, enumerated outcomes, and bucketed
@@ -131,22 +138,22 @@ const updated = "July 17, 2026";
       <p>You can, at any time:</p>
       <ul>
         <li>
-          Delete all local data by removing the app and its support files at <code
-            >~/Library/Application Support/OpenBurnBar/</code
-          > on macOS or <code>%LOCALAPPDATA%\OpenBurnBar\</code> on Windows. Portable Windows builds keep
-          their data in the app folder's <code>Data\</code> directory.
+          Delete all local data by removing the app and its support files at{" "}
+          <code>~/Library/Application Support/OpenBurnBar/</code> on macOS or{" "}
+          <code>%LOCALAPPDATA%\OpenBurnBar\</code> on Windows. Portable Windows builds keep their
+          data in the app folder's <code>Data\</code> directory.
         </li>
         <li>
-          Delete cloud data by signing out and selecting <em>Delete my data</em> in <em
-            >Settings → Account</em
-          >.
+          Delete cloud data by signing out and selecting <em>Delete my data</em> in{" "}
+          <em>Settings → Account</em>.
         </li>
         <li>Disable any optional feature in Settings.</li>
         <li>Remove hosted quota credentials by deleting the provider account.</li>
         <li>Delete iCloud mirrored files in iCloud Drive.</li>
         <li>
-          Manage or cancel your subscription where you bought it: <em>Settings → Apple ID</em> on Apple
-          devices, Google Play subscriptions on Android, or the Stripe billing portal for web purchases.
+          Manage or cancel your subscription where you bought it: <em>Settings → Apple ID</em> on
+          Apple devices, Google Play subscriptions on Android, or the Stripe billing portal for web
+          purchases.
         </li>
       </ul>
 
@@ -156,26 +163,28 @@ const updated = "July 17, 2026";
         storage on Windows. Hosted credentials, when used, live in Google Cloud Secret Manager.
         Firestore is gated by Firebase Auth, owner-scoped rules, App Check, and a secret-field-name
         denylist. Apple App Store receipts are JWS-verified against pinned Apple root CAs; Microsoft
-        Store owns signing and updates for Store-distributed Windows packages. See the <a
-          href="/security">security model page</a
-        > for the full threat model.
+        Store owns signing and updates for Store-distributed Windows packages. See the{" "}
+        <a href="/security">security model page</a> for the full threat model.
       </p>
 
       <h2>9. Changes</h2>
       <p>
-        We may update this policy as the product evolves. Material changes will be noted in the <a
-          href={`${SITE.github}/blob/main/CHANGELOG.md`}
-          target="_blank"
-          rel="noopener noreferrer">project changelog</a
-        > and reflected in the "last updated" date above.
+        We may update this policy as the product evolves. Material changes will be noted in the{" "}
+        <a href={`${SITE.github}/blob/main/CHANGELOG.md`} target="_blank" rel="noopener noreferrer">
+          project changelog
+        </a>{" "}
+        and reflected in the "last updated" date above.
       </p>
 
       <h2>10. Contact</h2>
       <p>
         Privacy controller: <strong>{SITE.entity}</strong>. <br />
         Email: <a href={`mailto:${SITE.privacyContact}`}>{SITE.privacyContact}</a>. <br />
-        Repository: <a href={SITE.github} target="_blank" rel="noopener noreferrer">{SITE.github}</a
-        >.
+        Repository:{" "}
+        <a href={SITE.github} target="_blank" rel="noopener noreferrer">
+          {SITE.github}
+        </a>
+        .
       </p>
     </div>
   </section>

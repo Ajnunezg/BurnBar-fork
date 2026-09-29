@@ -42,21 +42,29 @@ import BaseLayout from "@layouts/BaseLayout.astro";
           </div>
           <h2>Sign in to link your CLI</h2>
           <p>Use the same account as the BurnBar app. Signing in authorizes this one connection.</p>
-          <button id="btn-signin" class="btn btn--ember"> Sign in with Google </button>
-          <button id="btn-signin-apple" class="btn btn--secondary"> Sign in with Apple </button>
+          <button id="btn-signin" class="btn btn--ember">
+            Sign in with Google
+          </button>
+          <button id="btn-signin-apple" class="btn btn--secondary">
+            Sign in with Apple
+          </button>
         </div>
 
         <!-- State: Signed In, Enter/Confirm Code -->
         <div id="state-confirm" class="link-state hidden">
           <div class="user-badge" id="user-badge">
             <img id="user-avatar" src="" alt="" class="avatar hidden" />
-            <span id="user-email" class="mono">...</span>
+            <span id="user-email" class="mono">
+              ...
+            </span>
           </div>
           <h2>Confirm your link code</h2>
           <p>Enter or confirm the 8-character code shown in your terminal.</p>
 
           <div class="code-input-wrap">
-            <label class="code-label mono" for="code-input">Link code</label>
+            <label class="code-label mono" for="code-input">
+              Link code
+            </label>
             <input
               type="text"
               id="code-input"
@@ -71,9 +79,13 @@ import BaseLayout from "@layouts/BaseLayout.astro";
             </p>
           </div>
 
-          <button id="btn-confirm" class="btn btn--ember"> Link this terminal </button>
+          <button id="btn-confirm" class="btn btn--ember">
+            Link this terminal
+          </button>
 
-          <button id="btn-signout" class="btn-text"> Sign out of this account </button>
+          <button id="btn-signout" class="btn-text">
+            Sign out of this account
+          </button>
         </div>
 
         <!-- State: Submitting / Linking -->
@@ -124,7 +136,9 @@ import BaseLayout from "@layouts/BaseLayout.astro";
           </div>
           <h2>Linking failed</h2>
           <p id="error-message">Something went wrong on our side. Try again in a moment.</p>
-          <button id="btn-retry" class="btn btn--secondary"> Try again </button>
+          <button id="btn-retry" class="btn btn--secondary">
+            Try again
+          </button>
         </div>
       </div>
     </div>

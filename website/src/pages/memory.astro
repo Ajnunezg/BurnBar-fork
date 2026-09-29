@@ -144,75 +144,80 @@ const PARTS = [
       <span class="eyebrow eyebrow--ember">Memory MCP · local-first · no account</span>
 
       <h1 id="mem-hero-h" class="mem-hero__h">
-        One memory your agents share,<br />
+        One memory your agents share,
+        <br />
         <span class="mem-hero__h--ember">on a machine you own.</span>
       </h1>
 
       <p class="lead mem-hero__lead">
-        {MEMORY_TOOL_COUNT} MCP tools give Claude&nbsp;Code, Cursor, Codex, Claude&nbsp;Desktop and Hermes
-        the same durable memory of your work — extracted from the sessions you already run, sealed on
-        your own disk, and screened so credentials never become memories in the first place. No account.
-        No server in the path. It works with the network off. The same server carries
-        {" "}{TOTAL_TOOL_COUNT} tools in total: it also indexes your repository, searches every session
-        you have ever run, and reads what your agents cost.
+        {MEMORY_TOOL_COUNT} MCP tools give Claude&nbsp;Code, Cursor, Codex, Claude&nbsp;Desktop and
+        Hermes the same durable memory of your work — extracted from the sessions you already run,
+        sealed on your own disk, and screened so credentials never become memories in the first
+        place. No account. No server in the path. It works with the network off. The same server
+        carries {TOTAL_TOOL_COUNT} tools in total: it also indexes your repository, searches every
+        session you have ever run, and reads what your agents cost.
       </p>
 
       {/* The store plate — the local counterpart to the endpoint plate on /mcp. */}
       <div class="plate">
         <div class="plate__row">
           <span class="plate__band mono">STORE · SQLITE · AES-256-GCM AT REST</span>
-          <span class="plate__pill mono"
-            ><span class="plate__dot" aria-hidden="true"></span> ON YOUR DISK</span
-          >
+          <span class="plate__pill mono">
+            <span class="plate__dot" aria-hidden="true"></span> ON YOUR DISK
+          </span>
         </div>
         <p class="plate__addr mono">{MEMORY_STORE_PATH}</p>
         <div class="plate__row plate__row--foot">
-          <span class="mono plate__meta"
-            >mode 0600 · key held by the engine · no daemon required</span
-          >
+          <span class="mono plate__meta">
+            mode 0600 · key held by the engine · no daemon required
+          </span>
           <span class="mono plate__meta">stdio · MCP</span>
         </div>
       </div>
 
       <div class="mem-hero__ctas">
-        <a class="btn btn--ember" href="#setup"
-          >Set it up <span class="btn-arrow" aria-hidden="true">→</span></a
-        >
-        <a class="btn btn--ghost" href="#films">Watch the {FILMS.length} films</a>
-        <a class="btn btn--ghost" href="#proof">See the measurements</a>
-        <a class="btn btn--ghost" href={REPO_MCP} target="_blank" rel="noopener noreferrer"
-          >Read the source</a
-        >
+        <a class="btn btn--ember" href="#setup">
+          Set it up{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
+        <a class="btn btn--ghost" href="#films">
+          Watch the {FILMS.length} films
+        </a>
+        <a class="btn btn--ghost" href="#proof">
+          See the measurements
+        </a>
+        <a class="btn btn--ghost" href={REPO_MCP} target="_blank" rel="noopener noreferrer">
+          Read the source
+        </a>
       </div>
 
       <nav class="mem-jump" aria-label="On this page">
-        {
-          PARTS.map((part) => (
-            <div class="mem-jump__part">
-              <p class="mem-jump__lab mono">
-                <span class="mem-jump__partn">{part.n}</span> {part.label}
-              </p>
-              <ol>
-                {part.sections.map((s) => (
-                  <li>
-                    <a href={`#${s.id}`}>
-                      <span class="mem-jump__n mono" aria-hidden="true">
-                        {s.n}
-                      </span>
-                      {s.label}
-                    </a>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          ))
-        }
+        {PARTS.map((part) => (
+          <div class="mem-jump__part">
+            <p class="mem-jump__lab mono">
+              <span class="mem-jump__partn">{part.n}</span> {part.label}
+            </p>
+            <ol>
+              {part.sections.map((s) => (
+                <li>
+                  <a href={`#${s.id}`}>
+                    <span class="mem-jump__n mono" aria-hidden="true">
+                      {s.n}
+                    </span>
+                    {s.label}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ))}
       </nav>
     </div>
   </section>
 
-  {
-    /* ══════════════════════ THE FILMS ══════════════════════
+  {/* ══════════════════════ THE FILMS ══════════════════════
 
      A prologue, not a sixteenth section: the register below is the
      argument, and these are five doorways into it. Each card names the
@@ -229,14 +234,13 @@ const PARTS = [
      load is the poster: a ~20 KB WebP of the film's own closing card, so
      a reader who never presses play still reads the point. Five posters,
      101 KB, and that is the whole cost of this section.
-     ═══════════════════════════════════════════════════════ */
-  }
+     ═══════════════════════════════════════════════════════ */}
   <section class="films" id="films" aria-labelledby="films-h">
     <div class="container container--wide">
       <header class="films__head">
-        <span class="eyebrow eyebrow--ember"
-          >{FILMS.length} films · silent · {filmRuntime} in total</span
-        >
+        <span class="eyebrow eyebrow--ember">
+          {FILMS.length} films · silent · {filmRuntime} in total
+        </span>
         <h2 id="films-h">Watch it happen, then read why.</h2>
         <p class="lead">
           Each one is under half a minute and shows a single mechanic end to end — the store, the
@@ -247,71 +251,69 @@ const PARTS = [
       </header>
 
       <ol class="films__grid">
-        {
-          FILMS.map((film) => (
-            <li>
-              <figure class="film">
-                <video
-                  class="film__player"
-                  src={film.video}
-                  poster={film.poster}
-                  preload="none"
-                  controls
-                  playsinline
-                  width="1920"
-                  height="1080"
-                  aria-label={`${film.title} — a silent ${film.seconds}-second film. Its transcript follows.`}
-                  aria-describedby={`film-${film.id}-blurb`}
-                />
+        {FILMS.map((film) => (
+          <li>
+            <figure class="film">
+              <video
+                class="film__player"
+                src={film.video}
+                poster={film.poster}
+                preload="none"
+                controls
+                playsinline
+                width="1920"
+                height="1080"
+                aria-label={`${film.title} — a silent ${film.seconds}-second film. Its transcript follows.`}
+                aria-describedby={`film-${film.id}-blurb`}
+              />
 
-                <figcaption class="film__cap">
-                  <p class="film__meta mono">
-                    <span class="film__time">{film.seconds}s</span>
-                    <span class="film__sep" aria-hidden="true">
-                      ·
-                    </span>
-                    <span class="film__silent">no sound</span>
+              <figcaption class="film__cap">
+                <p class="film__meta mono">
+                  <span class="film__time">{film.seconds}s</span>
+                  <span class="film__sep" aria-hidden="true">
+                    ·
+                  </span>
+                  <span class="film__silent">no sound</span>
+                </p>
+                <h3 class="film__h">{film.title}</h3>
+                <p class="film__blurb" id={`film-${film.id}-blurb`}>
+                  {film.blurb}
+                </p>
+                {film.caveat && (
+                  <p class="film__caveat">
+                    <span class="tag tag--review">{film.caveat.label}</span>
+                    {film.caveat.note} <a href={film.caveat.href}>Read the boundary</a>.
                   </p>
-                  <h3 class="film__h">{film.title}</h3>
-                  <p class="film__blurb" id={`film-${film.id}-blurb`}>
-                    {film.blurb}
-                  </p>
-                  {film.caveat && (
-                    <p class="film__caveat">
-                      <span class="tag tag--review">{film.caveat.label}</span>
-                      {film.caveat.note} <a href={film.caveat.href}>Read the boundary</a>.
-                    </p>
-                  )}
-                  <details class="film__tx">
-                    <summary>
-                      <span class="film__txlab">Transcript</span>
-                      <span class="film__txhint mono">every word on the screen</span>
-                    </summary>
-                    <ol class="film__txlist">
-                      {film.transcript.map((line) => (
-                        <li>{line}</li>
-                      ))}
-                    </ol>
-                  </details>
-                  <a class="film__jump mono" href={`#${film.section.id}`}>
-                    <span class="film__jumpn" aria-hidden="true">
-                      {film.section.n}
-                    </span>
-                    In full · {film.section.label}
-                    <span class="btn-arrow" aria-hidden="true">
-                      →
-                    </span>
-                  </a>
-                </figcaption>
-              </figure>
-            </li>
-          ))
-        }
+                )}
+                <details class="film__tx">
+                  <summary>
+                    <span class="film__txlab">Transcript</span>
+                    <span class="film__txhint mono">every word on the screen</span>
+                  </summary>
+                  <ol class="film__txlist">
+                    {film.transcript.map((line) => (
+                      <li>{line}</li>
+                    ))}
+                  </ol>
+                </details>
+                <a class="film__jump mono" href={`#${film.section.id}`}>
+                  <span class="film__jumpn" aria-hidden="true">
+                    {film.section.n}
+                  </span>
+                  In full · {film.section.label}
+                  <span class="btn-arrow" aria-hidden="true">
+                    →
+                  </span>
+                </a>
+              </figcaption>
+            </figure>
+          </li>
+        ))}
       </ol>
 
       <p class="reg__foot mono">
-        Rendered from <code>docs/superpowers/2026-09-02-memory-mcp-v2-design.md</code> and the sections
-        below · every frame's copy is in the transcripts
+        Rendered from <code>docs/superpowers/2026-09-02-memory-mcp-v2-design.md</code> and the
+        sections below · every frame's copy is in the transcripts
       </p>
     </div>
   </section>
@@ -319,7 +321,9 @@ const PARTS = [
   {/* ══════════════════════ PART ONE ══════════════════════ */}
   <div class="part part--first" id="part-one">
     <div class="container container--wide part__inner">
-      <span class="part__n mono" aria-hidden="true">Part one</span>
+      <span class="part__n mono" aria-hidden="true">
+        Part one
+      </span>
       <h2 class="part__h">The memory</h2>
       <p class="part__sub">
         How a sentence becomes a memory, what refuses it, how it comes back, what happens when it
@@ -332,7 +336,9 @@ const PARTS = [
   <section class="reg" id="pipeline" aria-labelledby="pipeline-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">01</span>
+        <span class="reg__n mono" aria-hidden="true">
+          01
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">The pipeline</span>
           <h2 id="pipeline-h">
@@ -340,27 +346,25 @@ const PARTS = [
           </h2>
           <p class="lead">
             Most memory layers are a vector database with a nice name: text goes in, embeddings come
-            out, and whatever was in the text is now in the index. This one refuses things.
-            {" "}{refusingStages} of the {WRITE_PIPELINE.length} stages exist only to say no.
+            out, and whatever was in the text is now in the index. This one refuses things.{" "}
+            {refusingStages} of the {WRITE_PIPELINE.length} stages exist only to say no.
           </p>
         </div>
       </header>
 
       <ol class="pipe" data-animate-onview>
-        {
-          WRITE_PIPELINE.map((stage) => (
-            <li class="pipe__step" data-role={stage.role}>
-              <span class="pipe__dot" aria-hidden="true" />
-              <div class="pipe__id">
-                <p class="pipe__n mono">{stage.n}</p>
-                <h3 class="pipe__name">{stage.name}</h3>
-                {stage.role === "gate" && <p class="pipe__role mono">can refuse</p>}
-              </div>
-              <p class="pipe__what">{stage.what}</p>
-              <p class="pipe__detail">{stage.detail}</p>
-            </li>
-          ))
-        }
+        {WRITE_PIPELINE.map((stage) => (
+          <li class="pipe__step" data-role={stage.role}>
+            <span class="pipe__dot" aria-hidden="true" />
+            <div class="pipe__id">
+              <p class="pipe__n mono">{stage.n}</p>
+              <h3 class="pipe__name">{stage.name}</h3>
+              {stage.role === "gate" && <p class="pipe__role mono">can refuse</p>}
+            </div>
+            <p class="pipe__what">{stage.what}</p>
+            <p class="pipe__detail">{stage.detail}</p>
+          </li>
+        ))}
       </ol>
 
       <p class="reg__foot mono">
@@ -374,7 +378,9 @@ const PARTS = [
   <section class="reg reg--alt" id="gate" aria-labelledby="gate-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">02</span>
+        <span class="reg__n mono" aria-hidden="true">
+          02
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">The gate</span>
           <h2 id="gate-h">Credentials never become memories.</h2>
@@ -395,9 +401,8 @@ const PARTS = [
           <div class="specimen__side">
             <p class="specimen__label mono">In · what the agent saw</p>
             <p class="specimen__text mono">
-              deploy uses the token <span class="specimen__redacted" aria-hidden="true"></span><span
-                class="sr-only">(a GitHub personal access token)</span
-              > stored in 1Password
+              deploy uses the token <span class="specimen__redacted" aria-hidden="true"></span>
+              <span class="sr-only">(a GitHub personal access token)</span> stored in 1Password
             </p>
           </div>
           <div class="specimen__arrow" aria-hidden="true">
@@ -408,53 +413,53 @@ const PARTS = [
                 stroke="currentColor"
                 stroke-width="1.2"
                 stroke-linecap="round"
-                stroke-linejoin="round"></path>
+                stroke-linejoin="round"
+              ></path>
             </svg>
           </div>
           <div class="specimen__side specimen__side--out">
             <p class="specimen__label mono">Out · what was stored</p>
             <p class="specimen__text mono">
-              deploy uses the token <mark class="specimen__mark">[REDACTED:github-pat]</mark> stored in
-              1Password
+              deploy uses the token <mark class="specimen__mark">[REDACTED:github-pat]</mark> stored
+              in 1Password
             </p>
             <p class="specimen__meta mono">kind: procedure · sensitivity: redacted</p>
           </div>
         </div>
         <p class="specimen__note">
-          The fact is worth keeping. The token is not. Under <code>reject</code> the whole write is refused
-          instead; under <code>retain</code> the verbatim text goes to an encrypted vault that never leaves
-          the device.
+          The fact is worth keeping. The token is not. Under <code>reject</code> the whole write is
+          refused instead; under <code>retain</code> the verbatim text goes to an encrypted vault
+          that never leaves the device.
         </p>
       </figure>
 
       <div class="policies">
-        {
-          GATE_POLICIES.map((p) => (
-            <article class="policy" data-status={p.status}>
-              <header class="policy__head">
-                <code class="policy__name">{p.label}</code>
-                <span
-                  class:list={[
-                    "tag",
-                    p.status === "default" ? "tag--exact" : "",
-                    p.status === "opt-in" ? "tag--mercury" : "",
-                    p.status === "experimental" ? "tag--review" : ""
-                  ]}
-                >
-                  {p.status}
-                </span>
-              </header>
-              <h3 class="policy__h">{p.headline}</h3>
-              <p class="policy__body">{p.body}</p>
-            </article>
-          ))
-        }
+        {GATE_POLICIES.map((p) => (
+          <article class="policy" data-status={p.status}>
+            <header class="policy__head">
+              <code class="policy__name">{p.label}</code>
+              <span
+                class:list={[
+                  "tag",
+                  p.status === "default" ? "tag--exact" : "",
+                  p.status === "opt-in" ? "tag--mercury" : "",
+                  p.status === "experimental" ? "tag--review" : ""
+                ]}
+              >
+                {p.status}
+              </span>
+            </header>
+            <h3 class="policy__h">{p.headline}</h3>
+            <p class="policy__body">{p.body}</p>
+          </article>
+        ))}
       </div>
 
       <div class="coverage">
         <div class="coverage__stat">
           <p class="coverage__fig mono">
-            {GATE_SHAPES.total}<span class="coverage__of">/{GATE_SHAPES.total}</span>
+            {GATE_SHAPES.total}
+            <span class="coverage__of">/{GATE_SHAPES.total}</span>
           </p>
           <p class="coverage__lab">
             credential shapes in the shared corpus, every one detected in raw form
@@ -462,14 +467,16 @@ const PARTS = [
         </div>
         <div class="coverage__body">
           <p class="coverage__intro">
-            The adversarial suite plants each of those shapes in <strong
-              >{GATE_PLACEMENTS.length} caller-controlled places</strong
-            > and proves that under <code>redact</code> the verbatim token reaches no result, no
+            The adversarial suite plants each of those shapes in{" "}
+            <strong>{GATE_PLACEMENTS.length} caller-controlled places</strong> and proves that under{" "}
+            <code>redact</code> the verbatim token reaches no result, no
             <code>get</code>, no <code>list</code>, no recall, no pack, no export, no history, no
             audit trail — and is absent from the store's raw bytes, write-ahead log included.
           </p>
           <ul class="coverage__places">
-            {GATE_PLACEMENTS.map((place) => <li class="mono">{place}</li>)}
+            {GATE_PLACEMENTS.map((place) => (
+              <li class="mono">{place}</li>
+            ))}
           </ul>
           <div class="coverage__gaps">
             <p class="coverage__gapshead">
@@ -477,7 +484,9 @@ const PARTS = [
               Four encoded forms are not yet caught:
             </p>
             <ul>
-              {GATE_SHAPES.encodingGaps.map((gap) => <li>{gap}</li>)}
+              {GATE_SHAPES.encodingGaps.map((gap) => (
+                <li>{gap}</li>
+              ))}
             </ul>
           </div>
         </div>
@@ -494,7 +503,9 @@ const PARTS = [
   <section class="reg" id="recall" aria-labelledby="recall-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">03</span>
+        <span class="reg__n mono" aria-hidden="true">
+          03
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">Recall</span>
           <h2 id="recall-h">Two rankings, fused. Then weighted by what a memory is.</h2>
@@ -537,37 +548,35 @@ const PARTS = [
           stray note has to work for it.
         </p>
         <ul class="kinds">
-          {
-            MEMORY_KINDS.map((k) => (
-              <li class="kind">
-                <code class="kind__name">{k.kind}</code>
+          {MEMORY_KINDS.map((k) => (
+            <li class="kind">
+              <code class="kind__name">{k.kind}</code>
+              <span
+                class="kind__bar"
+                role="img"
+                aria-label={`salience weight ${k.weight.toFixed(2)}`}
+              >
                 <span
-                  class="kind__bar"
-                  role="img"
-                  aria-label={`salience weight ${k.weight.toFixed(2)}`}
-                >
-                  <span
-                    class="kind__fill"
-                    style={`--w:${((k.weight / maxKindWeight) * 100).toFixed(1)}%`}
-                  />
-                </span>
-                <span class="kind__val mono">{k.weight.toFixed(2)}</span>
-                <span class="kind__flags">
-                  {k.personal && <span class="tag tag--mercury tag--plain">personal scope</span>}
-                  {k.decaysFast && (
-                    <span class="tag tag--review tag--plain">
-                      {FUSION.halfLifeShortDays}d half-life
-                    </span>
-                  )}
-                </span>
-                <span class="kind__eg">{k.example}</span>
-              </li>
-            ))
-          }
+                  class="kind__fill"
+                  style={`--w:${((k.weight / maxKindWeight) * 100).toFixed(1)}%`}
+                />
+              </span>
+              <span class="kind__val mono">{k.weight.toFixed(2)}</span>
+              <span class="kind__flags">
+                {k.personal && <span class="tag tag--mercury tag--plain">personal scope</span>}
+                {k.decaysFast && (
+                  <span class="tag tag--review tag--plain">
+                    {FUSION.halfLifeShortDays}d half-life
+                  </span>
+                )}
+              </span>
+              <span class="kind__eg">{k.example}</span>
+            </li>
+          ))}
         </ul>
         <p class="salience__foot mono">
-          Half-life {FUSION.halfLifeLongDays} days unless marked · duplicates collapse above cosine
-          {" "}{FUSION.dedupCosine} or Jaccard {FUSION.dedupJaccard} ·
+          Half-life {FUSION.halfLifeLongDays} days unless marked · duplicates collapse above cosine{" "}
+          {FUSION.dedupCosine} or Jaccard {FUSION.dedupJaccard} ·
           <code>memory_engine/constants.py</code>
         </p>
       </div>
@@ -581,15 +590,13 @@ const PARTS = [
           has to cite its sources or say it cannot.
         </p>
         <ul class="packs__list">
-          {
-            PACKS.map((p) => (
-              <li class="pack">
-                <code class="pack__tool">{p.tool}</code>
-                <h4 class="pack__h">{p.title}</h4>
-                <p class="pack__body">{p.body}</p>
-              </li>
-            ))
-          }
+          {PACKS.map((p) => (
+            <li class="pack">
+              <code class="pack__tool">{p.tool}</code>
+              <h4 class="pack__h">{p.title}</h4>
+              <p class="pack__body">{p.body}</p>
+            </li>
+          ))}
         </ul>
       </div>
 
@@ -605,17 +612,17 @@ const PARTS = [
           </p>
         </div>
         <ul class="pro__purposes">
-          {
-            PRO_PURPOSES.map((p) => (
-              <li>
-                <code>{p.purpose}</code>
-                <span>{p.what}</span>
-              </li>
-            ))
-          }
+          {PRO_PURPOSES.map((p) => (
+            <li>
+              <code>{p.purpose}</code>
+              <span>{p.what}</span>
+            </li>
+          ))}
         </ul>
         <ul class="pro__invariants">
-          {PRO_INVARIANTS.map((inv) => <li>{inv}</li>)}
+          {PRO_INVARIANTS.map((inv) => (
+            <li>{inv}</li>
+          ))}
         </ul>
       </aside>
 
@@ -630,7 +637,9 @@ const PARTS = [
   <section class="reg reg--alt" id="time" aria-labelledby="time-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">04</span>
+        <span class="reg__n mono" aria-hidden="true">
+          04
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">Time</span>
           <h2 id="time-h">Facts change. Nothing is overwritten in silence.</h2>
@@ -643,28 +652,24 @@ const PARTS = [
       </header>
 
       <ul class="tfacts">
-        {
-          TIME_FACTS.map((f) => (
-            <li class="tfact">
-              <p class="tfact__lab mono">{f.label}</p>
-              <p class="tfact__body">{f.body}</p>
-            </li>
-          ))
-        }
+        {TIME_FACTS.map((f) => (
+          <li class="tfact">
+            <p class="tfact__lab mono">{f.label}</p>
+            <p class="tfact__body">{f.body}</p>
+          </li>
+        ))}
       </ul>
 
       <div class="ledger">
         <h3 class="ledger__h">What the engine does when you say something again</h3>
         <ul class="ledger__rows">
-          {
-            LIFECYCLE_EVENTS.map((e) => (
-              <li class="ledger__row">
-                <p class="ledger__trigger">{e.trigger}</p>
-                <p class="ledger__verdict mono">{e.verdict}</p>
-                <p class="ledger__effect">{e.effect}</p>
-              </li>
-            ))
-          }
+          {LIFECYCLE_EVENTS.map((e) => (
+            <li class="ledger__row">
+              <p class="ledger__trigger">{e.trigger}</p>
+              <p class="ledger__verdict mono">{e.verdict}</p>
+              <p class="ledger__effect">{e.effect}</p>
+            </li>
+          ))}
         </ul>
       </div>
 
@@ -674,8 +679,8 @@ const PARTS = [
       </p>
 
       <p class="reg__foot mono">
-        Source · <code>memory_engine/_write.py</code> ·
-        <code>tools/openburnbar-mcp/README.md</code> § Structured refusals · § Cross-store lifecycle
+        Source · <code>memory_engine/_write.py</code> ·<code>tools/openburnbar-mcp/README.md</code>{" "}
+        § Structured refusals · § Cross-store lifecycle
       </p>
     </div>
   </section>
@@ -684,15 +689,18 @@ const PARTS = [
   <section class="reg" id="forget" aria-labelledby="forget-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">05</span>
+        <span class="reg__n mono" aria-hidden="true">
+          05
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">Forget</span>
           <h2 id="forget-h">Delete means the row is gone.</h2>
           <p class="lead">
             Most systems that promise deletion set a flag and move on, because a tombstone is
-            cheaper than a real delete and nobody checks. <code>burnbar_forget</code> empties every table
-            the memory touched and drops the row itself. What survives is one audit event made of labels,
-            which is enough to prove the deletion happened and not enough to say what was deleted.
+            cheaper than a real delete and nobody checks. <code>burnbar_forget</code> empties every
+            table the memory touched and drops the row itself. What survives is one audit event made
+            of labels, which is enough to prove the deletion happened and not enough to say what was
+            deleted.
           </p>
         </div>
       </header>
@@ -700,14 +708,12 @@ const PARTS = [
       <div class="purge" data-animate-onview>
         <p class="purge__lab mono">One forget empties {FORGET_PURGED.length} tables</p>
         <ul class="purge__list">
-          {
-            FORGET_PURGED.map((p) => (
-              <li class="purge__item">
-                <code class="purge__name">{p.id}</code>
-                <span class="purge__note">{p.note}</span>
-              </li>
-            ))
-          }
+          {FORGET_PURGED.map((p) => (
+            <li class="purge__item">
+              <code class="purge__name">{p.id}</code>
+              <span class="purge__note">{p.note}</span>
+            </li>
+          ))}
         </ul>
         <p class="purge__foot mono">
           purged: ["memory", "vector", "history", "relations", "vault"] ·
@@ -716,19 +722,17 @@ const PARTS = [
       </div>
 
       <ol class="fsteps">
-        {
-          FORGET_STEPS.map((s, i) => (
-            <li class="fstep">
-              <span class="fstep__n mono" aria-hidden="true">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <div class="fstep__body">
-                <h3 class="fstep__h">{s.title}</h3>
-                <p>{s.body}</p>
-              </div>
-            </li>
-          ))
-        }
+        {FORGET_STEPS.map((s, i) => (
+          <li class="fstep">
+            <span class="fstep__n mono" aria-hidden="true">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <div class="fstep__body">
+              <h3 class="fstep__h">{s.title}</h3>
+              <p>{s.body}</p>
+            </div>
+          </li>
+        ))}
       </ol>
 
       <p class="honest">
@@ -748,15 +752,17 @@ const PARTS = [
   <section class="reg reg--alt" id="collection" aria-labelledby="collection-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">06</span>
+        <span class="reg__n mono" aria-hidden="true">
+          06
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">Collection</span>
           <h2 id="collection-h">It fills itself in.</h2>
           <p class="lead">
             A memory tool only helps if something calls it. Normally that means the agent deciding,
             mid-task, that a fact is worth keeping — which is exactly the moment it is thinking
-            about something else. A <code>SessionEnd</code> hook closes the gap: when a Claude Code session
-            ends, the transcript goes through the same pipeline as everything above.
+            about something else. A <code>SessionEnd</code> hook closes the gap: when a Claude Code
+            session ends, the transcript goes through the same pipeline as everything above.
           </p>
         </div>
       </header>
@@ -766,19 +772,26 @@ const PARTS = [
           <div class="code" data-code>
             <div class="code__strip">
               <span class="code__meta mono">user-level ~/.claude/settings.json</span>
-              <button class="code__copy mono" type="button" data-copy data-copy-label="session hook"
-                >copy</button
+              <button
+                class="code__copy mono"
+                type="button"
+                data-copy
+                data-copy-label="session hook"
               >
+                copy
+              </button>
             </div>
             <pre
               class="code__pre mono"
-              tabindex="0"><code>{SESSION_HOOK_LINES.join("\n")}</code></pre>
+              tabindex="0"
+            ><code>{SESSION_HOOK_LINES.join("\n")}</code></pre>
           </div>
           <p class="collect__warn">
             <strong>Use the absolute path.</strong>
-            <code>$CLAUDE_PROJECT_DIR</code> expands to whatever project the session ran in, not to your
-            BurnBar checkout — so the hook would go looking for the script inside every unrelated repository.
-            Inside the checkout itself, the repo-relative form is the correct one.
+            <code>$CLAUDE_PROJECT_DIR</code> expands to whatever project the session ran in, not to
+            your BurnBar checkout — so the hook would go looking for the script inside every
+            unrelated repository. Inside the checkout itself, the repo-relative form is the correct
+            one.
           </p>
         </div>
 
@@ -790,40 +803,39 @@ const PARTS = [
               thinking blocks, summaries and wrapper tags are dropped before anything is read.
             </li>
             <li>
-              Trims to the last <strong>400 messages / 200,000 characters</strong> and memorizes against
-              the session's working directory.
+              Trims to the last <strong>400 messages / 200,000 characters</strong> and memorizes
+              against the session's working directory.
             </li>
             <li>
-              Keeps <strong>both halves of the provenance</strong> — the extractor's message marker behind
-              the caller's reference — so a memory traces back to the session and the turn it came from.
+              Keeps <strong>both halves of the provenance</strong> — the extractor's message marker
+              behind the caller's reference — so a memory traces back to the session and the turn it
+              came from.
             </li>
             <li>
-              <strong>Never blocks session end.</strong> A 20-second budget, one JSON status line, exit
-              0 in every case but a usage error.
+              <strong>Never blocks session end.</strong> A 20-second budget, one JSON status line,
+              exit 0 in every case but a usage error.
             </li>
             <li>
-              <strong>Idempotent.</strong> The ingest receipt is keyed on the transcript's content hash,
-              so a <code>--resume</code>, a replay, or two hooks firing writes nothing twice.
+              <strong>Idempotent.</strong> The ingest receipt is keyed on the transcript's content
+              hash, so a <code>--resume</code>, a replay, or two hooks firing writes nothing twice.
             </li>
           </ul>
 
           <h3 class="collect__h2">The statuses it prints</h3>
           <ul class="statuses">
-            {
-              HOOK_STATUSES.map((s) => (
-                <li>
-                  <code>{s.id}</code>
-                  <span>{s.note}</span>
-                </li>
-              ))
-            }
+            {HOOK_STATUSES.map((s) => (
+              <li>
+                <code>{s.id}</code>
+                <span>{s.note}</span>
+              </li>
+            ))}
           </ul>
           <p class="collect__honest">
             <span class="tag tag--review">Expect this</span>
-            The first session end on a machine without the virtualenv usually memorizes nothing: building
-            the interpreter eats the hook budget, so that run reports <code>timeout</code>. The venv
-            it built persists and every session after it completes normally. Running the bootstrap
-            once by hand skips that lost run.
+            The first session end on a machine without the virtualenv usually memorizes nothing:
+            building the interpreter eats the hook budget, so that run reports <code>timeout</code>.
+            The venv it built persists and every session after it completes normally. Running the
+            bootstrap once by hand skips that lost run.
           </p>
           <p class="collect__off mono">
             OPENBURNBAR_MEMORY_SESSION_HOOK=off — nothing is read and no store is created.
@@ -842,7 +854,9 @@ const PARTS = [
   <section class="reg" id="review" aria-labelledby="review-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">07</span>
+        <span class="reg__n mono" aria-hidden="true">
+          07
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">Review &amp; audit</span>
           <h2 id="review-h">Quarantine is a queue you can actually work.</h2>
@@ -855,15 +869,13 @@ const PARTS = [
       </header>
 
       <ul class="rsurfaces">
-        {
-          REVIEW_SURFACES.map((s) => (
-            <li class="rsurface">
-              <code class="rsurface__tool">{s.tool}</code>
-              <h3 class="rsurface__h">{s.title}</h3>
-              <p class="rsurface__body">{s.body}</p>
-            </li>
-          ))
-        }
+        {REVIEW_SURFACES.map((s) => (
+          <li class="rsurface">
+            <code class="rsurface__tool">{s.tool}</code>
+            <h3 class="rsurface__h">{s.title}</h3>
+            <p class="rsurface__body">{s.body}</p>
+          </li>
+        ))}
       </ul>
 
       <p class="honest">
@@ -881,7 +893,9 @@ const PARTS = [
   {/* ══════════════════════ PART TWO ══════════════════════ */}
   <div class="part" id="part-two">
     <div class="container container--wide part__inner">
-      <span class="part__n mono" aria-hidden="true">Part two</span>
+      <span class="part__n mono" aria-hidden="true">
+        Part two
+      </span>
       <h2 class="part__h">The rest of the server</h2>
       <p class="part__sub">
         The memory engine is the reason to install this, and it is not all that is in the box. The
@@ -896,43 +910,42 @@ const PARTS = [
   <section class="reg reg--alt" id="code" aria-labelledby="code-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">08</span>
+        <span class="reg__n mono" aria-hidden="true">
+          08
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">Code intelligence</span>
           <h2 id="code-h">It also reads the repository.</h2>
           <p class="lead">
-            {groupSize("code")} of the tools have nothing to do with memories. They index your project
-            locally, find a symbol, list its references, walk a call graph, and hand back a token-budgeted
-            pack of the code that matters — without a single byte leaving the machine.
+            {groupSize("code")} of the tools have nothing to do with memories. They index your
+            project locally, find a symbol, list its references, walk a call graph, and hand back a
+            token-budgeted pack of the code that matters — without a single byte leaving the
+            machine.
           </p>
         </div>
       </header>
 
       <ul class="cfacts">
-        {
-          CODE_FACTS.map((f) => (
-            <li class="cfact">
-              <h3 class="cfact__h">{f.title}</h3>
-              <p>{f.body}</p>
-            </li>
-          ))
-        }
+        {CODE_FACTS.map((f) => (
+          <li class="cfact">
+            <h3 class="cfact__h">{f.title}</h3>
+            <p>{f.body}</p>
+          </li>
+        ))}
       </ul>
 
       <div class="tiers">
         <h3 class="tiers__h">Every answer names the tier that produced it</h3>
         <ul class="tiers__list">
-          {
-            CODE_TIERS.map((t) => (
-              <li class="tier" data-status={t.status}>
-                <div class="tier__head">
-                  <code class="tier__name">{t.label}</code>
-                  <span class="tier__badge mono">{t.status}</span>
-                </div>
-                <p class="tier__body">{t.body}</p>
-              </li>
-            ))
-          }
+          {CODE_TIERS.map((t) => (
+            <li class="tier" data-status={t.status}>
+              <div class="tier__head">
+                <code class="tier__name">{t.label}</code>
+                <span class="tier__badge mono">{t.status}</span>
+              </div>
+              <p class="tier__body">{t.body}</p>
+            </li>
+          ))}
         </ul>
       </div>
 
@@ -942,8 +955,8 @@ const PARTS = [
       </p>
 
       <p class="reg__foot mono">
-        Source · <code>tools/openburnbar-mcp/README.md</code> § Local memory engine — Project Code Memory
-        · <code>tools/openburnbar-mcp/project_code_memory.py</code>
+        Source · <code>tools/openburnbar-mcp/README.md</code> § Local memory engine — Project Code
+        Memory · <code>tools/openburnbar-mcp/project_code_memory.py</code>
       </p>
     </div>
   </section>
@@ -952,7 +965,9 @@ const PARTS = [
   <section class="reg" id="sessions" aria-labelledby="sessions-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">09</span>
+        <span class="reg__n mono" aria-hidden="true">
+          09
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">Sessions</span>
           <h2 id="sessions-h">
@@ -960,21 +975,19 @@ const PARTS = [
           </h2>
           <p class="lead">
             Memories are the distilled version. Sometimes you want the session itself — the one from
-            three weeks ago, in the other harness, where you worked this out the first time.
-            {" "}{groupSize("sessions")} tools find it, read it, and put you back in it.
+            three weeks ago, in the other harness, where you worked this out the first time.{" "}
+            {groupSize("sessions")} tools find it, read it, and put you back in it.
           </p>
         </div>
       </header>
 
       <ul class="sfacts">
-        {
-          SESSION_FACTS.map((f) => (
-            <li class="sfact">
-              <h3 class="sfact__h">{f.title}</h3>
-              <p>{f.body}</p>
-            </li>
-          ))
-        }
+        {SESSION_FACTS.map((f) => (
+          <li class="sfact">
+            <h3 class="sfact__h">{f.title}</h3>
+            <p>{f.body}</p>
+          </li>
+        ))}
       </ul>
 
       <p class="honest">
@@ -993,7 +1006,9 @@ const PARTS = [
   <section class="reg reg--alt" id="server" aria-labelledby="server-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">10</span>
+        <span class="reg__n mono" aria-hidden="true">
+          10
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">The rest</span>
           <h2 id="server-h">Spend, snapshots, and the fan-out.</h2>
@@ -1006,24 +1021,22 @@ const PARTS = [
       </header>
 
       <ul class="surfaces">
-        {
-          SERVER_SURFACES.map((s) => (
-            <li class="surface" aria-labelledby={`surface-${s.id}`}>
-              <div class="surface__head">
-                <h3 id={`surface-${s.id}`} class="surface__h">
-                  {s.label}
-                </h3>
-                <span class="surface__n mono">{s.tools}</span>
-              </div>
-              <p class="surface__body">{s.body}</p>
-              <p class="surface__edge">
-                <span class="surface__edgelab mono">The edge</span>
-                {s.edge}
-              </p>
-              <p class="surface__src mono">{s.source}</p>
-            </li>
-          ))
-        }
+        {SERVER_SURFACES.map((s) => (
+          <li class="surface" aria-labelledby={`surface-${s.id}`}>
+            <div class="surface__head">
+              <h3 id={`surface-${s.id}`} class="surface__h">
+                {s.label}
+              </h3>
+              <span class="surface__n mono">{s.tools}</span>
+            </div>
+            <p class="surface__body">{s.body}</p>
+            <p class="surface__edge">
+              <span class="surface__edgelab mono">The edge</span>
+              {s.edge}
+            </p>
+            <p class="surface__src mono">{s.source}</p>
+          </li>
+        ))}
       </ul>
     </div>
   </section>
@@ -1032,32 +1045,34 @@ const PARTS = [
   <section class="reg" id="atlas" aria-labelledby="atlas-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">11</span>
+        <span class="reg__n mono" aria-hidden="true">
+          11
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">The atlas</span>
           <h2 id="atlas-h">All {TOTAL_TOOL_COUNT} tools, and what each one needs.</h2>
           <p class="lead">
             Not a highlights reel. Every tool the server registers, grouped by surface, with the
-            capability that gates it. <strong>{BURNBAR_TOOL_COUNT}</strong> serve memory, code and conversations
-            — <strong>{MEMORY_TOOL_COUNT}</strong> of those are the memory toolset, the subset a client
-            gets with {" "}<code>BURNBAR_MCP_TOOLSET=memory</code>. The other
-            {" "}<strong>{ORCHESTRATION_TOOL_COUNT}</strong> — Castle, Ministry, Bench — launch coding-agent
-            workers across runtimes and grade or benchmark what comes back; a client asking for the memory
-            toolset never sees them, and they arrive only with
-            {" "}<code>BURNBAR_MCP_TOOLSET=ops</code> or the historical default,
-            {" "}<code>all</code>. A build gate reads {" "}<code>server.py</code> and this list and fails
-            if either grows a tool the other does not have. A chip that carries a condition —
-            {" "}<em>with include_secrets</em>, {" "}<em>with prove_headless</em> — is gated only on that
-            path: the tool's ordinary call needs nothing turned on.
+            capability that gates it. <strong>{BURNBAR_TOOL_COUNT}</strong> serve memory, code and
+            conversations — <strong>{MEMORY_TOOL_COUNT}</strong> of those are the memory toolset,
+            the subset a client gets with <code>BURNBAR_MCP_TOOLSET=memory</code>. The other{" "}
+            <strong>{ORCHESTRATION_TOOL_COUNT}</strong> — Castle, Ministry, Bench — launch
+            coding-agent workers across runtimes and grade or benchmark what comes back; a client
+            asking for the memory toolset never sees them, and they arrive only with{" "}
+            <code>BURNBAR_MCP_TOOLSET=ops</code> or the historical default, <code>all</code>. A
+            build gate reads <code>server.py</code> and this list and fails if either grows a tool
+            the other does not have. A chip that carries a condition — <em>with include_secrets</em>
+            , <em>with prove_headless</em> — is gated only on that path: the tool's ordinary call
+            needs nothing turned on.
           </p>
         </div>
       </header>
 
       <div class="atlas__bar">
         <div class="atlas__field">
-          <label class="atlas__lab mono" for="atlas-q"
-            >Filter by name, description or capability</label
-          >
+          <label class="atlas__lab mono" for="atlas-q">
+            Filter by name, description or capability
+          </label>
           <input
             class="atlas__input mono"
             id="atlas-q"
@@ -1085,41 +1100,39 @@ const PARTS = [
       <p class="sr-only" role="status" aria-live="polite" data-atlas-live></p>
 
       <div class="atlas" data-atlas>
-        {
-          ATLAS_GROUPS.map((g) => {
-            const groupTools = TOOL_ATLAS.filter((t) => t.group === g.id);
-            return (
-              <details class="agrp" data-atlas-group={g.id} open>
-                <summary class="agrp__sum">
-                  <span class="agrp__lab">{g.label}</span>
-                  <span class="agrp__n mono">{groupTools.length}</span>
-                  <span class="agrp__blurb">{g.blurb}</span>
-                </summary>
-                <ul class="agrp__list">
-                  {groupTools.map((t) => (
-                    <li class="atool" data-atlas-tool>
-                      <code class="atool__name">{t.name}</code>
-                      <p class="atool__desc">{t.desc}</p>
-                      <p class="atool__caps">
-                        {t.memory && <span class="acap acap--set">memory toolset</span>}
-                        {t.caps.length === 0 ? (
-                          <span class="acap acap--open">no capability</span>
-                        ) : (
-                          t.caps.map((c) => (
-                            <span class="acap acap--gated">
-                              {CAP_LABEL.get(c) ?? c}
-                              {t.capsWhen?.[c] && <span class="acap__when">{t.capsWhen[c]}</span>}
-                            </span>
-                          ))
-                        )}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            );
-          })
-        }
+        {ATLAS_GROUPS.map((g) => {
+          const groupTools = TOOL_ATLAS.filter((t) => t.group === g.id);
+          return (
+            <details class="agrp" data-atlas-group={g.id} open>
+              <summary class="agrp__sum">
+                <span class="agrp__lab">{g.label}</span>
+                <span class="agrp__n mono">{groupTools.length}</span>
+                <span class="agrp__blurb">{g.blurb}</span>
+              </summary>
+              <ul class="agrp__list">
+                {groupTools.map((t) => (
+                  <li class="atool" data-atlas-tool>
+                    <code class="atool__name">{t.name}</code>
+                    <p class="atool__desc">{t.desc}</p>
+                    <p class="atool__caps">
+                      {t.memory && <span class="acap acap--set">memory toolset</span>}
+                      {t.caps.length === 0 ? (
+                        <span class="acap acap--open">no capability</span>
+                      ) : (
+                        t.caps.map((c) => (
+                          <span class="acap acap--gated">
+                            {CAP_LABEL.get(c) ?? c}
+                            {t.capsWhen?.[c] && <span class="acap__when">{t.capsWhen[c]}</span>}
+                          </span>
+                        ))
+                      )}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          );
+        })}
       </div>
 
       <p class="atlas__empty" data-atlas-empty hidden>
@@ -1135,34 +1148,29 @@ const PARTS = [
           purchase, a login, or a remote flag.
         </p>
         <dl class="caps__rows">
-          {
-            CAPABILITIES.map((c) => (
-              <div class="caps__row">
-                <dt>
-                  <span class="caps__label">{c.label}</span>
-                  <code class="caps__env">{c.env}</code>
-                </dt>
-                <dd>
-                  <span class="caps__what">{c.what}</span>
-                  <span class="caps__default">{c.byDefault}</span>
-                </dd>
-              </div>
-            ))
-          }
+          {CAPABILITIES.map((c) => (
+            <div class="caps__row">
+              <dt>
+                <span class="caps__label">{c.label}</span>
+                <code class="caps__env">{c.env}</code>
+              </dt>
+              <dd>
+                <span class="caps__what">{c.what}</span>
+                <span class="caps__default">{c.byDefault}</span>
+              </dd>
+            </div>
+          ))}
         </dl>
       </div>
 
       <p class="reg__foot mono">
-        Source · <code>tools/openburnbar-mcp/server.py</code> — every <code>@mcp.tool()</code> and every
-        capability denial site · gated by
-        {" "}<code>website/scripts/test-memory-copy.mjs</code>. All {TOTAL_TOOL_COUNT} tools:
-        {" "}<strong>{BURNBAR_TOOL_COUNT}</strong>
-        <code>burnbar_*</code> product tools plus
-        {" "}<strong>{ORCHESTRATION_TOOL_COUNT}</strong>
-        <code>ministry_*</code> /
-        {" "}<code>castle_*</code> / <code>bench_*</code> orchestration tools, grouped under their own
-        three headings above because they launch and grade coding agents rather than serve your memory
-        — not because they were left off the count.
+        Source · <code>tools/openburnbar-mcp/server.py</code> — every <code>@mcp.tool()</code> and
+        every capability denial site · gated by <code>website/scripts/test-memory-copy.mjs</code>.
+        All {TOTAL_TOOL_COUNT} tools: <strong>{BURNBAR_TOOL_COUNT}</strong>
+        <code>burnbar_*</code> product tools plus <strong>{ORCHESTRATION_TOOL_COUNT}</strong>
+        <code>ministry_*</code> / <code>castle_*</code> / <code>bench_*</code> orchestration tools,
+        grouped under their own three headings above because they launch and grade coding agents
+        rather than serve your memory — not because they were left off the count.
       </p>
     </div>
   </section>
@@ -1170,7 +1178,9 @@ const PARTS = [
   {/* ══════════════════════ PART THREE ══════════════════════ */}
   <div class="part" id="part-three">
     <div class="container container--wide part__inner">
-      <span class="part__n mono" aria-hidden="true">Part three</span>
+      <span class="part__n mono" aria-hidden="true">
+        Part three
+      </span>
       <h2 class="part__h">The evidence, and the install</h2>
       <p class="part__sub">
         What we measured and what pins it, what crosses the device boundary, how to run it, and
@@ -1183,49 +1193,49 @@ const PARTS = [
   <section class="reg reg--alt" id="proof" aria-labelledby="proof-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">12</span>
+        <span class="reg__n mono" aria-hidden="true">
+          12
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">Proof</span>
           <h2 id="proof-h">The numbers, the command, and what stops them sliding.</h2>
           <p class="lead">
             Every figure below is produced by a script in the repository, over a gold set in the
-            repository. {pinnedCount} of {MEASUREMENTS.length} are held in place by a committed assertion
-            — a floor that only moves up, two ceilings, and a band that names both its edges. Each row
-            says which. The rest need a model on your own machine, so we say so instead of quoting them
-            as if CI watched them.
+            repository. {pinnedCount} of {MEASUREMENTS.length} are held in place by a committed
+            assertion — a floor that only moves up, two ceilings, and a band that names both its
+            edges. Each row says which. The rest need a model on your own machine, so we say so
+            instead of quoting them as if CI watched them.
           </p>
         </div>
       </header>
 
       <ul class="bench">
-        {
-          MEASUREMENTS.map((m) => (
-            <li class="bench__row" id={`bench-${m.id}`} data-pinned={m.pin ? "true" : "false"}>
-              <p class="bench__fig mono">
-                {m.figure}
-                {m.unit && <span class="bench__unit"> {m.unit}</span>}
-              </p>
-              <div class="bench__body">
-                <h3 class="bench__label">{m.label}</h3>
-                <p class="bench__corpus">{m.corpus}</p>
-                {m.caveat && <p class="bench__caveat">{m.caveat}</p>}
-              </div>
-              <div class="bench__meta">
-                <code class="bench__cmd">{m.command}</code>
-                {m.pin ? (
-                  <p class="bench__pin">
-                    <span class="tag tag--exact">Pinned</span>
-                    <span class="bench__pintext mono">{m.pin}</span>
-                  </p>
-                ) : (
-                  <p class="bench__pin">
-                    <span class="tag tag--unavailable">Measured, not pinned</span>
-                  </p>
-                )}
-              </div>
-            </li>
-          ))
-        }
+        {MEASUREMENTS.map((m) => (
+          <li class="bench__row" id={`bench-${m.id}`} data-pinned={m.pin ? "true" : "false"}>
+            <p class="bench__fig mono">
+              {m.figure}
+              {m.unit && <span class="bench__unit"> {m.unit}</span>}
+            </p>
+            <div class="bench__body">
+              <h3 class="bench__label">{m.label}</h3>
+              <p class="bench__corpus">{m.corpus}</p>
+              {m.caveat && <p class="bench__caveat">{m.caveat}</p>}
+            </div>
+            <div class="bench__meta">
+              <code class="bench__cmd">{m.command}</code>
+              {m.pin ? (
+                <p class="bench__pin">
+                  <span class="tag tag--exact">Pinned</span>
+                  <span class="bench__pintext mono">{m.pin}</span>
+                </p>
+              ) : (
+                <p class="bench__pin">
+                  <span class="tag tag--unavailable">Measured, not pinned</span>
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
       </ul>
 
       <p class="reg__foot mono">
@@ -1240,7 +1250,9 @@ const PARTS = [
   <section class="reg" id="boundary" aria-labelledby="boundary-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">13</span>
+        <span class="reg__n mono" aria-hidden="true">
+          13
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">The boundary</span>
           <h2 id="boundary-h">What stays. What leaves. What isn't built yet.</h2>
@@ -1253,28 +1265,26 @@ const PARTS = [
       </header>
 
       <div class="lanes">
-        {
-          BOUNDARY.map((lane) => (
-            <article class="lane" data-status={lane.status} aria-labelledby={`lane-${lane.id}`}>
-              <header class="lane__head">
-                <span class="lane__badge mono">{lane.statusLabel}</span>
-                <h3 id={`lane-${lane.id}`} class="lane__h">
-                  {lane.title}
-                </h3>
-                <p class="lane__sum">{lane.summary}</p>
-              </header>
-              <dl class="lane__rows">
-                {lane.rows.map((row) => (
-                  <div class="lane__row">
-                    <dt>{row.item}</dt>
-                    <dd>{row.note}</dd>
-                  </div>
-                ))}
-              </dl>
-              <p class="lane__src mono">{lane.source}</p>
-            </article>
-          ))
-        }
+        {BOUNDARY.map((lane) => (
+          <article class="lane" data-status={lane.status} aria-labelledby={`lane-${lane.id}`}>
+            <header class="lane__head">
+              <span class="lane__badge mono">{lane.statusLabel}</span>
+              <h3 id={`lane-${lane.id}`} class="lane__h">
+                {lane.title}
+              </h3>
+              <p class="lane__sum">{lane.summary}</p>
+            </header>
+            <dl class="lane__rows">
+              {lane.rows.map((row) => (
+                <div class="lane__row">
+                  <dt>{row.item}</dt>
+                  <dd>{row.note}</dd>
+                </div>
+              ))}
+            </dl>
+            <p class="lane__src mono">{lane.source}</p>
+          </article>
+        ))}
       </div>
 
       <p class="reg__foot mono">
@@ -1288,7 +1298,9 @@ const PARTS = [
   <section class="reg reg--alt" id="duties" aria-labelledby="duties-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">14</span>
+        <span class="reg__n mono" aria-hidden="true">
+          14
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">How it works, and what you have to do</span>
           <h2 id="duties-h">Four questions, before the config block.</h2>
@@ -1302,47 +1314,45 @@ const PARTS = [
       </header>
 
       <div class="lanes">
-        {
-          DUTIES.map((duty) => (
-            <article class="lane" data-status={duty.status} aria-labelledby={`duty-${duty.id}`}>
-              <header class="lane__head">
-                <span class="lane__badge mono">{duty.statusLabel}</span>
-                <h3 id={`duty-${duty.id}`} class="lane__h">
-                  {duty.question}
-                </h3>
-                <p class="lane__sum">{duty.answer}</p>
-              </header>
-              <dl class="lane__rows">
-                {duty.rows.map((row) => (
-                  <div class="lane__row">
-                    <dt>{row.item}</dt>
-                    <dd>{row.note}</dd>
-                  </div>
-                ))}
-              </dl>
-              <p class="lane__src mono">{duty.source}</p>
-            </article>
-          ))
-        }
+        {DUTIES.map((duty) => (
+          <article class="lane" data-status={duty.status} aria-labelledby={`duty-${duty.id}`}>
+            <header class="lane__head">
+              <span class="lane__badge mono">{duty.statusLabel}</span>
+              <h3 id={`duty-${duty.id}`} class="lane__h">
+                {duty.question}
+              </h3>
+              <p class="lane__sum">{duty.answer}</p>
+            </header>
+            <dl class="lane__rows">
+              {duty.rows.map((row) => (
+                <div class="lane__row">
+                  <dt>{row.item}</dt>
+                  <dd>{row.note}</dd>
+                </div>
+              ))}
+            </dl>
+            <p class="lane__src mono">{duty.source}</p>
+          </article>
+        ))}
       </div>
 
       <section class="routes" aria-labelledby="routes-h">
-        <h3 id="routes-h" class="routes__h">Which agents the installer covers</h3>
+        <h3 id="routes-h" class="routes__h">
+          Which agents the installer covers
+        </h3>
         <p class="routes__sub">
-          {ONE_CLICK_COUNT} clients are one click in <strong>Settings → Agents → CLIs</strong> — the same
-          card the app's first run shows you. Two take a config block by hand. Everything else is honest
-          about being unwired rather than given a path we have not verified.
+          {ONE_CLICK_COUNT} clients are one click in <strong>Settings → Agents → CLIs</strong> — the
+          same card the app's first run shows you. Two take a config block by hand. Everything else
+          is honest about being unwired rather than given a path we have not verified.
         </p>
         <ul class="routes__list">
-          {
-            INSTALL_ROUTES.map((r) => (
-              <li class="route" data-route={r.route}>
-                <span class="route__client">{r.client}</span>
-                <span class="route__how mono">{r.how}</span>
-                <span class="route__where mono">{r.where}</span>
-              </li>
-            ))
-          }
+          {INSTALL_ROUTES.map((r) => (
+            <li class="route" data-route={r.route}>
+              <span class="route__client">{r.client}</span>
+              <span class="route__how mono">{r.how}</span>
+              <span class="route__where mono">{r.where}</span>
+            </li>
+          ))}
         </ul>
       </section>
 
@@ -1359,7 +1369,9 @@ const PARTS = [
   <section class="reg" id="setup" aria-labelledby="setup-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">15</span>
+        <span class="reg__n mono" aria-hidden="true">
+          15
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">Setup</span>
           <h2 id="setup-h">One server. {CLIENTS.length} clients. Under two minutes.</h2>
@@ -1382,8 +1394,10 @@ const PARTS = [
                 class="code__copy mono"
                 type="button"
                 data-copy
-                data-copy-label="bootstrap commands">copy</button
+                data-copy-label="bootstrap commands"
               >
+                copy
+              </button>
             </div>
             <pre class="code__pre mono" tabindex="0"><code>{BOOTSTRAP_LINES.join("\n")}</code></pre>
           </div>
@@ -1393,61 +1407,58 @@ const PARTS = [
           <p class="step__n mono">Step 2</p>
           <h3 class="step__h">Point your client at it</h3>
           <p class="step__hint">
-            Replace <code class="step__token">{CHECKOUT}</code> with wherever you cloned it. The path
-            must be absolute — every client resolves it from its own working directory, not yours.
+            Replace <code class="step__token">{CHECKOUT}</code> with wherever you cloned it. The
+            path must be absolute — every client resolves it from its own working directory, not
+            yours.
           </p>
 
           <div class="tabs" data-tabs>
             <div class="tabs__list" role="tablist" aria-label="MCP client">
-              {
-                CLIENTS.map((c, i) => (
-                  <button
-                    type="button"
-                    role="tab"
-                    class="tabs__tab"
-                    id={`tab-${c.id}`}
-                    aria-controls={`panel-${c.id}`}
-                    aria-selected={i === 0 ? "true" : "false"}
-                    tabindex={i === 0 ? 0 : -1}
-                    data-target={c.id}
-                  >
-                    {c.label}
-                  </button>
-                ))
-              }
-            </div>
-            {
-              CLIENTS.map((c, i) => (
-                <div
-                  role="tabpanel"
-                  id={`panel-${c.id}`}
-                  aria-labelledby={`tab-${c.id}`}
-                  class="tabs__panel"
-                  data-panel={c.id}
-                  data-panel-index={i}
-                  tabindex="0"
+              {CLIENTS.map((c, i) => (
+                <button
+                  type="button"
+                  role="tab"
+                  class="tabs__tab"
+                  id={`tab-${c.id}`}
+                  aria-controls={`panel-${c.id}`}
+                  aria-selected={i === 0 ? "true" : "false"}
+                  tabindex={i === 0 ? 0 : -1}
+                  data-target={c.id}
                 >
-                  <p class="tabs__nojs mono">{c.label}</p>
-                  <div class="code" data-code>
-                    <div class="code__strip">
-                      <span class="code__meta mono">{c.where}</span>
-                      <button
-                        class="code__copy mono"
-                        type="button"
-                        data-copy
-                        data-copy-label={`${c.label} configuration`}
-                      >
-                        copy
-                      </button>
-                    </div>
-                    <pre class="code__pre mono" tabindex="0">
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            {CLIENTS.map((c, i) => (
+              <div
+                role="tabpanel"
+                id={`panel-${c.id}`}
+                aria-labelledby={`tab-${c.id}`}
+                class="tabs__panel"
+                data-panel={c.id}
+                data-panel-index={i}
+                tabindex="0"
+              >
+                <p class="tabs__nojs mono">{c.label}</p>
+                <div class="code" data-code>
+                  <div class="code__strip">
+                    <span class="code__meta mono">{c.where}</span>
+                    <button
+                      class="code__copy mono"
+                      type="button"
+                      data-copy
+                      data-copy-label={`${c.label} configuration`}
+                    >
+                      copy
+                    </button>
+                  </div>
+                  <pre class="code__pre mono" tabindex="0">
                       <code>{c.lines.join("\n")}</code>
                     </pre>
-                  </div>
-                  {c.note && <p class="tabs__note">{c.note}</p>}
                 </div>
-              ))
-            }
+                {c.note && <p class="tabs__note">{c.note}</p>}
+              </div>
+            ))}
           </div>
         </li>
 
@@ -1465,8 +1476,10 @@ const PARTS = [
                 class="code__copy mono"
                 type="button"
                 data-copy
-                data-copy-label="embedding model pull">copy</button
+                data-copy-label="embedding model pull"
               >
+                copy
+              </button>
             </div>
             <pre class="code__pre mono" tabindex="0"><code>{EMBEDDING_LINES.join("\n")}</code></pre>
           </div>
@@ -1486,35 +1499,33 @@ const PARTS = [
           </p>
         </header>
         <ul class="verify__list" data-verify>
-          {
-            VERIFY_STEPS.map((s, i) => (
-              <li class="check">
-                <input
-                  class="check__box"
-                  type="checkbox"
-                  id={`check-${s.id}`}
-                  data-verify-item={s.id}
-                />
-                <label class="check__label" for={`check-${s.id}`}>
-                  <span class="check__n mono" aria-hidden="true">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span class="check__title">{s.title}</span>
-                </label>
-                <div class="check__body">
-                  <p class="check__how">{s.how}</p>
-                  <p class="check__expect">
-                    <span class="check__tag mono">Expect</span>
-                    {s.expect}
-                  </p>
-                  <p class="check__ifnot">
-                    <span class="check__tag check__tag--warn mono">If not</span>
-                    {s.ifNot}
-                  </p>
-                </div>
-              </li>
-            ))
-          }
+          {VERIFY_STEPS.map((s, i) => (
+            <li class="check">
+              <input
+                class="check__box"
+                type="checkbox"
+                id={`check-${s.id}`}
+                data-verify-item={s.id}
+              />
+              <label class="check__label" for={`check-${s.id}`}>
+                <span class="check__n mono" aria-hidden="true">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span class="check__title">{s.title}</span>
+              </label>
+              <div class="check__body">
+                <p class="check__how">{s.how}</p>
+                <p class="check__expect">
+                  <span class="check__tag mono">Expect</span>
+                  {s.expect}
+                </p>
+                <p class="check__ifnot">
+                  <span class="check__tag check__tag--warn mono">If not</span>
+                  {s.ifNot}
+                </p>
+              </div>
+            </li>
+          ))}
         </ul>
       </section>
 
@@ -1528,14 +1539,12 @@ const PARTS = [
           </p>
         </div>
         <ul class="plat__rows">
-          {
-            PLATFORMS.supported.map((p) => (
-              <li class="plat__row" data-status={p.status}>
-                <p class="plat__lab">{p.label}</p>
-                <p class="plat__body">{p.body}</p>
-              </li>
-            ))
-          }
+          {PLATFORMS.supported.map((p) => (
+            <li class="plat__row" data-status={p.status}>
+              <p class="plat__lab">{p.label}</p>
+              <p class="plat__body">{p.body}</p>
+            </li>
+          ))}
         </ul>
         <p class="plat__level">{PLATFORMS.supportLevel}</p>
         <p class="plat__src mono">{PLATFORMS.source}</p>
@@ -1550,9 +1559,12 @@ const PARTS = [
           protocol, which bearer it takes, and which tools each channel exposes. The atlas above is
           this local server, which is a different and larger set.
         </p>
-        <a class="btn btn--ghost" href="/mcp"
-          >All four MCP channels <span class="btn-arrow" aria-hidden="true">→</span></a
-        >
+        <a class="btn btn--ghost" href="/mcp">
+          All four MCP channels{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
       </aside>
     </div>
   </section>
@@ -1561,7 +1573,9 @@ const PARTS = [
   <section class="reg reg--alt" id="limits" aria-labelledby="limits-h">
     <div class="container container--wide">
       <header class="reg__head">
-        <span class="reg__n mono" aria-hidden="true">16</span>
+        <span class="reg__n mono" aria-hidden="true">
+          16
+        </span>
         <div class="reg__headtext">
           <span class="eyebrow eyebrow--ember">Limits</span>
           <h2 id="limits-h">What it doesn't do.</h2>
@@ -1573,15 +1587,13 @@ const PARTS = [
       </header>
 
       <ul class="limits">
-        {
-          LIMITS.map((l) => (
-            <li class="limit">
-              <h3 class="limit__h">{l.title}</h3>
-              <p class="limit__body">{l.body}</p>
-              <p class="limit__src mono">{l.source}</p>
-            </li>
-          ))
-        }
+        {LIMITS.map((l) => (
+          <li class="limit">
+            <h3 class="limit__h">{l.title}</h3>
+            <p class="limit__body">{l.body}</p>
+            <p class="limit__src mono">{l.source}</p>
+          </li>
+        ))}
       </ul>
     </div>
   </section>
@@ -1590,7 +1602,8 @@ const PARTS = [
   <section class="mem-end" aria-labelledby="mem-end-h">
     <div class="container container--wide mem-end__inner">
       <h2 id="mem-end-h" class="mem-end__h">
-        Nothing to sign up for.<br />
+        Nothing to sign up for.
+        <br />
         <span class="mem-hero__h--ember">Just a path and a restart.</span>
       </h2>
       <p class="lead mem-end__lead">
@@ -1599,13 +1612,18 @@ const PARTS = [
         what the last one learned.
       </p>
       <div class="mem-end__ctas">
-        <a class="btn btn--ember" href="#setup"
-          >Back to setup <span class="btn-arrow" aria-hidden="true">→</span></a
-        >
-        <a class="btn btn--ghost" href={REPO_DESIGN} target="_blank" rel="noopener noreferrer"
-          >The design document</a
-        >
-        <a class="btn btn--ghost" href="/pricing">Pro models &amp; backup</a>
+        <a class="btn btn--ember" href="#setup">
+          Back to setup{" "}
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
+        <a class="btn btn--ghost" href={REPO_DESIGN} target="_blank" rel="noopener noreferrer">
+          The design document
+        </a>
+        <a class="btn btn--ghost" href="/pricing">
+          Pro models &amp; backup
+        </a>
       </div>
     </div>
   </section>

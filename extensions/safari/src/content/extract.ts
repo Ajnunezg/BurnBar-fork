@@ -82,7 +82,7 @@ function isElementVisible(element: Element, visibilityCache?: WeakMap<Element, b
   if (cached !== undefined) {
     return cached;
   }
-  let visible = true;
+  let visible: boolean;
   if (element.closest('[hidden], [aria-hidden="true"], script, style, template, noscript')) {
     visible = false;
   } else {

@@ -10,12 +10,12 @@ const AMPLITUDE_HTTP_V2_EU = 'https://api.eu.amplitude.com/2/httpapi';
 /** The minimal request/response shapes the transport needs — structural, so the
  *  module pulls in neither the DOM lib nor a fetch polyfill, and tests inject a
  *  fake without mocking a global. */
-export interface AmplitudeFetchInit {
+interface AmplitudeFetchInit {
   method: string;
   headers: Record<string, string>;
   body: string;
 }
-export interface AmplitudeFetchResponse {
+interface AmplitudeFetchResponse {
   readonly ok: boolean;
   readonly status: number;
 }

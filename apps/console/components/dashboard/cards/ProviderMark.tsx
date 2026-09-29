@@ -41,7 +41,7 @@ export function ProviderMark({
     return (
       <span
         aria-hidden
-        className="grid shrink-0 place-items-center rounded-md font-display text-[0.7rem] font-bold text-white shadow-sm"
+        className="grid shrink-0 place-items-center rounded-md font-display text-[0.7rem] font-bold text-white shadow-xs"
         style={{ width: size, height: size, background: tint(slug || id) }}
       >
         {label.charAt(0).toUpperCase()}

@@ -71,14 +71,18 @@ const fallbackEndpoint = hasFallback ? fallback : null;
 >
   <header class="vignette__head">
     <span class="vignette__eyebrow mono">{eyebrow}</span>
-    <h3 id={`vignette-${idx}-title`} class="vignette__title">{title}</h3>
+    <h3 id={`vignette-${idx}-title`} class="vignette__title">
+      {title}
+    </h3>
   </header>
 
   <div class="vignette__stage" aria-hidden="true">
     {/* the gliding packet — model id is the invariant */}
     <span class={`vignette__packet vignette__packet--${variant}`}>
       <span class="vignette__pkglow" aria-hidden="true"></span>
-      <span class="vignette__pkmark" aria-hidden="true">◆</span>
+      <span class="vignette__pkmark" aria-hidden="true">
+        ◆
+      </span>
       <span class="vignette__pkname mono">{model}</span>
     </span>
 
@@ -115,38 +119,38 @@ const fallbackEndpoint = hasFallback ? fallback : null;
         <span class="vignette__failtag mono">{failure}</span>
       </li>
 
-      {
-        fallbackEndpoint ? (
-          <li class="vignette__node vignette__node--fallback">
-            <img
-              class="vignette__logo"
-              src={fallbackEndpoint.logo}
-              alt=""
-              width="34"
-              height="34"
-              loading="lazy"
-            />
-            <span class="vignette__nodename mono">{fallbackEndpoint.name}</span>
-            <span class="vignette__nodestate mono">{fallbackEndpoint.state ?? "healthy"}</span>
-            {fallbackEndpoint.auth && (
-              <span class="vignette__nodeauth mono">{fallbackEndpoint.auth}</span>
-            )}
-            <span class="vignette__okstamp mono">200 · ok</span>
-          </li>
-        ) : (
-          <li class="vignette__node vignette__node--gate">
-            <span class="vignette__gateleaf vignette__gateleaf--l" aria-hidden="true" />
-            <span class="vignette__gateleaf vignette__gateleaf--r" aria-hidden="true" />
-            <span class="vignette__gatemark mono">503</span>
-            <span class="vignette__gatesub mono">no eligible route</span>
-          </li>
-        )
-      }
+      {fallbackEndpoint ? (
+        <li class="vignette__node vignette__node--fallback">
+          <img
+            class="vignette__logo"
+            src={fallbackEndpoint.logo}
+            alt=""
+            width="34"
+            height="34"
+            loading="lazy"
+          />
+          <span class="vignette__nodename mono">{fallbackEndpoint.name}</span>
+          <span class="vignette__nodestate mono">{fallbackEndpoint.state ?? "healthy"}</span>
+          {fallbackEndpoint.auth && (
+            <span class="vignette__nodeauth mono">{fallbackEndpoint.auth}</span>
+          )}
+          <span class="vignette__okstamp mono">200 · ok</span>
+        </li>
+      ) : (
+        <li class="vignette__node vignette__node--gate">
+          <span class="vignette__gateleaf vignette__gateleaf--l" aria-hidden="true" />
+          <span class="vignette__gateleaf vignette__gateleaf--r" aria-hidden="true" />
+          <span class="vignette__gatemark mono">503</span>
+          <span class="vignette__gatesub mono">no eligible route</span>
+        </li>
+      )}
     </ol>
   </div>
 
   <footer class="vignette__foot mono">
-    <span class="vignette__evidence">model identity → <strong>unchanged</strong></span>
+    <span class="vignette__evidence">
+      model identity → <strong>unchanged</strong>
+    </span>
     <span class="vignette__swap">swap · {swapDetail}</span>
   </footer>
 </article>

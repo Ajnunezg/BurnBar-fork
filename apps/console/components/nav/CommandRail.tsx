@@ -38,12 +38,12 @@ export function CommandRail({ onOpenPalette }: { onOpenPalette: () => void }) {
   return (
     <>
       {/* Desktop rail */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-glass-line bg-[color:var(--color-ink-void)]/80 backdrop-blur-md md:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-glass-line bg-ink-void/80 backdrop-blur-md md:flex">
         <RailBody onOpenPalette={onOpenPalette} />
       </aside>
 
       {/* Mobile top bar — brand + the only two controls that matter */}
-      <div className="sticky top-0 z-40 border-b border-glass-line bg-[color:var(--color-ink-void)]/85 backdrop-blur-md md:hidden">
+      <div className="sticky top-0 z-40 border-b border-glass-line bg-ink-void/85 backdrop-blur-md md:hidden">
         <div className="flex items-center justify-between px-token-4 py-2">
           <Brand />
           <button
@@ -58,12 +58,12 @@ export function CommandRail({ onOpenPalette }: { onOpenPalette: () => void }) {
         </div>
       </div>
 
-      {/* Mobile drawer — the same rail, sliding over. z-[60]: sits above the
+      {/* Mobile drawer — the same rail, sliding over. z-60: sits above the
           z-50 ConsentBanner, which follows the rail in DOM order. */}
       {drawerOpen && (
-        <div className="fixed inset-0 z-[60] md:hidden">
+        <div className="fixed inset-0 z-60 md:hidden">
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/50 backdrop-blur-xs"
             onClick={() => setDrawerOpen(false)}
             aria-hidden
           />
@@ -71,7 +71,7 @@ export function CommandRail({ onOpenPalette }: { onOpenPalette: () => void }) {
             role="dialog"
             aria-modal="true"
             aria-label="Navigation"
-            className="animate-in slide-in-from-left absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-glass-line-bright bg-[color:var(--color-ink-void)]/95 backdrop-blur-xl duration-200"
+            className="animate-in slide-in-from-left absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-glass-line-bright bg-ink-void/95 backdrop-blur-xl duration-200"
           >
             <div className="absolute right-2 top-2.5">
               <button
@@ -129,7 +129,7 @@ function RailBody({
         >
           <Search size={13} aria-hidden />
           Jump to…
-          <kbd className="ml-auto rounded border border-glass-line px-1 py-px font-mono text-[10px]">⌘K</kbd>
+          <kbd className="ml-auto rounded border border-glass-line px-1 py-px font-mono text-[10px] leading-4">⌘K</kbd>
         </button>
       </div>
 
@@ -150,7 +150,7 @@ function RailBody({
                       className={cn(
                         "relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13.5px] transition-colors duration-150",
                         active
-                          ? "bg-[color:var(--accent-wash)] text-content-bright"
+                          ? "bg-(--accent-wash) text-content-bright"
                           : "text-content-mute hover:bg-mercury-wash hover:text-content-bright",
                       )}
                     >
@@ -165,7 +165,7 @@ function RailBody({
                         size={15}
                         strokeWidth={1.8}
                         aria-hidden
-                        className={active ? "text-[color:var(--accent)]" : "opacity-70"}
+                        className={active ? "text-(--accent)" : "opacity-70"}
                       />
                       {item.label}
                     </Link>
@@ -195,7 +195,7 @@ function RailBody({
             ) : (
               <span
                 aria-hidden
-                className="grid size-[26px] shrink-0 place-items-center rounded-full bg-[color:var(--accent-wash)] font-mono text-[11px] text-[color:var(--accent)]"
+                className="grid size-[26px] shrink-0 place-items-center rounded-full bg-(--accent-wash) font-mono text-[11px] text-(--accent)"
               >
                 {(user.displayName ?? user.email ?? "M").charAt(0).toUpperCase()}
               </span>

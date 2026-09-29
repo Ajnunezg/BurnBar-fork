@@ -182,70 +182,70 @@ const TONE_HEX: Record<string, string> = {
     <span class="nesthub-screen__status">live provider pressure</span>
     <span class="nesthub-screen__refresh">Refresh</span>
     <div class="nesthub-screen__time">
-      <span class="nesthub-screen__date" data-platform-date>Tue, May 13</span>
-      <span class="nesthub-screen__clock" data-platform-clock data-platform-clock-format="hm"
-        >10:43 PM</span
-      >
+      <span class="nesthub-screen__date" data-platform-date>
+        Tue, May 13
+      </span>
+      <span class="nesthub-screen__clock" data-platform-clock data-platform-clock-format="hm">
+        10:43 PM
+      </span>
     </div>
   </header>
 
   <ol class="nesthub-screen__rail" data-platform-provider-rail>
-    {
-      providers.map((p) => (
-        <li class="ncard" style={`--accent:${p.accent};`}>
-          <header class="ncard__head">
-            <div class="ncard__logo" style={`--accent:${p.accent};`}>
-              {p.logo ? (
-                <img src={p.logo} alt="" width="20" height="20" loading="lazy" decoding="async" />
-              ) : (
-                <span>{p.monogram}</span>
-              )}
+    {providers.map((p) => (
+      <li class="ncard" style={`--accent:${p.accent};`}>
+        <header class="ncard__head">
+          <div class="ncard__logo" style={`--accent:${p.accent};`}>
+            {p.logo ? (
+              <img src={p.logo} alt="" width="20" height="20" loading="lazy" decoding="async" />
+            ) : (
+              <span>{p.monogram}</span>
+            )}
+          </div>
+          <div class="ncard__id">
+            <strong class="ncard__name">{p.name}</strong>
+            <span class="ncard__fresh">{p.freshness}</span>
+          </div>
+          <span class={`ncard__live ${p.isLive ? "ncard__live--on" : ""}`} aria-hidden="true" />
+        </header>
+
+        <span class="ncard__pill" style={`--tone:${TONE_HEX[p.statusTone]};`}>
+          {p.statusPill}
+        </span>
+
+        <div class="ncard__total">{p.tokens}</div>
+        <div class="ncard__total-label">{p.tokenLabel}</div>
+        <hr class="ncard__rule" />
+
+        {p.buckets.map((b) => (
+          <div class="bucket">
+            <div class="bucket__row">
+              <span class="bucket__name">{b.name}</span>
+              <span class="bucket__headline">{b.headline}</span>
             </div>
-            <div class="ncard__id">
-              <strong class="ncard__name">{p.name}</strong>
-              <span class="ncard__fresh">{p.freshness}</span>
+            <div class="bucket__track">
+              <div
+                class="bucket__fill"
+                style={`width:${Math.max(2, Math.min(100, b.percent))}%; --tone:${TONE_HEX[b.tone]};`}
+              />
             </div>
-            <span class={`ncard__live ${p.isLive ? "ncard__live--on" : ""}`} aria-hidden="true" />
-          </header>
+            <span class="bucket__sub">{b.sub}</span>
+          </div>
+        ))}
 
-          <span class="ncard__pill" style={`--tone:${TONE_HEX[p.statusTone]};`}>
-            {p.statusPill}
-          </span>
-
-          <div class="ncard__total">{p.tokens}</div>
-          <div class="ncard__total-label">{p.tokenLabel}</div>
-          <hr class="ncard__rule" />
-
-          {p.buckets.map((b) => (
-            <div class="bucket">
-              <div class="bucket__row">
-                <span class="bucket__name">{b.name}</span>
-                <span class="bucket__headline">{b.headline}</span>
-              </div>
-              <div class="bucket__track">
-                <div
-                  class="bucket__fill"
-                  style={`width:${Math.max(2, Math.min(100, b.percent))}%; --tone:${TONE_HEX[b.tone]};`}
-                />
-              </div>
-              <span class="bucket__sub">{b.sub}</span>
-            </div>
-          ))}
-
-          <footer class="ncard__foot">
-            <span class="ncard__runs">{p.runs}</span>
-            <span class="ncard__cost">{p.cost}</span>
-          </footer>
-        </li>
-      ))
-    }
+        <footer class="ncard__foot">
+          <span class="ncard__runs">{p.runs}</span>
+          <span class="ncard__cost">{p.cost}</span>
+        </footer>
+      </li>
+    ))}
   </ol>
 
   <footer class="nesthub-screen__footer" data-platform-rundown-footer>
     <span class="nesthub-screen__footer-label">Today · Coding</span>
-    <span class="nesthub-screen__footer-model" data-platform-top-pick-model
-      >{topPick?.modelDisplay ?? "no rundown yet"}</span
-    >
+    <span class="nesthub-screen__footer-model" data-platform-top-pick-model>
+      {topPick?.modelDisplay ?? "no rundown yet"}
+    </span>
     <span class="nesthub-screen__footer-score" data-platform-top-pick-score>
       {topPick ? `${Math.round((topPick.selectionScore ?? topPick.score) * 100)}/100` : "—"}
     </span>

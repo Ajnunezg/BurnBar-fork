@@ -18,16 +18,14 @@ const { size = 28, withWordmark = true } = Astro.props;
     decoding="async"
     fetchpriority="high"
   />
-  {
-    withWordmark && (
-      <span class="wordmark">
-        <>
-          <span class="wordmark__pre">Open</span>
-          <span class="wordmark__post">BurnBar</span>
-        </>
-      </span>
-    )
-  }
+  {withWordmark && (
+    <span class="wordmark">
+      <>
+        <span class="wordmark__pre">Open</span>
+        <span class="wordmark__post">BurnBar</span>
+      </>
+    </span>
+  )}
 </a>
 
 <style>

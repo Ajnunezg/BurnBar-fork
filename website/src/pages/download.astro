@@ -32,8 +32,8 @@ const linuxPubKeyHref = `${linuxDownloadBaseUrl}/${SITE.linuxPubKeyFile}`;
         <span class="pagehead__product">OpenBurnBar</span>
       </h1>
       <p class="lead pagehead__lead">
-        <strong>macOS</strong>, <strong>iOS</strong>, and <strong>Linux</strong> ship today — Android
-        and the editor extension are buildable from source.
+        <strong>macOS</strong>, <strong>iOS</strong>, and <strong>Linux</strong> ship today —
+        Android and the editor extension are buildable from source.
       </p>
 
       <!-- At-a-glance platform grid so Linux isn't buried mid-page -->
@@ -122,8 +122,8 @@ const linuxPubKeyHref = `${linuxDownloadBaseUrl}/${SITE.linuxPubKeyFile}`;
           <span class="tag tag--exact tag--plain mono">Release · {SITE.macReleaseLatest}</span>
           <h2>macOS app</h2>
           <p class="lead">
-            Native Swift app. Runs as a menu-bar utility. Requires {SITE.macMin} or later on an Apple
-            Silicon Mac.
+            Native Swift app. Runs as a menu-bar utility. Requires {SITE.macMin} or later on an
+            Apple Silicon Mac.
           </p>
         </div>
         <div class="dlsec__primarywrap">
@@ -135,14 +135,18 @@ const linuxPubKeyHref = `${linuxDownloadBaseUrl}/${SITE.linuxPubKeyFile}`;
             data-analytics-prop-target-platform="macos"
           >
             Download DMG · {SITE.macReleaseLatest}
-            <span class="btn-arrow" aria-hidden="true">↓</span>
+            <span class="btn-arrow" aria-hidden="true">
+              ↓
+            </span>
           </a>
           <a
             class="dlsec__verify mono"
             href={`${SITE.releasesUrl}/tag/v${SITE.macReleaseLatest}`}
             target="_blank"
-            rel="noopener noreferrer">Verify this download — checksums &amp; SBOM ↗</a
+            rel="noopener noreferrer"
           >
+            Verify this download — checksums &amp; SBOM ↗
+          </a>
         </div>
       </div>
 
@@ -153,25 +157,25 @@ const linuxPubKeyHref = `${linuxDownloadBaseUrl}/${SITE.linuxPubKeyFile}`;
             <h3>Download &amp; open the DMG</h3>
             <p>
               The macOS DMG is served from the signed GitHub Release for this cut. This link targets
-              the signed, notarized, smoke-tested {SITE.macReleaseLatest} release whose checksum matches
-              the immutable GitHub Release asset.
+              the signed, notarized, smoke-tested {SITE.macReleaseLatest} release whose checksum
+              matches the immutable GitHub Release asset.
             </p>
-            {
-              hasMacUpdateFeed && (
-                <p class="muted small">
-                  Release feeds:
-                  <a href={macLatestHref}>latest metadata</a>
-                  {" · "}
-                  <a href={macAppcastHref}>appcast</a>
-                </p>
-              )
-            }
+            {hasMacUpdateFeed && (
+              <p class="muted small">
+                Release feeds:
+                <a href={macLatestHref}>latest metadata</a>
+                {" · "}
+                <a href={macAppcastHref}>appcast</a>
+              </p>
+            )}
           </div>
         </li>
         <li class="step">
           <span class="step__num mono">2</span>
           <div class="step__card">
-            <h3>Drag OpenBurnBar.app to <code>/Applications</code></h3>
+            <h3>
+              Drag OpenBurnBar.app to <code>/Applications</code>
+            </h3>
             <p>That's the install. No installer, no admin password.</p>
           </div>
         </li>
@@ -191,9 +195,9 @@ const linuxPubKeyHref = `${linuxDownloadBaseUrl}/${SITE.linuxPubKeyFile}`;
             <h3>Watch the burn</h3>
             <p>
               The app reads logs in <code>~/.claude/</code>, <code>~/.codex/</code>,
-              <code>~/.factory/</code> and friends. No account, no API keys for local tracking. Quota
-              providers (Cursor, Copilot, Warp, MiniMax, etc.) prompt you per provider when you choose
-              to enable them.
+              <code>~/.factory/</code> and friends. No account, no API keys for local tracking.
+              Quota providers (Cursor, Copilot, Warp, MiniMax, etc.) prompt you per provider when
+              you choose to enable them.
             </p>
           </div>
         </li>
@@ -220,9 +224,10 @@ make install</code></pre>
           <h2>Linux desktop app</h2>
           <p class="lead">
             Available now. Tauri + WebView shell over the native OpenBurnBar daemon. First public
-            release ships <strong>{SITE.linuxArch}</strong> artifacts only — the AppImage is portable
-            across ARM64 distros, with deb and rpm for Debian/Ubuntu and Fedora/RHEL on the same architecture.
-            Every artifact is Ed25519-signed with a keyless Sigstore/cosign attestation.
+            release ships <strong>{SITE.linuxArch}</strong> artifacts only — the AppImage is
+            portable across ARM64 distros, with deb and rpm for Debian/Ubuntu and Fedora/RHEL on the
+            same architecture. Every artifact is Ed25519-signed with a keyless Sigstore/cosign
+            attestation.
           </p>
         </div>
       </div>
@@ -268,9 +273,10 @@ make install</code></pre>
 
       <p class="linux-note muted small">
         {SITE.linuxStatusDetail}. Hosted on the signed GitHub Release{" "}
-        <a href={`${SITE.github}/releases/tag/linux-v${SITE.linuxReleaseLatest}`}
-          >linux-v{SITE.linuxReleaseLatest}</a
-        >. x86_64 builds are next.
+        <a href={`${SITE.github}/releases/tag/linux-v${SITE.linuxReleaseLatest}`}>
+          linux-v{SITE.linuxReleaseLatest}
+        </a>
+        . x86_64 builds are next.
       </p>
 
       <ol class="steps" data-animate-onview>
@@ -280,11 +286,7 @@ make install</code></pre>
             <h3>Install</h3>
             <p>
               <strong>AppImage:</strong>{" "}
-              <code
-                >chmod +x OpenBurnBar_{SITE.linuxReleaseLatest}_aarch64.AppImage && ./OpenBurnBar_{
-                  SITE.linuxReleaseLatest
-                }_aarch64.AppImage</code
-              >
+              <code>{`chmod +x OpenBurnBar_${SITE.linuxReleaseLatest}_aarch64.AppImage && ./OpenBurnBar_${SITE.linuxReleaseLatest}_aarch64.AppImage`}</code>
             </p>
             <p>
               <strong>deb:</strong>{" "}
@@ -302,9 +304,7 @@ make install</code></pre>
             <h3>Daemon &amp; socket</h3>
             <p>
               The app talks to the OpenBurnBar daemon over an AF_UNIX socket. The deb/rpm packages
-              install a systemd unit; AppImage users can start the daemon via the shipped binary or{
-                " "
-              }
+              install a systemd unit; AppImage users can start the daemon via the shipped binary or{" "}
               <code>openburnbar-cli service</code>. Install to a trusted path (e.g.{" "}
               <code>/usr/bin</code>) so the daemon's peer-trust check accepts the client.
             </p>
@@ -316,8 +316,7 @@ make install</code></pre>
             <h3>Verify the signature (optional)</h3>
             <p>
               Detached Ed25519 signatures ship beside each artifact, plus keyless cosign bundles.
-              Public key:{" "}
-              <a href={linuxPubKeyHref}>openburnbar-linux-ed25519.pub.pem</a>.
+              Public key: <a href={linuxPubKeyHref}>openburnbar-linux-ed25519.pub.pem</a>.
             </p>
           </div>
         </li>
@@ -329,7 +328,8 @@ make install</code></pre>
           <h4>Linux</h4>
           <ul>
             <li>
-              <strong>{SITE.linuxArch} only</strong> for 0.1.0. x86_64 lane is the next release milestone.
+              <strong>{SITE.linuxArch} only</strong> for 0.1.0. x86_64 lane is the next release
+              milestone.
             </li>
             <li>GTK 3 + WebKit2GTK 4.1 (bundled in the AppImage).</li>
             <li>
@@ -354,8 +354,8 @@ make install</code></pre>
           <span class="tag tag--exact tag--plain mono">On the App Store</span>
           <h2>iPhone &amp; iPad companion</h2>
           <p class="lead">
-            Requires {SITE.iosMin} or later on iPhone or iPad. Companion to the Mac app — the phone or
-            tablet renders what the Mac records. Native widgets, Live Activity, Siri shortcut.
+            Requires {SITE.iosMin} or later on iPhone or iPad. Companion to the Mac app — the phone
+            or tablet renders what the Mac records. Native widgets, Live Activity, Siri shortcut.
           </p>
         </div>
         <a
@@ -368,7 +368,9 @@ make install</code></pre>
           data-analytics-prop-target-platform="ios"
         >
           Get it on the App Store
-          <span class="btn-arrow" aria-hidden="true">→</span>
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
       </div>
 
@@ -449,9 +451,9 @@ npm run build</code></pre>
             <code>plugins/openburnbar/</code>) that connects Cursor agents — including Cloud Agents
             — to hosted Remote MCP over HTTP. This is
             <strong>not</strong> the editor extension: the plugin talks to{" "}
-            <code>https://mcp.burnbar.ai/mcp</code> with a bearer variable and needs no local binary,
-            while the extension above stays a source-only, load-unpacked daemon sidebar with no marketplace
-            listing.
+            <code>https://mcp.burnbar.ai/mcp</code> with a bearer variable and needs no local
+            binary, while the extension above stays a source-only, load-unpacked daemon sidebar with
+            no marketplace listing.
           </p>
         </div>
       </div>
@@ -462,9 +464,9 @@ npm run build</code></pre>
           <div class="step__card">
             <h3>Install the plugin</h3>
             <p>
-              Once published, install from the Cursor Marketplace (<code
-                >Imagine-That-Ai/openburnbar-cursor-plugin</code
-              > is the marketplace git URL). Until then, symlink the package locally:
+              Once published, install from the Cursor Marketplace (
+              <code>Imagine-That-Ai/openburnbar-cursor-plugin</code> is the marketplace git URL).
+              Until then, symlink the package locally:
             </p>
             <pre><code class="mono">git clone https://github.com/Imagine-That-Ai/openburnbar-cursor-plugin.git
 mkdir -p "$HOME/.cursor/plugins/local"
@@ -483,9 +485,10 @@ ln -sfn "$(pwd)/openburnbar-cursor-plugin" "$HOME/.cursor/plugins/local/openburn
             <p>
               The required <code>OPENBURNBAR_MCP_ACCESS_TOKEN</code> is a{" "}
               <strong>short-lived (~15 min) access token</strong>. Live setup is blocked until the
-              attested <code>/link</code> flow is deployed and BurnBar exposes a safe copy/export action.
-              <code>openburnbar mcp login</code> currently stores the token in Keychain and does not print
-              a value to paste.
+              attested <code>/link</code> flow is deployed and BurnBar exposes a safe copy/export
+              action.
+              <code>openburnbar mcp login</code> currently stores the token in Keychain and does not
+              print a value to paste.
             </p>
           </div>
         </li>
@@ -509,16 +512,15 @@ ln -sfn "$(pwd)/openburnbar-cursor-plugin" "$HOME/.cursor/plugins/local/openburn
     <div class="container dlsec__shell">
       <div class="dlsec__head">
         <div class="dlsec__intro">
-          <span class="tag tag--beta tag--plain mono"
-            >Remediation in progress · Play Store pending</span
-          >
+          <span class="tag tag--beta tag--plain mono">
+            Remediation in progress · Play Store pending
+          </span>
           <h2>Android companion</h2>
           <p class="lead">
             Android is an in-progress companion, not a full iPhone &amp; iPad parity claim. Source
-            coverage is broad; physical-device, store, and VoiceOver evidence stay blocked. <code
-              >productParityClaim</code
-            > remains false. Build from source under <code>android/</code> until there is a Play listing
-            of a validated candidate.
+            coverage is broad; physical-device, store, and VoiceOver evidence stay blocked.{" "}
+            <code>productParityClaim</code> remains false. Build from source under{" "}
+            <code>android/</code> until there is a Play listing of a validated candidate.
           </p>
         </div>
       </div>
@@ -547,7 +549,9 @@ ln -sfn "$(pwd)/openburnbar-cursor-plugin" "$HOME/.cursor/plugins/local/openburn
         <article class="reqcard">
           <h4>Linux</h4>
           <ul>
-            <li>{SITE.linuxArch} for v{SITE.linuxReleaseLatest}</li>
+            <li>
+              {SITE.linuxArch} for v{SITE.linuxReleaseLatest}
+            </li>
             <li>AppImage, deb, or rpm from the signed GitHub Release</li>
             <li>GTK 3 + WebKit2GTK 4.1 (bundled in AppImage)</li>
             <li>Ed25519 + Sigstore/cosign attestation bundles</li>
@@ -577,8 +581,8 @@ ln -sfn "$(pwd)/openburnbar-cursor-plugin" "$HOME/.cursor/plugins/local/openburn
             <li>Cursor (desktop Customize or Cloud Agents)</li>
             <li>BurnBar Cloud Pro/Ultra for hosted Remote MCP</li>
             <li>
-              Requires <code>OPENBURNBAR_MCP_ACCESS_TOKEN</code> — short-lived access token, not a durable
-              secret
+              Requires <code>OPENBURNBAR_MCP_ACCESS_TOKEN</code> — short-lived access token, not a
+              durable secret
             </li>
             <li>No package manifest, no install step — validator only</li>
           </ul>
@@ -591,11 +595,15 @@ ln -sfn "$(pwd)/openburnbar-cursor-plugin" "$HOME/.cursor/plugins/local/openburn
     <div class="container container--narrow endcta__inner">
       <h2>Two extra resources before you install.</h2>
       <div class="endcta__ctas">
-        <a class="btn btn--ghost" href="/privacy">Privacy model</a>
-        <a class="btn btn--ghost" href="/providers">Provider matrix</a>
-        <a class="btn btn--ghost" href={SITE.github} target="_blank" rel="noopener noreferrer"
-          >GitHub repo</a
-        >
+        <a class="btn btn--ghost" href="/privacy">
+          Privacy model
+        </a>
+        <a class="btn btn--ghost" href="/providers">
+          Provider matrix
+        </a>
+        <a class="btn btn--ghost" href={SITE.github} target="_blank" rel="noopener noreferrer">
+          GitHub repo
+        </a>
       </div>
     </div>
   </section>

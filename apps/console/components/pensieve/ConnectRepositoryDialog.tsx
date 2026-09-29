@@ -114,7 +114,7 @@ export function ConnectRepositoryDialog({
             </span>
             <input
               autoFocus
-              className="w-full rounded-md border border-glass-line bg-panel-subtle px-token-3 py-2 font-mono text-sm text-content-bright outline-none transition focus:border-tier-end-to-end/60 placeholder:text-content-dim"
+              className="w-full rounded-md border border-glass-line bg-panel-subtle px-token-3 py-2 font-mono text-sm text-content-bright outline-hidden transition focus:border-tier-end-to-end/60 placeholder:text-content-dim"
               value={value}
               onChange={(event) => {
                 setValue(event.target.value);
@@ -148,7 +148,7 @@ export function ConnectRepositoryDialog({
             </div>
           )}
 
-          {error && <p className="text-xs text-[color:var(--color-seal-crimson)]">{error}</p>}
+          {error && <p className="text-xs text-seal-crimson">{error}</p>}
         </div>
 
         <DialogFooter>

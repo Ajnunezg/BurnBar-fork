@@ -402,9 +402,7 @@ function staleBallotMessage(code: string): string {
  *   - `status`  — nothing to do but say what happened.
  */
 export type VoteFailureAction =
-  | { kind: "refetch"; status: string }
-  | { kind: "reauth" }
-  | { kind: "status"; status: string };
+  { kind: "refetch"; status: string } | { kind: "reauth" } | { kind: "status"; status: string };
 
 export function voteFailureAction(err: unknown): VoteFailureAction {
   const code = callableErrorCode(err);

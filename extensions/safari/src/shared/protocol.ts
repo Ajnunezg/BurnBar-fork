@@ -91,14 +91,14 @@ export interface ActionTarget {
   };
 }
 
-export interface ClickAction {
+interface ClickAction {
   kind: 'click';
   target: ActionTarget;
   button?: 'left' | 'middle' | 'right';
   clickCount?: 1 | 2;
 }
 
-export interface TypeAction {
+interface TypeAction {
   kind: 'type';
   target?: ActionTarget;
   text: string;
@@ -107,14 +107,14 @@ export interface TypeAction {
   allowSensitive?: boolean;
 }
 
-export interface PressKeyAction {
+interface PressKeyAction {
   kind: 'press_key';
   key: string;
   target?: ActionTarget;
   modifiers?: Array<'Alt' | 'Control' | 'Meta' | 'Shift'>;
 }
 
-export interface ScrollAction {
+interface ScrollAction {
   kind: 'scroll';
   deltaX?: number;
   deltaY?: number;
@@ -122,17 +122,17 @@ export interface ScrollAction {
   behavior?: 'auto' | 'smooth';
 }
 
-export interface HoverAction {
+interface HoverAction {
   kind: 'hover';
   target: ActionTarget;
 }
 
-export interface FocusAction {
+interface FocusAction {
   kind: 'focus';
   target: ActionTarget;
 }
 
-export interface SelectOptionAction {
+interface SelectOptionAction {
   kind: 'select_option';
   target: ActionTarget;
   values: string[];
@@ -195,7 +195,7 @@ export interface ContentActionResult {
   verification: ActionVerification;
 }
 
-export const SAFARI_ACTION_KINDS = [
+const SAFARI_ACTION_KINDS = [
   'page_context',
   'screenshot',
   'full_page_screenshot',

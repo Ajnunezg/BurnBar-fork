@@ -512,35 +512,35 @@ export function stringField(raw: unknown, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-export function isStripeSubscription(value: unknown): value is import("stripe").Stripe.Subscription {
+export function isStripeSubscription(value: unknown): value is import("stripe").Subscription {
   return isRecord(value) && value.object === "subscription" && typeof value.id === "string";
 }
 
-export function isStripeCheckoutSession(value: unknown): value is import("stripe").Stripe.Checkout.Session {
+export function isStripeCheckoutSession(value: unknown): value is import("stripe").Checkout.Session {
   return isRecord(value) && value.object === "checkout.session" && typeof value.id === "string";
 }
 
-export function isStripeInvoice(value: unknown): value is import("stripe").Stripe.Invoice {
+export function isStripeInvoice(value: unknown): value is import("stripe").Invoice {
   return isRecord(value) && value.object === "invoice" && typeof value.id === "string";
 }
 
-export function isStripeCharge(value: unknown): value is import("stripe").Stripe.Charge {
+export function isStripeCharge(value: unknown): value is import("stripe").Charge {
   return isRecord(value) && value.object === "charge" && typeof value.id === "string";
 }
 
-export function isStripeRefund(value: unknown): value is import("stripe").Stripe.Refund {
+export function isStripeRefund(value: unknown): value is import("stripe").Refund {
   return isRecord(value) && value.object === "refund" && typeof value.id === "string";
 }
 
-export function isStripeDispute(value: unknown): value is import("stripe").Stripe.Dispute {
+export function isStripeDispute(value: unknown): value is import("stripe").Dispute {
   return isRecord(value) && value.object === "dispute" && typeof value.id === "string";
 }
 
-export function isStripeCreditNote(value: unknown): value is import("stripe").Stripe.CreditNote {
+export function isStripeCreditNote(value: unknown): value is import("stripe").CreditNote {
   return isRecord(value) && value.object === "credit_note" && typeof value.id === "string";
 }
 
-export function isStripeCustomer(value: unknown): value is import("stripe").Stripe.Customer {
+export function isStripeCustomer(value: unknown): value is import("stripe").Customer {
   return isRecord(value) && value.object === "customer" && typeof value.id === "string";
 }
 
