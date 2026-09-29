@@ -99,7 +99,7 @@ export async function forwardMcpMessage(message: unknown, endpoint = process.env
   }
   // Pensieve: embed + cloak a natural-language knowledge query on device before
   // it leaves the machine (query text never hits the network).
-  let outgoing = message;
+  let outgoing: typeof message;
   let knowledgePostFilter;
   try {
     const prepared = await prepareKnowledgeRequest(message);

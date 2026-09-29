@@ -41,11 +41,15 @@ const statusTint = (s: Surface["status"]) => {
         device. No screenshots.
       </p>
       <div class="pagehead__ctas">
-        <a class="btn btn--ember" href="/download"
-          >Download for macOS <span aria-hidden="true">→</span></a
-        >
-        <a class="btn btn--ghost" href="#smart-displays">Jump to smart displays</a>
-        <a class="btn btn--ghost" href="#surface-matrix">All surfaces</a>
+        <a class="btn btn--ember" href="/download">
+          Download for macOS <span aria-hidden="true">→</span>
+        </a>
+        <a class="btn btn--ghost" href="#smart-displays">
+          Jump to smart displays
+        </a>
+        <a class="btn btn--ghost" href="#surface-matrix">
+          All surfaces
+        </a>
       </div>
     </div>
   </section>
@@ -68,40 +72,38 @@ const statusTint = (s: Surface["status"]) => {
       </header>
 
       <ul class="surfacematrix__grid">
-        {
-          SURFACES.map((s) => (
-            <li class={`surfacecard surfacecard--${s.status} surfacecard--id-${s.id}`}>
-              <header class="surfacecard__head">
-                <SurfaceIcon id={s.id} />
-                <div class="surfacecard__head-info">
-                  <div class="surfacecard__head-meta">
-                    <span class={`tag tag--${statusTint(s.status)} mono`}>{s.statusLabel}</span>
-                    <span class="surfacecard__platform mono">{s.platform}</span>
-                  </div>
-                  <h3 class="surfacecard__h">{s.name}</h3>
+        {SURFACES.map((s) => (
+          <li class={`surfacecard surfacecard--${s.status} surfacecard--id-${s.id}`}>
+            <header class="surfacecard__head">
+              <SurfaceIcon id={s.id} />
+              <div class="surfacecard__head-info">
+                <div class="surfacecard__head-meta">
+                  <span class={`tag tag--${statusTint(s.status)} mono`}>{s.statusLabel}</span>
+                  <span class="surfacecard__platform mono">{s.platform}</span>
                 </div>
-              </header>
-              <p class="surfacecard__desc">{s.description}</p>
-              <ul class="surfacecard__bullets">
-                {s.bullets.map((b) => (
-                  <li>{b}</li>
-                ))}
-              </ul>
-              {s.cta && (
-                <footer class="surfacecard__foot">
-                  <a
-                    class="surfacecard__cta mono"
-                    href={s.cta.href}
-                    target={s.cta.external ? "_blank" : undefined}
-                    rel={s.cta.external ? "noopener noreferrer" : undefined}
-                  >
-                    {s.cta.label} <span aria-hidden="true">→</span>
-                  </a>
-                </footer>
-              )}
-            </li>
-          ))
-        }
+                <h3 class="surfacecard__h">{s.name}</h3>
+              </div>
+            </header>
+            <p class="surfacecard__desc">{s.description}</p>
+            <ul class="surfacecard__bullets">
+              {s.bullets.map((b) => (
+                <li>{b}</li>
+              ))}
+            </ul>
+            {s.cta && (
+              <footer class="surfacecard__foot">
+                <a
+                  class="surfacecard__cta mono"
+                  href={s.cta.href}
+                  target={s.cta.external ? "_blank" : undefined}
+                  rel={s.cta.external ? "noopener noreferrer" : undefined}
+                >
+                  {s.cta.label} <span aria-hidden="true">→</span>
+                </a>
+              </footer>
+            )}
+          </li>
+        ))}
       </ul>
       <!-- Registry Config Console -->
       <div class="surfacematrix__console glass-card">
@@ -154,7 +156,8 @@ const statusTint = (s: Surface["status"]) => {
                   d="M 20 0 L 0 0 0 20"
                   fill="none"
                   stroke="rgba(255, 255, 255, 0.015)"
-                  stroke-width="1"></path>
+                  stroke-width="1"
+                ></path>
               </pattern>
               <linearGradient id="flow-glow-1" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stop-color="rgba(238, 24, 3, 0.9)"></stop>
@@ -179,7 +182,8 @@ const statusTint = (s: Surface["status"]) => {
               class="schematic-core-bg"
               fill="rgba(250, 107, 6, 0.02)"
               stroke="rgba(250, 107, 6, 0.12)"
-              stroke-width="1"></circle>
+              stroke-width="1"
+            ></circle>
             <circle
               cx="100"
               cy="60"
@@ -187,7 +191,8 @@ const statusTint = (s: Surface["status"]) => {
               class="schematic-core-inner"
               fill="rgba(250, 107, 6, 0.06)"
               stroke="var(--core-fire)"
-              stroke-width="1.5"></circle>
+              stroke-width="1.5"
+            ></circle>
             <text
               x="100"
               y="63"
@@ -195,8 +200,10 @@ const statusTint = (s: Surface["status"]) => {
               class="schematic-text mono core-text"
               fill="var(--text-bright)"
               font-size="9"
-              font-weight="var(--wght-bold)">DAEMON</text
+              font-weight="var(--wght-bold)"
             >
+              DAEMON
+            </text>
 
             <!-- Channel lines connecting to active steps -->
             <!-- Step 1 Wire -->
@@ -204,17 +211,23 @@ const statusTint = (s: Surface["status"]) => {
               d="M 132 60 Q 220 30 300 30"
               class="wire-bg"
               stroke="var(--ink-line)"
-              stroke-width="1.5"></path>
+              stroke-width="1.5"
+            ></path>
             <path
               d="M 132 60 Q 220 30 300 30"
               class="wire-active active-path-1"
               stroke="url(#flow-glow-1)"
               stroke-width="2"
               stroke-linecap="round"
-              stroke-dasharray="8 12"></path>
+              stroke-dasharray="8 12"
+            ></path>
 
             <!-- Step 2 Wire -->
-            <path d="M 132 60 H 300" class="wire-bg" stroke="var(--ink-line)" stroke-width="1.5"
+            <path
+              d="M 132 60 H 300"
+              class="wire-bg"
+              stroke="var(--ink-line)"
+              stroke-width="1.5"
             ></path>
             <path
               d="M 132 60 H 300"
@@ -222,21 +235,24 @@ const statusTint = (s: Surface["status"]) => {
               stroke="url(#flow-glow-2)"
               stroke-width="2"
               stroke-linecap="round"
-              stroke-dasharray="8 12"></path>
+              stroke-dasharray="8 12"
+            ></path>
 
             <!-- Step 3 Wire -->
             <path
               d="M 132 60 Q 220 90 300 90"
               class="wire-bg"
               stroke="var(--ink-line)"
-              stroke-width="1.5"></path>
+              stroke-width="1.5"
+            ></path>
             <path
               d="M 132 60 Q 220 90 300 90"
               class="wire-active active-path-3"
               stroke="url(#flow-glow-3)"
               stroke-width="2"
               stroke-linecap="round"
-              stroke-dasharray="8 12"></path>
+              stroke-dasharray="8 12"
+            ></path>
 
             <!-- Step Nodes -->
             <!-- Node 1 -->
@@ -250,16 +266,24 @@ const statusTint = (s: Surface["status"]) => {
                 class="node-rect rect-1"
                 fill="var(--ink-void)"
                 stroke="var(--ink-line)"
-                stroke-width="1.5"></rect>
-              <circle cx="316" cy="30" r="4" class="node-status status-1" fill="var(--core-red)"
+                stroke-width="1.5"
+              ></rect>
+              <circle
+                cx="316"
+                cy="30"
+                r="4"
+                class="node-status status-1"
+                fill="var(--core-red)"
               ></circle>
               <text
                 x="330"
                 y="34"
                 class="schematic-text mono"
                 fill="var(--text-mute)"
-                font-size="8.5">01 // SCHEMA DECLARE</text
+                font-size="8.5"
               >
+                01 // SCHEMA DECLARE
+              </text>
             </g>
 
             <!-- Node 2 -->
@@ -273,16 +297,24 @@ const statusTint = (s: Surface["status"]) => {
                 class="node-rect rect-2"
                 fill="var(--ink-void)"
                 stroke="var(--ink-line)"
-                stroke-width="1.5"></rect>
-              <circle cx="316" cy="60" r="4" class="node-status status-2" fill="var(--core-fire)"
+                stroke-width="1.5"
+              ></rect>
+              <circle
+                cx="316"
+                cy="60"
+                r="4"
+                class="node-status status-2"
+                fill="var(--core-fire)"
               ></circle>
               <text
                 x="330"
                 y="64"
                 class="schematic-text mono"
                 fill="var(--text-mute)"
-                font-size="8.5">02 // MODEL LAYOUT</text
+                font-size="8.5"
               >
+                02 // MODEL LAYOUT
+              </text>
             </g>
 
             <!-- Node 3 -->
@@ -296,16 +328,24 @@ const statusTint = (s: Surface["status"]) => {
                 class="node-rect rect-3"
                 fill="var(--ink-void)"
                 stroke="var(--ink-line)"
-                stroke-width="1.5"></rect>
-              <circle cx="316" cy="90" r="4" class="node-status status-3" fill="var(--core-amber)"
+                stroke-width="1.5"
+              ></rect>
+              <circle
+                cx="316"
+                cy="90"
+                r="4"
+                class="node-status status-3"
+                fill="var(--core-amber)"
               ></circle>
               <text
                 x="330"
                 y="94"
                 class="schematic-text mono"
                 fill="var(--text-mute)"
-                font-size="8.5">03 // HARDWARE QA</text
+                font-size="8.5"
               >
+                03 // HARDWARE QA
+              </text>
             </g>
 
             <!-- Step 1 Out -->
@@ -313,17 +353,23 @@ const statusTint = (s: Surface["status"]) => {
               d="M 440 30 Q 510 30 580 60"
               class="wire-bg"
               stroke="var(--ink-line)"
-              stroke-width="1.5"></path>
+              stroke-width="1.5"
+            ></path>
             <path
               d="M 440 30 Q 510 30 580 60"
               class="wire-active active-path-1"
               stroke="url(#flow-glow-1)"
               stroke-width="2"
               stroke-linecap="round"
-              stroke-dasharray="8 12"></path>
+              stroke-dasharray="8 12"
+            ></path>
 
             <!-- Step 2 Out -->
-            <path d="M 440 60 H 580" class="wire-bg" stroke="var(--ink-line)" stroke-width="1.5"
+            <path
+              d="M 440 60 H 580"
+              class="wire-bg"
+              stroke="var(--ink-line)"
+              stroke-width="1.5"
             ></path>
             <path
               d="M 440 60 H 580"
@@ -331,21 +377,24 @@ const statusTint = (s: Surface["status"]) => {
               stroke="url(#flow-glow-2)"
               stroke-width="2"
               stroke-linecap="round"
-              stroke-dasharray="8 12"></path>
+              stroke-dasharray="8 12"
+            ></path>
 
             <!-- Step 3 Out -->
             <path
               d="M 440 90 Q 510 90 580 60"
               class="wire-bg"
               stroke="var(--ink-line)"
-              stroke-width="1.5"></path>
+              stroke-width="1.5"
+            ></path>
             <path
               d="M 440 90 Q 510 90 580 60"
               class="wire-active active-path-3"
               stroke="url(#flow-glow-3)"
               stroke-width="2"
               stroke-linecap="round"
-              stroke-dasharray="8 12"></path>
+              stroke-dasharray="8 12"
+            ></path>
 
             <!-- Destination Core node -->
             <circle
@@ -355,7 +404,8 @@ const statusTint = (s: Surface["status"]) => {
               class="schematic-dest-bg"
               fill="rgba(61, 220, 132, 0.02)"
               stroke="rgba(61, 220, 132, 0.12)"
-              stroke-width="1"></circle>
+              stroke-width="1"
+            ></circle>
             <circle
               cx="612"
               cy="60"
@@ -363,7 +413,8 @@ const statusTint = (s: Surface["status"]) => {
               class="schematic-dest-inner"
               fill="rgba(61, 220, 132, 0.06)"
               stroke="#3DDC84"
-              stroke-width="1.5"></circle>
+              stroke-width="1.5"
+            ></circle>
             <text
               x="612"
               y="63"
@@ -371,25 +422,30 @@ const statusTint = (s: Surface["status"]) => {
               class="schematic-text mono dest-text"
               fill="var(--text-bright)"
               font-size="8.5"
-              font-weight="var(--wght-bold)">CASTED</text
+              font-weight="var(--wght-bold)"
             >
+              CASTED
+            </text>
 
             <!-- Outbound flows to peripheral mockups -->
             <path
               d="M 644 60 C 690 60 700 30 735 30"
               class="wire-bg"
               stroke="var(--ink-line)"
-              stroke-width="1"></path>
+              stroke-width="1"
+            ></path>
             <path
               d="M 644 60 C 690 60 700 60 735 60"
               class="wire-bg"
               stroke="var(--ink-line)"
-              stroke-width="1"></path>
+              stroke-width="1"
+            ></path>
             <path
               d="M 644 60 C 690 60 700 90 735 90"
               class="wire-bg"
               stroke="var(--ink-line)"
-              stroke-width="1"></path>
+              stroke-width="1"
+            ></path>
 
             <path
               d="M 644 60 C 690 60 700 30 735 30"
@@ -397,35 +453,38 @@ const statusTint = (s: Surface["status"]) => {
               stroke="#3DDC84"
               stroke-width="1.5"
               stroke-linecap="round"
-              stroke-dasharray="6 10"></path>
+              stroke-dasharray="6 10"
+            ></path>
             <path
               d="M 644 60 C 690 60 700 60 735 60"
               class="wire-active active-cast-flow"
               stroke="#3DDC84"
               stroke-width="1.5"
               stroke-linecap="round"
-              stroke-dasharray="6 10"></path>
+              stroke-dasharray="6 10"
+            ></path>
             <path
               d="M 644 60 C 690 60 700 90 735 90"
               class="wire-active active-cast-flow"
               stroke="#3DDC84"
               stroke-width="1.5"
               stroke-linecap="round"
-              stroke-dasharray="6 10"></path>
+              stroke-dasharray="6 10"
+            ></path>
 
             <circle cx="735" cy="30" r="2.5" fill="var(--text-dim)"></circle>
             <circle cx="735" cy="60" r="2.5" fill="var(--text-dim)"></circle>
             <circle cx="735" cy="90" r="2.5" fill="var(--text-dim)"></circle>
 
-            <text x="746" y="33" class="schematic-text mono" fill="var(--text-dim)" font-size="8"
-              >tvOS</text
-            >
-            <text x="746" y="63" class="schematic-text mono" fill="var(--text-dim)" font-size="8"
-              >iOS</text
-            >
-            <text x="746" y="93" class="schematic-text mono" fill="var(--text-dim)" font-size="8"
-              >Nest</text
-            >
+            <text x="746" y="33" class="schematic-text mono" fill="var(--text-dim)" font-size="8">
+              tvOS
+            </text>
+            <text x="746" y="63" class="schematic-text mono" fill="var(--text-dim)" font-size="8">
+              iOS
+            </text>
+            <text x="746" y="93" class="schematic-text mono" fill="var(--text-dim)" font-size="8">
+              Nest
+            </text>
           </svg>
         </div>
       </div>
@@ -449,9 +508,7 @@ const statusTint = (s: Surface["status"]) => {
                 stroke-linecap="round"
                 stroke-linejoin="round"
               >
-                <path
-                  d="M4 6C4 4.9 7.6 4 12 4s8 .9 8 2M4 6c0 1.1 3.6 2 8 2s8-.9 8-2M4 6v12c0 1.1 3.6 2 8 2s8-.9 8-2V6"
-                ></path>
+                <path d="M4 6C4 4.9 7.6 4 12 4s8 .9 8 2M4 6c0 1.1 3.6 2 8 2s8-.9 8-2M4 6v12c0 1.1 3.6 2 8 2s8-.9 8-2V6"></path>
                 <path d="M20 12c0 1.1-3.6 2-8 2s-8-.9-8-2"></path>
               </svg>
             </div>
@@ -495,8 +552,8 @@ const statusTint = (s: Surface["status"]) => {
               </div>
               <h3>Define mockup telemetry</h3>
               <p>
-                Establish coordinates and aspect ratios in <code>platform-surfaces.ts</code> to bind screen
-                shapes.
+                Establish coordinates and aspect ratios in <code>platform-surfaces.ts</code> to bind
+                screen shapes.
               </p>
             </div>
           </div>
@@ -565,13 +622,20 @@ const statusTint = (s: Surface["status"]) => {
           <!-- STEP 1 CODE: surfaces.ts -->
           <div class="ide__pane pane--1">
             <div class="ide__line-numbers mono">
-              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span
-              ><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span
-                >12</span
-              >
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+              <span>6</span>
+              <span>7</span>
+              <span>8</span>
+              <span>9</span>
+              <span>10</span>
+              <span>11</span>
+              <span>12</span>
             </div>
-            <pre
-              class="ide__code mono"><code><span class="keyword">export const</span> <span class="variable">SURFACES</span>: <span class="type">Surface</span>[] = [
+            <pre class="ide__code mono"><code><span class="keyword">export const</span> <span class="variable">SURFACES</span>: <span class="type">Surface</span>[] = [
   <span class="comment">// ... previous surfaces ...</span>
   &#123;
     <span class="property">id</span>: <span class="string">"apple-tv"</span>,
@@ -590,13 +654,20 @@ const statusTint = (s: Surface["status"]) => {
           <!-- STEP 2 CODE: platform-surfaces.ts -->
           <div class="ide__pane pane--2">
             <div class="ide__line-numbers mono">
-              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span
-              ><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span
-                >12</span
-              >
+              <span>1</span>
+              <span>2</span>
+              <span>3</span>
+              <span>4</span>
+              <span>5</span>
+              <span>6</span>
+              <span>7</span>
+              <span>8</span>
+              <span>9</span>
+              <span>10</span>
+              <span>11</span>
+              <span>12</span>
             </div>
-            <pre
-              class="ide__code mono"><code><span class="keyword">export const</span> <span class="variable">PLATFORM_DEVICES</span>: <span class="type">PlatformDevice</span>[] = [
+            <pre class="ide__code mono"><code><span class="keyword">export const</span> <span class="variable">PLATFORM_DEVICES</span>: <span class="type">PlatformDevice</span>[] = [
   <span class="comment">// ... previous devices ...</span>
   &#123;
     <span class="property">id</span>: <span class="string">"apple-tv-4k"</span>,
@@ -616,10 +687,13 @@ const statusTint = (s: Surface["status"]) => {
           <div class="ide__pane pane--3 split-pane">
             <div class="pane__file-view">
               <div class="ide__line-numbers mono">
-                <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+                <span>1</span>
+                <span>2</span>
+                <span>3</span>
+                <span>4</span>
+                <span>5</span>
               </div>
-              <pre
-                class="ide__code mono"><code><span class="heading"># Smart Display Hardware QA Matrix</span>
+              <pre class="ide__code mono"><code><span class="heading"># Smart Display Hardware QA Matrix</span>
 <span class="subheading">## tvOS [apple-tv]</span>
 - <span class="checkbox">[ ]</span> **Acceptance**: Run `scripts/qa-tvos-relay`
 - <span class="checkbox">[ ]</span> **Acceptance**: Validate Cast V2 connection
@@ -634,17 +708,18 @@ const statusTint = (s: Surface["status"]) => {
               <div class="terminal__output mono">
                 <div class="terminal__line">
                   <span class="term-time">[00:42:01]</span>
-                  <span class="term-sys">[SYSTEM]</span> Spawning local network tvOS hardware probe...
+                  <span class="term-sys">[SYSTEM]</span> Spawning local network tvOS hardware
+                  probe...
                 </div>
                 <div class="terminal__line">
                   <span class="term-time">[00:42:02]</span>
-                  <span class="term-sys">[SYSTEM]</span> Pinging Apple TV 4K at apple-tv.local:8080...
+                  <span class="term-sys">[SYSTEM]</span> Pinging Apple TV 4K at
+                  apple-tv.local:8080...
                 </div>
                 <div class="terminal__line">
                   <span class="term-time">[00:42:02]</span>
-                  <span class="term-info">[PROBE]</span> Negotiating secure pairing... <span
-                    class="term-success">SUCCESS</span
-                  >
+                  <span class="term-info">[PROBE]</span> Negotiating secure pairing...{" "}
+                  <span class="term-success">SUCCESS</span>
                 </div>
                 <div class="terminal__line">
                   <span class="term-time">[00:42:03]</span>
@@ -653,19 +728,19 @@ const statusTint = (s: Surface["status"]) => {
                 </div>
                 <div class="terminal__line">
                   <span class="term-time">[00:42:04]</span>
-                  <span class="term-info">[PROBE]</span> Validating Cast v2 local daemon loopback... <span
-                    class="term-success">SUCCESS</span
-                  >
+                  <span class="term-info">[PROBE]</span> Validating Cast v2 local daemon loopback...{" "}
+                  <span class="term-success">SUCCESS</span>
                 </div>
                 <div class="terminal__line">
                   <span class="term-time">[00:42:04]</span>
-                  <span class="term-info">[PROBE]</span> Resolving display aspect ratio: 16:9 (3840x2160)...
+                  <span class="term-info">[PROBE]</span> Resolving display aspect ratio: 16:9
+                  (3840x2160)...
                   <span class="term-success">MATCH</span>
                 </div>
                 <div class="terminal__line">
                   <span class="term-time">[00:42:05]</span>
-                  <span class="term-sys">[SYSTEM]</span> All acceptance checks passed. Committing tvOS
-                  status to SHIPPING.
+                  <span class="term-sys">[SYSTEM]</span> All acceptance checks passed. Committing
+                  tvOS status to SHIPPING.
                 </div>
                 <div class="terminal__line cursor-blink">
                   <span class="term-time">[00:42:05]</span>
@@ -687,15 +762,17 @@ const statusTint = (s: Surface["status"]) => {
         if you want them.
       </p>
       <div class="endcta__ctas">
-        <a class="btn btn--ember" href="/download"
-          >Download for macOS <span aria-hidden="true">→</span></a
-        >
+        <a class="btn btn--ember" href="/download">
+          Download for macOS <span aria-hidden="true">→</span>
+        </a>
         <a
           class="btn btn--ghost"
           href={`${SITE.github}/blob/main/docs/SMART_DISPLAY_DEVICE_QA.md`}
           target="_blank"
-          rel="noopener noreferrer">Smart display QA matrix</a
+          rel="noopener noreferrer"
         >
+          Smart display QA matrix
+        </a>
       </div>
     </div>
   </section>

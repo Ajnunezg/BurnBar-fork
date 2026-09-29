@@ -6,7 +6,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "btn-quiet inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+  "btn-quiet inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -16,8 +16,8 @@ const buttonVariants = cva(
         ghost: "btn-bare",
         // Wax-crimson is DESTRUCTIVE ONLY.
         destructive:
-          "bg-transparent text-[color:var(--color-seal-crimson)] border border-[color:var(--color-seal-crimson)] hover:bg-[color:var(--color-seal-crimson)] hover:text-white",
-        link: "text-[color:var(--accent-deep)] underline-offset-4 hover:underline",
+          "bg-transparent text-seal-crimson border border-seal-crimson hover:bg-seal-crimson hover:text-white",
+        link: "text-(--accent-deep) underline-offset-4 hover:underline",
       },
       size: {
         sm: "h-8 px-3 text-xs",

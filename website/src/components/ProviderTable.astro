@@ -56,56 +56,54 @@ const LOGOS: Record<string, string> = {
         </tr>
       </thead>
       <tbody>
-        {
-          rows.map((row) => {
-            const logo = LOGOS[row.id];
-            return (
-              <tr>
-                <td>
-                  <div class="pcell">
-                    {logo ? (
-                      <img
-                        class="pcell__logo"
-                        src={logo}
-                        alt=""
-                        width="40"
-                        height="40"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    ) : (
-                      <span class="pcell__logo pcell__logo--placeholder" aria-hidden="true">
-                        {row.name.charAt(0)}
-                      </span>
-                    )}
-                    <div class="pcell__text">
-                      <strong>{row.name}</strong>
-                      <span class="pcell__blurb">{row.blurb}</span>
-                    </div>
+        {rows.map((row) => {
+          const logo = LOGOS[row.id];
+          return (
+            <tr>
+              <td>
+                <div class="pcell">
+                  {logo ? (
+                    <img
+                      class="pcell__logo"
+                      src={logo}
+                      alt=""
+                      width="40"
+                      height="40"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <span class="pcell__logo pcell__logo--placeholder" aria-hidden="true">
+                      {row.name.charAt(0)}
+                    </span>
+                  )}
+                  <div class="pcell__text">
+                    <strong>{row.name}</strong>
+                    <span class="pcell__blurb">{row.blurb}</span>
                   </div>
-                </td>
+                </div>
+              </td>
+              <td>
+                <span class="mono small">{row.source}</span>
+              </td>
+              <td>
+                <span class={`tag tag--plain mono tag--${row.cost}`}>{row.cost}</span>
+              </td>
+              <td>
+                <span
+                  class={`tag tag--plain mono tag--${row.quota === "yes" ? "exact" : row.quota === "partial" ? "estimated" : "unavailable"}`}
+                >
+                  {row.quota === "yes" ? "yes" : row.quota === "partial" ? "partial" : "no"}
+                </span>
+              </td>
+              {variant === "full" && (
                 <td>
-                  <span class="mono small">{row.source}</span>
+                  <span class="mono small">{row.cred}</span>
                 </td>
-                <td>
-                  <span class={`tag tag--plain mono tag--${row.cost}`}>{row.cost}</span>
-                </td>
-                <td>
-                  <span
-                    class={`tag tag--plain mono tag--${row.quota === "yes" ? "exact" : row.quota === "partial" ? "estimated" : "unavailable"}`}
-                  >
-                    {row.quota === "yes" ? "yes" : row.quota === "partial" ? "partial" : "no"}
-                  </span>
-                </td>
-                {variant === "full" && (
-                  <td>
-                    <span class="mono small">{row.cred}</span>
-                  </td>
-                )}
-              </tr>
-            );
-          })
-        }
+              )}
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   </div>

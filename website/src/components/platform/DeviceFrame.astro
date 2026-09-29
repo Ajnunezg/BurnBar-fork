@@ -22,69 +22,65 @@ interface Props {
 const { kind, label } = Astro.props;
 ---
 
-{
-  kind === "nest-hub" && (
-    <div
-      class="deviceframe deviceframe--nest"
-      role="img"
-      aria-label={label ?? "Google Nest Hub device frame"}
-    >
-      <div class="deviceframe__nest-shelf">
-        <div class="deviceframe__nest-bezel">
-          <div class="deviceframe__nest-glass">
-            <slot />
-            <div class="deviceframe__nest-reflection" aria-hidden="true" />
-          </div>
-          <span class="deviceframe__nest-camera" aria-hidden="true" />
-        </div>
-      </div>
-
-      <div class="deviceframe__nest-pedestal" aria-hidden="true">
-        <div class="deviceframe__nest-fabric" />
-        <div class="deviceframe__nest-weave" />
-        <div class="deviceframe__nest-toplight" />
-      </div>
-
-      <div class="deviceframe__nest-floor" aria-hidden="true" />
-    </div>
-  )
-}
-
-{
-  kind === "ulanzi-tc001" && (
-    <div
-      class="deviceframe deviceframe--ulanzi"
-      role="img"
-      aria-label={label ?? "Ulanzi TC001 pixel clock"}
-    >
-      <div class="deviceframe__ulanzi-cable" aria-hidden="true">
-        <span class="deviceframe__ulanzi-cable-plug" />
-      </div>
-
-      <div class="deviceframe__ulanzi-body">
-        <div class="deviceframe__ulanzi-toprail" aria-hidden="true">
-          <span class="deviceframe__ulanzi-button" />
-          <span class="deviceframe__ulanzi-button" />
-          <span class="deviceframe__ulanzi-button" />
-        </div>
-        <div class="deviceframe__ulanzi-top-highlight" aria-hidden="true" />
-
-        <div class="deviceframe__ulanzi-panel">
+{kind === "nest-hub" && (
+  <div
+    class="deviceframe deviceframe--nest"
+    role="img"
+    aria-label={label ?? "Google Nest Hub device frame"}
+  >
+    <div class="deviceframe__nest-shelf">
+      <div class="deviceframe__nest-bezel">
+        <div class="deviceframe__nest-glass">
           <slot />
+          <div class="deviceframe__nest-reflection" aria-hidden="true" />
         </div>
+        <span class="deviceframe__nest-camera" aria-hidden="true" />
+      </div>
+    </div>
 
-        <div class="deviceframe__ulanzi-feet" aria-hidden="true">
-          <>
-            <span />
-            <span />
-          </>
-        </div>
+    <div class="deviceframe__nest-pedestal" aria-hidden="true">
+      <div class="deviceframe__nest-fabric" />
+      <div class="deviceframe__nest-weave" />
+      <div class="deviceframe__nest-toplight" />
+    </div>
+
+    <div class="deviceframe__nest-floor" aria-hidden="true" />
+  </div>
+)}
+
+{kind === "ulanzi-tc001" && (
+  <div
+    class="deviceframe deviceframe--ulanzi"
+    role="img"
+    aria-label={label ?? "Ulanzi TC001 pixel clock"}
+  >
+    <div class="deviceframe__ulanzi-cable" aria-hidden="true">
+      <span class="deviceframe__ulanzi-cable-plug" />
+    </div>
+
+    <div class="deviceframe__ulanzi-body">
+      <div class="deviceframe__ulanzi-toprail" aria-hidden="true">
+        <span class="deviceframe__ulanzi-button" />
+        <span class="deviceframe__ulanzi-button" />
+        <span class="deviceframe__ulanzi-button" />
+      </div>
+      <div class="deviceframe__ulanzi-top-highlight" aria-hidden="true" />
+
+      <div class="deviceframe__ulanzi-panel">
+        <slot />
       </div>
 
-      <div class="deviceframe__ulanzi-floor" aria-hidden="true" />
+      <div class="deviceframe__ulanzi-feet" aria-hidden="true">
+        <>
+          <span />
+          <span />
+        </>
+      </div>
     </div>
-  )
-}
+
+    <div class="deviceframe__ulanzi-floor" aria-hidden="true" />
+  </div>
+)}
 
 <style>
   .deviceframe {

@@ -83,7 +83,7 @@ export function PanicButton() {
               <b className="text-content-base">Revoke everything</b> also drops paired devices,
               browser/device trust, and connected providers.
             </p>
-            {error && <p className="text-xs text-[color:var(--color-seal-crimson)]">{error}</p>}
+            {error && <p className="text-xs text-seal-crimson">{error}</p>}
           </div>
         )}
 

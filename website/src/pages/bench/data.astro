@@ -53,24 +53,28 @@ const stats = reportStats();
           <em>nothing rounded away.</em>
         </h1>
         <p class="ins-lede ins-hero__lede ins-rise ins-rise-3">
-          {fmtInt(ALL_STACKS.length)} published stack slices and {fmtInt(TRIALS_MEASURED)} measured trials
-          across {fmtInt(TASK_CELLS)} task cells, with the exports behind every page.
+          {fmtInt(ALL_STACKS.length)} published stack slices and {fmtInt(TRIALS_MEASURED)} measured
+          trials across {fmtInt(TASK_CELLS)} task cells, with the exports behind every page.
         </p>
         <div class="ins-prov ins-rise ins-rise-4">
-          <span class="ins-prov__item"
-            ><span class="ins-prov__dot" aria-hidden="true"></span>generated {generatedAt}</span
-          >
-          <span class="ins-prov__item"
-            ><span class="ins-prov__dot" aria-hidden="true"></span>runs sha {shaShort}…</span
-          >
-          <span class="ins-prov__item"
-            ><span class="ins-prov__dot" aria-hidden="true"></span>{fmtInt(EXCLUDED_MEASURED)} excluded
-            by policy</span
-          >
+          <span class="ins-prov__item">
+            <span class="ins-prov__dot" aria-hidden="true"></span>generated {generatedAt}
+          </span>
+          <span class="ins-prov__item">
+            <span class="ins-prov__dot" aria-hidden="true"></span>runs sha {shaShort}…
+          </span>
+          <span class="ins-prov__item">
+            <span class="ins-prov__dot" aria-hidden="true"></span>
+            {fmtInt(EXCLUDED_MEASURED)} excluded by policy
+          </span>
         </div>
         <div class="ins-hero__nav ins-rise ins-rise-5">
-          <a class="ins-cta" href="/data/bench.json">bench.json</a>
-          <a class="ins-cta" href="/data/evidence.json">evidence.json</a>
+          <a class="ins-cta" href="/data/bench.json">
+            bench.json
+          </a>
+          <a class="ins-cta" href="/data/evidence.json">
+            evidence.json
+          </a>
         </div>
       </div>
     </section>
@@ -80,10 +84,12 @@ const stats = reportStats();
     <div class="container container--wide">
       <header class="bb-sec-head">
         <span class="eyebrow eyebrow--ember">Raw data</span>
-        <h2 id="explorer-h" class="bb-sec-h">Cell explorer.</h2>
+        <h2 id="explorer-h" class="bb-sec-h">
+          Cell explorer.
+        </h2>
         <p class="bb-sec-lead">
-          All {fmtInt(stats.cells)} measured task cells, client-side. Search by name, filter by harness,
-          model, family, or verdict — including the {stats.flipTrials}
+          All {fmtInt(stats.cells)} measured task cells, client-side. Search by name, filter by
+          harness, model, family, or verdict — including the {stats.flipTrials}
           timeout-while-passing flips. The dataset loads only when you reach this section.
         </p>
       </header>
@@ -113,7 +119,9 @@ const stats = reportStats();
             <option value="fail">Fully failing</option>
             <option value="flip">Timeout while passing</option>
           </select>
-          <button class="bb-explorer__reset" data-br-reset type="button">Reset</button>
+          <button class="bb-explorer__reset" data-br-reset type="button">
+            Reset
+          </button>
         </div>
         <p class="bb-explorer__count mono" data-br-count aria-live="polite"></p>
         <div class="bb-explorer__wrap">
@@ -121,53 +129,69 @@ const stats = reportStats();
             <thead>
               <tr>
                 <th scope="col">#</th>
-                <th scope="col" data-sort="h" tabindex="0" aria-sort="none" title="Sort by harness"
-                  >harness</th
-                >
-                <th scope="col" data-sort="m" tabindex="0" aria-sort="none" title="Sort by model"
-                  >model</th
-                >
-                <th scope="col" data-sort="t" tabindex="0" aria-sort="none" title="Sort by task"
-                  >task</th
-                >
+                <th scope="col" data-sort="h" tabindex="0" aria-sort="none" title="Sort by harness">
+                  harness
+                </th>
+                <th scope="col" data-sort="m" tabindex="0" aria-sort="none" title="Sort by model">
+                  model
+                </th>
+                <th scope="col" data-sort="t" tabindex="0" aria-sort="none" title="Sort by task">
+                  task
+                </th>
                 <th
                   scope="col"
                   data-sort="n"
                   tabindex="0"
                   aria-sort="none"
-                  title="Sort by trial count">trials</th
+                  title="Sort by trial count"
                 >
+                  trials
+                </th>
                 <th
                   scope="col"
                   data-sort="sol"
                   tabindex="0"
                   aria-sort="none"
-                  title="Sort by solution rate">solution</th
+                  title="Sort by solution rate"
                 >
+                  solution
+                </th>
                 <th
                   scope="col"
                   data-sort="str"
                   tabindex="0"
                   aria-sort="none"
-                  title="Sort by strict rate">strict</th
+                  title="Sort by strict rate"
                 >
+                  strict
+                </th>
                 <th
                   scope="col"
                   data-sort="cost"
                   tabindex="0"
                   aria-sort="none"
-                  title="Sort by cost per task">cost/task</th
+                  title="Sort by cost per task"
                 >
+                  cost/task
+                </th>
                 <th
                   scope="col"
                   data-sort="wall"
                   tabindex="0"
                   aria-sort="none"
-                  title="Sort by wall time">wall</th
+                  title="Sort by wall time"
                 >
-                <th scope="col" data-sort="tok" tabindex="0" aria-sort="none" title="Sort by tokens"
-                  >tokens</th
+                  wall
+                </th>
+                <th
+                  scope="col"
+                  data-sort="tok"
+                  tabindex="0"
+                  aria-sort="none"
+                  title="Sort by tokens"
                 >
+                  tokens
+                </th>
                 <th scope="col">flags</th>
               </tr>
             </thead>
@@ -175,9 +199,12 @@ const stats = reportStats();
           </table>
           <p class="bb-explorer__idle" data-br-idle>
             The explorer fetches {fmtInt(stats.cells)} cells from
-            <a href="/data/bench-cells.json"><code>/data/bench-cells.json</code></a> the moment you scroll
-            here or touch a control — the page you already downloaded stays lean. Without JavaScript,
-            the same projection is readable at that link, and the full stack table is below.
+            <a href="/data/bench-cells.json">
+              <code>/data/bench-cells.json</code>
+            </a>{" "}
+            the moment you scroll here or touch a control — the page you already downloaded stays
+            lean. Without JavaScript, the same projection is readable at that link, and the full
+            stack table is below.
           </p>
         </div>
       </div>
@@ -189,11 +216,13 @@ const stats = reportStats();
     <div class="container container--wide">
       <header class="bb-sec-head">
         <span class="eyebrow eyebrow--ember">Full data</span>
-        <h2 id="data-h" class="bb-sec-h">Every published cell, as exported.</h2>
+        <h2 id="data-h" class="bb-sec-h">
+          Every published cell, as exported.
+        </h2>
         <p class="bb-sec-lead">
-          The complete table from <code>bench.json</code> — {BENCH.stacks.length} stack-scope rows (overall,
-          per-family, per-language, per-platform), grouped by scope and sorted by solution rate within
-          each scope.
+          The complete table from <code>bench.json</code> — {BENCH.stacks.length} stack-scope rows
+          (overall, per-family, per-language, per-platform), grouped by scope and sorted by solution
+          rate within each scope.
         </p>
       </header>
 
@@ -217,55 +246,53 @@ const stats = reportStats();
             </tr>
           </thead>
           <tbody>
-            {
-              ALL_STACKS.map((s) => (
-                <tr class={s.evidence === "inferred" ? "d-row--inferred" : undefined}>
-                  <td class={`d-name h--${hcls(s.harness)}`}>{harnessDisplay(s.harness)}</td>
-                  <td class={`d-model m--${mcls(s.model)}`}>{modelDisplay(s.model)}</td>
-                  <td class="d-sub">{scopeLabel(s)}</td>
-                  <td class="d-sol">{fmtPct(s.solution_rate)}</td>
-                  <td>{fmtPct(s.strict_rate)}</td>
-                  <td class="d-sub">
-                    {fmtPct(s.ci95[0])}–{fmtPct(s.ci95[1])}
-                  </td>
-                  <td>{s.n}</td>
-                  <td>
-                    {fmtCost(s.cost_usd_median)}
-                    {s.cost_source === "derived" && (
-                      <span class="d-sub" title="token-derived list-price estimate">
-                        *
-                      </span>
-                    )}
-                    {s.cost_standard_usd_median != null && (
-                      <span
-                        class="d-sub"
-                        title={`standard non-contributor tier: ${fmtCost(s.cost_standard_usd_median)}/task`}
-                      >
-                        {" "}
-                        (std {fmtCost(s.cost_standard_usd_median)})
-                      </span>
-                    )}
-                  </td>
-                  <td>{fmtWall(s.wall_seconds_median)}</td>
-                  <td>{fmtTokens(s.tokens_median)}</td>
-                  <td class="d-sub">
-                    {s.quality_mean != null ? (
-                      <a
-                        class="d-qlink"
-                        href={`#qlq-${s.harness}-${s.model}`}
-                        title={`Kimi quality ${s.quality_mean.toFixed(2)}/5 over ${s.quality_n} judged trials — tap for the component scores`}
-                      >
-                        {`${s.quality_mean.toFixed(2)}${s.quality_n > 0 ? ` (${s.quality_n})` : ""}`}
-                      </a>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td class="d-sub">{s.confidence}</td>
-                  <td class="d-sub">{s.evidence}</td>
-                </tr>
-              ))
-            }
+            {ALL_STACKS.map((s) => (
+              <tr class={s.evidence === "inferred" ? "d-row--inferred" : undefined}>
+                <td class={`d-name h--${hcls(s.harness)}`}>{harnessDisplay(s.harness)}</td>
+                <td class={`d-model m--${mcls(s.model)}`}>{modelDisplay(s.model)}</td>
+                <td class="d-sub">{scopeLabel(s)}</td>
+                <td class="d-sol">{fmtPct(s.solution_rate)}</td>
+                <td>{fmtPct(s.strict_rate)}</td>
+                <td class="d-sub">
+                  {fmtPct(s.ci95[0])}–{fmtPct(s.ci95[1])}
+                </td>
+                <td>{s.n}</td>
+                <td>
+                  {fmtCost(s.cost_usd_median)}
+                  {s.cost_source === "derived" && (
+                    <span class="d-sub" title="token-derived list-price estimate">
+                      *
+                    </span>
+                  )}
+                  {s.cost_standard_usd_median != null && (
+                    <span
+                      class="d-sub"
+                      title={`standard non-contributor tier: ${fmtCost(s.cost_standard_usd_median)}/task`}
+                    >
+                      {" "}
+                      (std {fmtCost(s.cost_standard_usd_median)})
+                    </span>
+                  )}
+                </td>
+                <td>{fmtWall(s.wall_seconds_median)}</td>
+                <td>{fmtTokens(s.tokens_median)}</td>
+                <td class="d-sub">
+                  {s.quality_mean != null ? (
+                    <a
+                      class="d-qlink"
+                      href={`#qlq-${s.harness}-${s.model}`}
+                      title={`Kimi quality ${s.quality_mean.toFixed(2)}/5 over ${s.quality_n} judged trials — tap for the component scores`}
+                    >
+                      {`${s.quality_mean.toFixed(2)}${s.quality_n > 0 ? ` (${s.quality_n})` : ""}`}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td class="d-sub">{s.confidence}</td>
+                <td class="d-sub">{s.evidence}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -286,10 +313,8 @@ const stats = reportStats();
   <script>
     import "../../scripts/bench-report";
   </script>
-  {
-    /* Drives the scroll-linked atmosphere fade; every other initialiser
-      no-ops when its hooks are absent from the page. */
-  }
+  {/* Drives the scroll-linked atmosphere fade; every other initialiser
+      no-ops when its hooks are absent from the page. */}
   <script>
     import "../../scripts/bench-instrument.ts";
   </script>

@@ -34,17 +34,23 @@ const moments = [
   <section class="pagehead pagehead--floo">
     <div class="container container--narrow pagehead__inner">
       <span class="eyebrow eyebrow--mercury">{FLOO.name}</span>
-      <h1 class="pagehead__h">Your phone and your Mac,<br /><span class="ember">joined.</span></h1>
+      <h1 class="pagehead__h">
+        Your phone and your Mac,
+        <br />
+        <span class="ember">joined.</span>
+      </h1>
       <p class="lead pagehead__lead">
-        Your Mac is where the work happens. {FLOO.name} makes your phone the window into it — and the
-        remote control for it. See the screen, reach in and steer, send a file, take a call, even unlock
-        it. From the next room or the next city.
+        Your Mac is where the work happens. {FLOO.name} makes your phone the window into it — and
+        the remote control for it. See the screen, reach in and steer, send a file, take a call,
+        even unlock it. From the next room or the next city.
       </p>
       <div class="pagehead__ctas">
-        <a class="btn btn--ember" href="/download"
-          >Get OpenBurnBar <span aria-hidden="true">→</span></a
-        >
-        <a class="btn btn--ghost" href="#safe">How it stays private</a>
+        <a class="btn btn--ember" href="/download">
+          Get OpenBurnBar <span aria-hidden="true">→</span>
+        </a>
+        <a class="btn btn--ghost" href="#safe">
+          How it stays private
+        </a>
       </div>
     </div>
   </section>
@@ -74,14 +80,16 @@ const moments = [
         <span class="eyebrow eyebrow--mercury">Safe by design</span>
         <h2>It only ever connects you to you.</h2>
         <p class="lead">
-          {FLOO.name} is for your devices and no one else's. Once your devices finish pairing, the screen,
-          control, file, and clipboard contents are sealed end to end between them — the relay sees routing
-          metadata, never those contents. Live voice and camera frames travel over their own encrypted
-          transport link.
+          {FLOO.name} is for your devices and no one else's. Once your devices finish pairing, the
+          screen, control, file, and clipboard contents are sealed end to end between them — the
+          relay sees routing metadata, never those contents. Live voice and camera frames travel
+          over their own encrypted transport link.
         </p>
       </header>
       <ul class="promiselist">
-        {FLOO_PROMISES.map((p) => <li class="glass-pane">{p}</li>)}
+        {FLOO_PROMISES.map((p) => (
+          <li class="glass-pane">{p}</li>
+        ))}
       </ul>
     </div>
   </section>
@@ -109,14 +117,16 @@ const moments = [
     <div class="container container--narrow endcta__inner">
       <h2>Bring your Mac with you.</h2>
       <p class="lead">
-        {FLOO.name} comes built into OpenBurnBar. Pair your phone once and it's there whenever you need
-        it.
+        {FLOO.name} comes built into OpenBurnBar. Pair your phone once and it's there whenever you
+        need it.
       </p>
       <div class="endcta__ctas">
-        <a class="btn btn--ember" href="/download"
-          >Download for macOS <span aria-hidden="true">→</span></a
-        >
-        <a class="btn btn--ghost" href="/product">Tour the product</a>
+        <a class="btn btn--ember" href="/download">
+          Download for macOS <span aria-hidden="true">→</span>
+        </a>
+        <a class="btn btn--ghost" href="/product">
+          Tour the product
+        </a>
       </div>
     </div>
   </section>

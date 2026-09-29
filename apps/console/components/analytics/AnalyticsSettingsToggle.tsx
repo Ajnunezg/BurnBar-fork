@@ -23,7 +23,7 @@ export function AnalyticsSettingsToggle() {
     <div className="grid gap-token-4 border-t border-glass-line py-token-4 first:border-t-0 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
       <div className="flex min-w-0 items-start gap-token-3">
         <span
-          className="mt-0.5 grid size-8 shrink-0 place-items-center border border-glass-line bg-mercury-wash text-[color:var(--accent-deep)]"
+          className="mt-0.5 grid size-8 shrink-0 place-items-center border border-glass-line bg-mercury-wash text-(--accent-deep)"
           aria-hidden
         >
           <BarChart3 className="size-4" />

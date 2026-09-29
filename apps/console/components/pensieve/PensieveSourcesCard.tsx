@@ -94,7 +94,7 @@ function RepoRow({
         onClick={onDisconnect}
         disabled={busy}
         title="Disconnect (stops push-sync; already-sealed memory is kept)"
-        className="grid size-8 shrink-0 place-items-center rounded-md text-content-dim transition hover:bg-panel-subtle hover:text-[color:var(--color-seal-crimson)] disabled:opacity-50"
+        className="grid size-8 shrink-0 place-items-center rounded-md text-content-dim transition hover:bg-panel-subtle hover:text-seal-crimson disabled:opacity-50"
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
       </button>
@@ -216,7 +216,7 @@ export function PensieveSourcesCard({
         )}
 
         {note && <p className="text-xs text-tier-end-to-end">{note}</p>}
-        {error && <p className="text-xs text-[color:var(--color-seal-crimson)]">{error}</p>}
+        {error && <p className="text-xs text-seal-crimson">{error}</p>}
 
         {loading && repos === null ? (
           <div className="flex items-center justify-center gap-2 rounded-md border border-dashed border-glass-line p-token-6 text-sm text-content-mute">

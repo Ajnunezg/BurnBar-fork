@@ -61,66 +61,66 @@ function isActive(href: string): boolean {
 ---
 
 <header class="site-header" data-elevated="false">
-  <a href="#main" class="skip-link">Skip to content</a>
+  <a href="#main" class="skip-link">
+    Skip to content
+  </a>
   <div class="site-header__inner container container--wide">
     <Brandmark size={28} />
 
     <nav class="site-nav" aria-label="Primary">
       <ul>
-        {
-          HEADER_NAV.map((item) => {
-            const active = isActive(item.href);
-            const dd = item.dropdown;
-            if (dd) {
-              const ddActive = dd.some((d) => isActive(d.href)) || active;
-              return (
-                <li class="site-nav__drop">
-                  <a
-                    href={item.href}
-                    class="site-nav__trigger"
-                    aria-current={ddActive ? "page" : undefined}
-                    data-active={ddActive}
-                    aria-haspopup="true"
-                  >
-                    {item.label}
-                    <svg
-                      class="site-nav__chev"
-                      viewBox="0 0 12 12"
-                      width="10"
-                      height="10"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M3 4.5L6 7.5L9 4.5"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.4"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </a>
-                  <ul class="site-nav__menu" role="menu">
-                    {dd.map((d) => (
-                      <li role="none">
-                        <a role="menuitem" href={d.href} data-active={isActive(d.href)}>
-                          {d.label}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              );
-            }
+        {HEADER_NAV.map((item) => {
+          const active = isActive(item.href);
+          const dd = item.dropdown;
+          if (dd) {
+            const ddActive = dd.some((d) => isActive(d.href)) || active;
             return (
-              <li>
-                <a href={item.href} aria-current={active ? "page" : undefined} data-active={active}>
+              <li class="site-nav__drop">
+                <a
+                  href={item.href}
+                  class="site-nav__trigger"
+                  aria-current={ddActive ? "page" : undefined}
+                  data-active={ddActive}
+                  aria-haspopup="true"
+                >
                   {item.label}
+                  <svg
+                    class="site-nav__chev"
+                    viewBox="0 0 12 12"
+                    width="10"
+                    height="10"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M3 4.5L6 7.5L9 4.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.4"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
                 </a>
+                <ul class="site-nav__menu" role="menu">
+                  {dd.map((d) => (
+                    <li role="none">
+                      <a role="menuitem" href={d.href} data-active={isActive(d.href)}>
+                        {d.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
               </li>
             );
-          })
-        }
+          }
+          return (
+            <li>
+              <a href={item.href} aria-current={active ? "page" : undefined} data-active={active}>
+                {item.label}
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </nav>
 
@@ -139,8 +139,10 @@ function isActive(href: string): boolean {
           stroke-width="1.7"
           stroke-linecap="round"
           stroke-linejoin="round"
-          aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path></svg
+          aria-hidden="true"
         >
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path>
+        </svg>
         <svg
           class="icon-sun"
           viewBox="0 0 24 24"
@@ -150,10 +152,10 @@ function isActive(href: string): boolean {
           stroke-linecap="round"
           stroke-linejoin="round"
           aria-hidden="true"
-          ><circle cx="12" cy="12" r="4"></circle><path
-            d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"
-          ></path></svg
         >
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path>
+        </svg>
       </button>
       <a
         class="btn btn--small btn--ghost"
@@ -172,7 +174,9 @@ function isActive(href: string): boolean {
         data-analytics-prop-placement="header"
       >
         Download
-        <span class="btn-arrow" aria-hidden="true">→</span>
+        <span class="btn-arrow" aria-hidden="true">
+          →
+        </span>
       </a>
     </div>
 
@@ -183,27 +187,29 @@ function isActive(href: string): boolean {
       aria-controls="mobile-nav"
       aria-label="Open menu"
     >
-      <span></span><span></span><span></span>
+      <span></span>
+      <span></span>
+      <span></span>
     </button>
   </div>
 
   <div id="mobile-nav" class="mobile-nav" hidden>
     <ul>
-      {
-        MOBILE_NAV.map((item) => (
-          <li>
-            <a href={item.href}>{item.label}</a>
-          </li>
-        ))
-      }
+      {MOBILE_NAV.map((item) => (
+        <li>
+          <a href={item.href}>{item.label}</a>
+        </li>
+      ))}
       <li>
         <a
           href={SITE.github}
           target="_blank"
           rel="noopener noreferrer"
           data-analytics-event="nav.external.clicked"
-          data-analytics-prop-destination="github">GitHub</a
+          data-analytics-prop-destination="github"
         >
+          GitHub
+        </a>
       </li>
       <li>
         <a
@@ -214,7 +220,9 @@ function isActive(href: string): boolean {
           data-analytics-prop-target-platform="macos"
         >
           Download for macOS
-          <span class="btn-arrow" aria-hidden="true">→</span>
+          <span class="btn-arrow" aria-hidden="true">
+            →
+          </span>
         </a>
       </li>
     </ul>

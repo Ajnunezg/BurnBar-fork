@@ -44,13 +44,11 @@ const mono = monogramFor(id, display);
   ]}
   title={display}
 >
-  {
-    logo ? (
-      <img src={logo} alt="" width="30" height="30" loading="lazy" decoding="async" />
-    ) : (
-      <span class="ins-mono" aria-hidden="true">
-        {mono}
-      </span>
-    )
-  }
+  {logo ? (
+    <img src={logo} alt="" width="30" height="30" loading="lazy" decoding="async" />
+  ) : (
+    <span class="ins-mono" aria-hidden="true">
+      {mono}
+    </span>
+  )}
 </span>

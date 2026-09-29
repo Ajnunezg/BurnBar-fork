@@ -22,7 +22,9 @@ import BaseLayout from "@layouts/BaseLayout.astro";
         </div>
 
         <div id="state-signed-out" class="connect-state hidden">
-          <div class="status-mark" aria-hidden="true">BB</div>
+          <div class="status-mark" aria-hidden="true">
+            BB
+          </div>
           <h2>Sign in to approve Hermes</h2>
           <p>Use the same BurnBar account that has BurnBar Cloud or Cloud Pro active.</p>
           <div class="button-stack">
@@ -66,11 +68,15 @@ import BaseLayout from "@layouts/BaseLayout.astro";
         <div id="state-confirm" class="connect-state hidden">
           <div class="account-row">
             <img id="user-avatar" src="" alt="" class="avatar hidden" />
-            <span id="user-email" class="mono">Signed in</span>
+            <span id="user-email" class="mono">
+              Signed in
+            </span>
           </div>
           <h2>Confirm the Hermes code</h2>
           <p>Enter the 8-character code shown by Hermes.</p>
-          <label class="code-label" for="code-input">Pairing code</label>
+          <label class="code-label" for="code-input">
+            Pairing code
+          </label>
           <input
             id="code-input"
             class="code-input"
@@ -80,8 +86,12 @@ import BaseLayout from "@layouts/BaseLayout.astro";
             autocomplete="one-time-code"
             inputmode="text"
           />
-          <button id="btn-confirm" class="btn btn--ember" type="button">Approve Hermes</button>
-          <button id="btn-signout" class="btn-text" type="button">Use a different account</button>
+          <button id="btn-confirm" class="btn btn--ember" type="button">
+            Approve Hermes
+          </button>
+          <button id="btn-signout" class="btn-text" type="button">
+            Use a different account
+          </button>
         </div>
 
         <div id="state-approving" class="connect-state hidden">
@@ -91,16 +101,22 @@ import BaseLayout from "@layouts/BaseLayout.astro";
         </div>
 
         <div id="state-success" class="connect-state hidden">
-          <div class="status-mark status-mark--success" aria-hidden="true">OK</div>
+          <div class="status-mark status-mark--success" aria-hidden="true">
+            OK
+          </div>
           <h2>Hermes is connected</h2>
           <p>Return to Hermes. This connection can be revoked from BurnBar at any time.</p>
         </div>
 
         <div id="state-error" class="connect-state hidden">
-          <div class="status-mark status-mark--error" aria-hidden="true">!</div>
+          <div class="status-mark status-mark--error" aria-hidden="true">
+            !
+          </div>
           <h2>Connection failed</h2>
           <p id="error-message">The Hermes code could not be approved.</p>
-          <button id="btn-retry" class="btn btn--secondary" type="button">Try again</button>
+          <button id="btn-retry" class="btn btn--secondary" type="button">
+            Try again
+          </button>
         </div>
       </div>
     </div>

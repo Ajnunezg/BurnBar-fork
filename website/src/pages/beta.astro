@@ -46,8 +46,12 @@ import BaseLayout from "@layouts/BaseLayout.astro";
             Your pass is attached to a BurnBar account, so we need to know where to put it. Use the
             same account as the BurnBar app.
           </p>
-          <button id="btn-signin" class="btn btn--ember"> Sign in with Google </button>
-          <button id="btn-signin-apple" class="btn btn--secondary"> Sign in with Apple </button>
+          <button id="btn-signin" class="btn btn--ember">
+            Sign in with Google
+          </button>
+          <button id="btn-signin-apple" class="btn btn--secondary">
+            Sign in with Apple
+          </button>
           <p class="fine">No payment method required.</p>
         </div>
 
@@ -55,13 +59,17 @@ import BaseLayout from "@layouts/BaseLayout.astro";
         <div id="state-claim" class="claim-state hidden">
           <div class="user-badge" id="user-badge">
             <img id="user-avatar" src="" alt="" class="avatar hidden" />
-            <span id="user-email" class="mono">...</span>
+            <span id="user-email" class="mono">
+              ...
+            </span>
           </div>
           <h2>Enter your launch code</h2>
           <p>The code from the announcement post unlocks BurnBar Ultra on this account.</p>
 
           <div class="code-input-wrap">
-            <label class="code-label mono" for="code-input">Launch code</label>
+            <label class="code-label mono" for="code-input">
+              Launch code
+            </label>
             <input
               type="text"
               id="code-input"
@@ -77,8 +85,12 @@ import BaseLayout from "@layouts/BaseLayout.astro";
             </p>
           </div>
 
-          <button id="btn-claim" class="btn btn--ember"> Claim free Ultra </button>
-          <button id="btn-signout" class="btn-text"> Sign out of this account </button>
+          <button id="btn-claim" class="btn btn--ember">
+            Claim free Ultra
+          </button>
+          <button id="btn-signout" class="btn-text">
+            Sign out of this account
+          </button>
         </div>
 
         <!-- State: submitting -->
@@ -135,7 +147,9 @@ import BaseLayout from "@layouts/BaseLayout.astro";
           </div>
           <h2>Could not claim</h2>
           <p id="error-message">Something went wrong on our side. Try again in a moment.</p>
-          <button id="btn-retry" class="btn btn--secondary"> Try again </button>
+          <button id="btn-retry" class="btn btn--secondary">
+            Try again
+          </button>
         </div>
       </div>
     </div>

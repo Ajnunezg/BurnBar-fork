@@ -122,8 +122,8 @@ export async function runLoginFlow(): Promise<void> {
   // allowed custom/loopback host), never an attacker-supplied server.
   const mcpEndpoint = validatedMcpEndpoint(rawEndpoint).href;
 
-  let startUrl = "";
-  let pollUrl = "";
+  let startUrl: string;
+  let pollUrl: string;
   if (mcpEndpoint.includes("/us-central1/")) {
     const base = mcpEndpoint.substring(0, mcpEndpoint.indexOf("/mcp"));
     startUrl = `${base}/startCliLink`;

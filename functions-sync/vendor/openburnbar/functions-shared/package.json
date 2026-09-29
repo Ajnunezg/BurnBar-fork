@@ -7,14 +7,14 @@
   "dependencies": {
     "@openburnbar/entitlements": "file:../entitlements",
     "@openburnbar/signal-envelope-contracts": "file:../signal-envelope-contracts",
-    "@sentry/core": "10.69.0",
-    "@sentry/node": "10.69.0",
-    "cockatiel": "3.2.1",
+    "@sentry/core": "11.0.0",
+    "@sentry/node": "11.0.0",
+    "cockatiel": "4.0.0",
     "express": "5.2.1",
-    "firebase-admin": "14.4.0",
+    "firebase-admin": "14.5.0",
     "firebase-functions": "^7.4.0",
-    "googleapis": "181.0.0",
-    "stripe": "19.3.0"
+    "googleapis": "182.0.0",
+    "stripe": "22.6.2"
   },
   "exports": {
     "./package.json": "./package.json",

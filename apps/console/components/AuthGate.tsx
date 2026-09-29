@@ -110,7 +110,7 @@ function SignInCard() {
               </Button>
             )}
           </div>
-          {error && <p className="text-xs text-[color:var(--color-seal-crimson)]">{error}</p>}
+          {error && <p className="text-xs text-seal-crimson">{error}</p>}
           <p className="pt-token-2 text-xs text-content-dim">
             {appleAuthEnabled
               ? "Passkeys are primary; Google and Apple are fallbacks."

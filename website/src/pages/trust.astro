@@ -49,15 +49,21 @@ import TrustTierBadge from "@components/TrustTierBadge.astro";
 
           <ol class="howhonest" aria-label="How this page stays honest">
             <li class="howhonest__step">
-              <span class="howhonest__n" aria-hidden="true">1</span>
+              <span class="howhonest__n" aria-hidden="true">
+                1
+              </span>
               <span class="howhonest__t">Our code records what it actually does.</span>
             </li>
             <li class="howhonest__step">
-              <span class="howhonest__n" aria-hidden="true">2</span>
+              <span class="howhonest__n" aria-hidden="true">
+                2
+              </span>
               <span class="howhonest__t">That record becomes the claims on this page.</span>
             </li>
             <li class="howhonest__step howhonest__step--gate">
-              <span class="howhonest__n" aria-hidden="true">3</span>
+              <span class="howhonest__n" aria-hidden="true">
+                3
+              </span>
               <span class="howhonest__t">If the two ever disagree, the build breaks.</span>
             </li>
           </ol>
@@ -66,7 +72,9 @@ import TrustTierBadge from "@components/TrustTierBadge.astro";
             <a class="btn btn--ember" href={SITE.github} target="_blank" rel="noopener noreferrer">
               Read the source
             </a>
-            <a class="btn btn--ghost" href="/privacy">Privacy model</a>
+            <a class="btn btn--ghost" href="/privacy">
+              Privacy model
+            </a>
           </div>
         </div>
 
@@ -103,32 +111,32 @@ import TrustTierBadge from "@components/TrustTierBadge.astro";
           <span class="lic__pairs-h">WE CLAIM</span>
           <span class="lic__pairs-h">WE DON'T</span>
         </div>
-        {
-          CLAIM_PAIRS.map((pair) => (
-            <div class="lic__pair">
-              <p class="lic__pair-claim">
-                <span class="lic__pair-tag" aria-hidden="true">
-                  We claim
-                </span>
-                <span class="sr-only">We claim: </span>
-                {pair.claim}
-              </p>
-              <p class="lic__pair-not">
-                <span class="lic__pair-tag" aria-hidden="true">
-                  We don't
-                </span>
-                <span class="sr-only">We don't claim: </span>
-                {pair.not}
-              </p>
-            </div>
-          ))
-        }
+        {CLAIM_PAIRS.map((pair) => (
+          <div class="lic__pair">
+            <p class="lic__pair-claim">
+              <span class="lic__pair-tag" aria-hidden="true">
+                We claim
+              </span>
+              <span class="sr-only">We claim: </span>
+              {pair.claim}
+            </p>
+            <p class="lic__pair-not">
+              <span class="lic__pair-tag" aria-hidden="true">
+                We don't
+              </span>
+              <span class="sr-only">We don't claim: </span>
+              {pair.not}
+            </p>
+          </div>
+        ))}
       </div>
 
       <p class="lic__facts">
         <span class="lic__fact">{LICENSING.spdx} at HEAD</span>
         <span class="lic__fact">{LICENSING.mitHistoryLine}</span>
-        <span class="lic__fact"><a href="/legal/terms">Terms</a></span>
+        <span class="lic__fact">
+          <a href="/legal/terms">Terms</a>
+        </span>
       </p>
     </div>
   </section>
@@ -159,7 +167,9 @@ import TrustTierBadge from "@components/TrustTierBadge.astro";
           <span class="cryptocore__strip-rule" aria-hidden="true"></span>
         </p>
         <ul class="cryptocore__list cryptocore__list--claim">
-          {CRYPTO_CLAIMS.map((c) => <li>{c.publicLine}</li>)}
+          {CRYPTO_CLAIMS.map((c) => (
+            <li>{c.publicLine}</li>
+          ))}
         </ul>
       </div>
 
@@ -169,7 +179,9 @@ import TrustTierBadge from "@components/TrustTierBadge.astro";
           <span class="cryptocore__strip-rule" aria-hidden="true"></span>
         </p>
         <ul class="cryptocore__list cryptocore__list--not">
-          {CRYPTO_NOT_CLAIMS.map((line) => <li>{line}</li>)}
+          {CRYPTO_NOT_CLAIMS.map((line) => (
+            <li>{line}</li>
+          ))}
         </ul>
       </div>
 
@@ -190,9 +202,8 @@ import TrustTierBadge from "@components/TrustTierBadge.astro";
       <p class="horcrux__body">
         Parts of our assistant stack live in open upstreams that must stay MIT-clean — code we share
         back to communities that license their work permissively. Signal's library is AGPL; pulling
-        it into those lanes would close doors we want open. So every phone-to-gateway lane runs {
-          HORCRUX.name
-        }, {HORCRUX.descriptiveFallback}.
+        it into those lanes would close doors we want open. So every phone-to-gateway lane runs{" "}
+        {HORCRUX.name}, {HORCRUX.descriptiveFallback}.
       </p>
       <p class="horcrux__body">
         A CI job stands at that boundary: every contribution headed upstream is scanned so the MIT
@@ -232,14 +243,20 @@ import TrustTierBadge from "@components/TrustTierBadge.astro";
       </header>
 
       <div class="ledgersec__tiers">
-        {TRUST_TIERS.map((t) => <TrustTierBadge tier={t} size="lg" />)}
+        {TRUST_TIERS.map((t) => (
+          <TrustTierBadge tier={t} size="lg" />
+        ))}
       </div>
 
       <ClaimsLedger />
 
       <div class="ledgersec__ctas">
-        <a class="btn btn--ghost" href="/privacy#data-domains">Every data domain</a>
-        <a class="btn btn--ghost" href="/security">Security model</a>
+        <a class="btn btn--ghost" href="/privacy#data-domains">
+          Every data domain
+        </a>
+        <a class="btn btn--ghost" href="/security">
+          Security model
+        </a>
       </div>
     </div>
   </section>

@@ -25,11 +25,11 @@ const paidTiers = SITE.pricing.tiers.filter((tier) => tier.priceMonthlyUSD !== "
       <h2>1. License — the app</h2>
       <p>
         The OpenBurnBar source code is released under the
-        <a href={`${SITE.github}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer"
-          >AGPL-3.0-only license</a
-        >. The AGPL terms govern your use, modification, distribution, and network use of the
-        covered source. Historical snapshots that were released under MIT remain under their
-        original terms.
+        <a href={`${SITE.github}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">
+          AGPL-3.0-only license
+        </a>
+        . The AGPL terms govern your use, modification, distribution, and network use of the covered
+        source. Historical snapshots that were released under MIT remain under their original terms.
       </p>
 
       <p>
@@ -39,23 +39,22 @@ const paidTiers = SITE.pricing.tiers.filter((tier) => tier.priceMonthlyUSD !== "
 
       <h2>2. License — this website</h2>
       <p>
-        Content on burnbar.ai (copy, illustrations, generated mockups) is the property of <strong
-          >{SITE.entity}</strong
-        >. You may quote and reference with attribution. You may not reproduce the site in full or
-        use it to imply endorsement.
+        Content on burnbar.ai (copy, illustrations, generated mockups) is the property of{" "}
+        <strong>{SITE.entity}</strong>. You may quote and reference with attribution. You may not
+        reproduce the site in full or use it to imply endorsement.
       </p>
 
       <h2>3. Subscription and top-up terms</h2>
       <ul>
         <li>
-          OpenBurnBar offers paid tiers: {
-            paidTiers
-              .map(
-                (tier) =>
-                  `${tier.name} at US $${tier.priceMonthlyUSD}/month or $${tier.priceAnnualUSD}/year`
-              )
-              .join(", ")
-          }. Exact taxes and local currency pricing are set by the purchase platform.
+          OpenBurnBar offers paid tiers:{" "}
+          {paidTiers
+            .map(
+              (tier) =>
+                `${tier.name} at US $${tier.priceMonthlyUSD}/month or $${tier.priceAnnualUSD}/year`
+            )
+            .join(", ")}
+          . Exact taxes and local currency pricing are set by the purchase platform.
         </li>
         <li>
           Billing, taxes, and currency conversion are handled by Apple, Google Play, or Stripe,
@@ -110,18 +109,18 @@ const paidTiers = SITE.pricing.tiers.filter((tier) => tier.priceMonthlyUSD !== "
 
       <h2>7. Limitation of liability</h2>
       <p>
-        To the maximum extent permitted by law, <strong>{SITE.entity}</strong> shall not be liable for
-        any indirect, incidental, consequential, special, or punitive damages arising from your use of
-        OpenBurnBar — including but not limited to lost profits, business interruption, loss of data,
-        or unexpected vendor charges.
+        To the maximum extent permitted by law, <strong>{SITE.entity}</strong> shall not be liable
+        for any indirect, incidental, consequential, special, or punitive damages arising from your
+        use of OpenBurnBar — including but not limited to lost profits, business interruption, loss
+        of data, or unexpected vendor charges.
       </p>
 
       <h2>8. Changes to these terms</h2>
       <p>
         We may update these terms as the product evolves. Material changes will be noted in the
-        <a href={`${SITE.github}/blob/main/CHANGELOG.md`} target="_blank" rel="noopener noreferrer"
-          >project changelog</a
-        >
+        <a href={`${SITE.github}/blob/main/CHANGELOG.md`} target="_blank" rel="noopener noreferrer">
+          project changelog
+        </a>
         and reflected in the "last updated" date above.
       </p>
 

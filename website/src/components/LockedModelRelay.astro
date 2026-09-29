@@ -72,13 +72,14 @@ const STEPS = [
   aria-labelledby="relay-title"
 >
   <figcaption id="relay-title" class="sr-only">
-    Locked-Model Relay — a model token labelled <strong>{modelID}</strong> stays anchored at the top while
-    five OpenAI-family accounts (OpenAI · personal, OpenAI · team, Codex · plus, OpenAI · agency, OpenAI
-    · backup) cycle their availability below. The active routing pillar slides between healthy accounts
-    every 2.4 seconds, demonstrating that failover swaps accounts without ever changing the model identity.
-    Provider-Family Failover keeps the retry inside the selected provider family. Exact Model Failover
-    can look outside that family only when the destination proves the same canonical model ID; every merely
-    similar route is filtered out for a {modelID} request.
+    Locked-Model Relay — a model token labelled <strong>{modelID}</strong> stays anchored at the top
+    while five OpenAI-family accounts (OpenAI · personal, OpenAI · team, Codex · plus, OpenAI ·
+    agency, OpenAI · backup) cycle their availability below. The active routing pillar slides
+    between healthy accounts every 2.4 seconds, demonstrating that failover swaps accounts without
+    ever changing the model identity. Provider-Family Failover keeps the retry inside the selected
+    provider family. Exact Model Failover can look outside that family only when the destination
+    proves the same canonical model ID; every merely similar route is filtered out for a {modelID}{" "}
+    request.
   </figcaption>
 
   {/* model token: anchored, breathing, never changes */}
@@ -105,38 +106,34 @@ const STEPS = [
 
     {/* 5 stations */}
     <ol class="relay__stations" role="list">
-      {
-        STATIONS.map((s, i) => (
-          <li class={`relay__station relay__station--${s.id}`} data-station={i + 1}>
-            <span class="relay__stationhalo" aria-hidden="true" />
-            <img
-              class="relay__stationlogo"
-              src={s.logo}
-              alt=""
-              width="36"
-              height="36"
-              loading="lazy"
-            />
-            <span class="relay__stationname mono">{s.name}</span>
-            <span class="relay__stationstate mono" />
-            <span class="relay__stationstrip" aria-hidden="true" />
-          </li>
-        ))
-      }
+      {STATIONS.map((s, i) => (
+        <li class={`relay__station relay__station--${s.id}`} data-station={i + 1}>
+          <span class="relay__stationhalo" aria-hidden="true" />
+          <img
+            class="relay__stationlogo"
+            src={s.logo}
+            alt=""
+            width="36"
+            height="36"
+            loading="lazy"
+          />
+          <span class="relay__stationname mono">{s.name}</span>
+          <span class="relay__stationstate mono" />
+          <span class="relay__stationstrip" aria-hidden="true" />
+        </li>
+      ))}
     </ol>
   </div>
 
   {/* caption cycler */}
   <div class="relay__caption mono" aria-live="off" aria-hidden="true">
-    {
-      STEPS.map((s) => (
-        <span class={`relay__capstep relay__capstep--${s.idx}`}>
-          <span class="relay__capidx">0{s.idx}</span>
-          <span class="relay__caplab">{s.label}</span>
-          <span class="relay__capdet">{s.detail}</span>
-        </span>
-      ))
-    }
+    {STEPS.map((s) => (
+      <span class={`relay__capstep relay__capstep--${s.idx}`}>
+        <span class="relay__capidx">0{s.idx}</span>
+        <span class="relay__caplab">{s.label}</span>
+        <span class="relay__capdet">{s.detail}</span>
+      </span>
+    ))}
     {/* spacer to fix height — uses the longest caption */}
     <span class="relay__capspacer" aria-hidden="true">
       <span class="relay__capidx">0X</span>
@@ -146,10 +143,18 @@ const STEPS = [
   </div>
 
   <ol class="relay__legend mono" aria-label="Relay legend">
-    <li><span class="relay__legdot relay__legdot--active"></span>active route</li>
-    <li><span class="relay__legdot relay__legdot--press"></span>pressure</li>
-    <li><span class="relay__legdot relay__legdot--burn"></span>rate-limited</li>
-    <li><span class="relay__legdot relay__legdot--cool"></span>cooling · recovering</li>
+    <li>
+      <span class="relay__legdot relay__legdot--active"></span>active route
+    </li>
+    <li>
+      <span class="relay__legdot relay__legdot--press"></span>pressure
+    </li>
+    <li>
+      <span class="relay__legdot relay__legdot--burn"></span>rate-limited
+    </li>
+    <li>
+      <span class="relay__legdot relay__legdot--cool"></span>cooling · recovering
+    </li>
   </ol>
 </figure>
 
