@@ -1732,6 +1732,14 @@ jobs:
       - name: Usage refresh-tick budget (shrink-only ratchet)
         run: ./scripts/debt/check-usage-refresh-tick-budget.sh
 
+      # P-PERF-3 behavioral tripwire (budgets/macos-idle-cpu.perf.json: "must
+      # pass on every PR"): the shipped kernel-backdrop bundle must cancel its
+      # rAF loop while occluded — the 128–195% idle-CPU class that recurred
+      # twice. Node-only, a few seconds; the real-process CPU measurement stays
+      # in app-pr-gate because it needs the full Mac app build.
+      - name: macOS idle/occlusion rAF pause tripwire (P-PERF-3)
+        run: node --test scripts/ci/macos-idle-occlusion-gate.test.mjs
+
       # Wave 3.1 Core/Lab boundary: every AgentLens/Lab file carries the
       # file-level OPENBURNBAR_LAB gate, non-Lab references to Lab types
       # live in guard-marked files, and the Core touchpoint set is
