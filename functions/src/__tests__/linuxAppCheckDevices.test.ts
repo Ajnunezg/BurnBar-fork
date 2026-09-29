@@ -1,4 +1,4 @@
-import { generateKeyPairSync, sign } from "node:crypto";
+import { generateKeyPairSync, type KeyObject, sign } from "node:crypto";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -161,7 +161,7 @@ import { BOB_UID, callableRunner, tier2CallableProof } from "./bola/callableBola
 const UID = "linux-owner";
 const APPROVER_ID = "trusted-ipad";
 
-function rawPublicKey(key: ReturnType<typeof generateKeyPairSync>["publicKey"]): Buffer {
+function rawPublicKey(key: KeyObject): Buffer {
   return key.export({ format: "der", type: "spki" }).subarray(-32);
 }
 
