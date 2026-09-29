@@ -28,11 +28,24 @@ export const NATIVE_ARTIFACT_PATHS = [
 
 function digestPath(root, relative) {
   const full = path.join(root, relative);
-  if (!fs.existsSync(full)) {
-    return { path: relative, present: false, sha256: null };
+  // One open decides present vs directory vs file, and a file is hashed
+  // through that descriptor, so the type check and the hashed bytes agree.
+  let fd;
+  try {
+    fd = fs.openSync(full, 'r');
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') {
+      return { path: relative, present: false, sha256: null };
+    }
+    throw error;
   }
-  const stat = fs.statSync(full);
-  if (stat.isDirectory()) {
+  let bytes = null;
+  try {
+    if (!fs.fstatSync(fd).isDirectory()) bytes = fs.readFileSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+  if (bytes === null) {
     const files = [];
     const walk = (dir) => {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -50,7 +63,7 @@ function digestPath(root, relative) {
     }
     return { path: relative, present: true, sha256: hash.digest('hex') };
   }
-  const sha256 = crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex');
+  const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
   return { path: relative, present: true, sha256 };
 }
 

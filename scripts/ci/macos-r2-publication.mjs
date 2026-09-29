@@ -890,6 +890,17 @@ function validateExpected(raw, version) {
   return value;
 }
 
+// Public verification fetches every asset from `publicBaseUrl`, so that origin
+// must be the one the audited release metadata ships to the app for updates;
+// otherwise a manifest could "verify" bytes served from some other host.
+function assertFetchOriginIsAuditedUpdateOrigin(value, label) {
+  if (value.publicBaseUrl !== value.expected.updateBaseUrl) {
+    throw new Error(
+      `${label} publicBaseUrl must equal the audited release updateBaseUrl`,
+    );
+  }
+}
+
 export function validateR2PublicationManifest(raw) {
   const value = exactObject(
     raw,
@@ -919,6 +930,7 @@ export function validateR2PublicationManifest(raw) {
   );
   const releaseAssets = validateReleaseIdentity(value.releaseIdentity);
   value.expected = validateExpected(value.expected, value.version);
+  assertFetchOriginIsAuditedUpdateOrigin(value, "R2 publication manifest");
   const groups = exactObject(
     value.groups,
     ["immutable", "metadata", "discovery"],
@@ -998,6 +1010,10 @@ export function validateR2RollbackPublicationManifest(raw) {
   );
   const releaseAssets = validateReleaseIdentity(value.releaseIdentity);
   value.expected = validateExpected(value.expected, value.version);
+  assertFetchOriginIsAuditedUpdateOrigin(
+    value,
+    "R2 rollback publication manifest",
+  );
   const groups = exactObject(
     value.groups,
     ["metadata", "discovery"],
@@ -1195,7 +1211,7 @@ export async function verifyPublicR2Publication(
           manifest.commit,
         );
         const path = join(directory, entry.name);
-        writeFileSync(path, bytes, { mode: 0o600 });
+        writeFileSync(path, bytes, { flag: "wx", mode: 0o600 });
         downloads.set(entry.name, path);
       }
       verifyChecksums(manifest.version, downloads, {
@@ -1305,7 +1321,7 @@ export async function verifyPublicR2RollbackPublication(
           manifest.commit,
         );
         const path = join(directory, entry.name);
-        writeFileSync(path, bytes, { mode: 0o600 });
+        writeFileSync(path, bytes, { flag: "wx", mode: 0o600 });
         downloads.set(entry.name, path);
       }
       const appcast = readFileSync(downloads.get("appcast.xml"), "utf8");

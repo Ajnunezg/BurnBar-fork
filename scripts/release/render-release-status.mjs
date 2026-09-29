@@ -54,6 +54,15 @@ function readText(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
 
+function readTextIfPresent(filePath) {
+  try {
+    return readText(filePath);
+  } catch (error) {
+    if (error.code === "ENOENT") return "";
+    throw error;
+  }
+}
+
 function readJson(filePath) {
   return JSON.parse(readText(filePath));
 }
@@ -211,7 +220,7 @@ function main() {
   const status = buildReleaseStatus();
   const generatedJson = `${JSON.stringify(status, null, 2)}\n`;
   const renderedBlock = renderBlock(status);
-  const currentJson = fs.existsSync(OUTPUT_PATH) ? readText(OUTPUT_PATH) : "";
+  const currentJson = readTextIfPresent(OUTPUT_PATH);
   const currentReadme = readText(README_PATH);
   const renderedReadme = expectedReadme(currentReadme, renderedBlock);
 

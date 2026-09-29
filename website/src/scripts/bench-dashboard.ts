@@ -716,9 +716,9 @@ function initHeatLens(data: Dataset): void {
       } else {
         const label =
           activeRow && activeCol
-            ? `${activeRow.replace("|", " × ")} · ${activeCol}`
+            ? `${activeRow.replaceAll("|", " × ")} · ${activeCol}`
             : activeRow
-              ? `${activeRow.replace("|", " × ")} — every family`
+              ? `${activeRow.replaceAll("|", " × ")} — every family`
               : `${activeCol} — every stack`;
         const count = cells().filter((c) => {
           const k = c.dataset.heatcell ?? "";

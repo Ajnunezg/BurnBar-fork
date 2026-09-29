@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import {
   chmodSync,
   closeSync,
+  constants as fsConstants,
   existsSync,
   fstatSync,
   lstatSync,
@@ -413,25 +414,37 @@ export function getProcessOnPort(port: number): ProcessPortInfo | null {
   }
 }
 
+/**
+ * Open a private state file without following a final symlink and without
+ * blocking on a FIFO, so every ownership/type check runs on the descriptor that
+ * is then read — never on a path that could be swapped after the check.
+ */
+function openPrivateFileNoFollow(filePath: string): number {
+  return openSync(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW | fsConstants.O_NONBLOCK);
+}
+
 function readSecureTokenFile(filePath: string): string {
   let fd: number | null = null;
   try {
-    const stat = lstatSync(filePath);
-    if (stat.isSymbolicLink() || !stat.isFile()) {
+    try {
+      fd = openPrivateFileNoFollow(filePath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ELOOP") {
+        throw new Error("token file must be a regular file, not a symlink");
+      }
+      throw error;
+    }
+    const fstat = fstatSync(fd);
+    if (!fstat.isFile()) {
       throw new Error("token file must be a regular file, not a symlink");
     }
-    if (typeof process.getuid === "function" && stat.uid !== process.getuid()) {
-      throw new Error("token file must be owned by the current user");
-    }
-    if ((stat.mode & 0o077) !== 0) {
-      throw new Error("token file permissions are too open (must not be group/world accessible)");
-    }
-    fd = openSync(filePath, "r");
-    const fstat = fstatSync(fd);
     if (typeof process.getuid === "function" && fstat.uid !== process.getuid()) {
       throw new Error("token file must be owned by the current user");
     }
-    if ((fstat.mode & 0o077) !== 0 || !fstat.isFile() || fstat.size > 8192) {
+    if ((fstat.mode & 0o077) !== 0) {
+      throw new Error("token file permissions are too open (must not be group/world accessible)");
+    }
+    if (fstat.size > 8192) {
       throw new Error("token file must be a non-empty regular file <= 8 KiB with mode 0600");
     }
     const buffer = Buffer.alloc(fstat.size);
@@ -496,23 +509,13 @@ export function proxyPidFilePath(port: number): string {
 function readPidFile(port: number): ProxyPidFile | null {
   let fd: number | null = null;
   try {
-    const filePath = proxyPidFilePath(port);
-    const stat = lstatSync(filePath);
-    if (stat.isSymbolicLink() || !stat.isFile()) {
-      return null;
-    }
-    if (typeof process.getuid === "function" && stat.uid !== process.getuid()) {
-      return null;
-    }
-    if ((stat.mode & 0o022) !== 0) {
-      // Refuse group- or world-writable PID files
-      return null;
-    }
-    fd = openSync(filePath, "r");
+    // A symlinked PID file fails the open itself (ELOOP) and lands in the catch.
+    fd = openPrivateFileNoFollow(proxyPidFilePath(port));
     const fstat = fstatSync(fd);
     if (typeof process.getuid === "function" && fstat.uid !== process.getuid()) {
       return null;
     }
+    // Refuse group- or world-writable PID files
     if ((fstat.mode & 0o022) !== 0 || !fstat.isFile() || fstat.size > 8192) {
       return null;
     }

@@ -136,6 +136,8 @@ on:
       - "scripts/ci/promote-github-release.test.mjs"
       - "scripts/ci/macos-r2-publication.mjs"
       - "scripts/ci/macos-r2-publication.test.mjs"
+      - "scripts/release/generate-final-launch-evidence.mjs"
+      - "scripts/release/generate-final-launch-evidence.test.mjs"
       - "scripts/ci/verify-apple-appcheck-release-artifact.sh"
       - "scripts/ci/verify-apple-appcheck-release-artifact.test.sh"
       - "scripts/upload-macos-downloads-r2.sh"
@@ -290,6 +292,8 @@ on:
       - "scripts/ci/promote-github-release.test.mjs"
       - "scripts/ci/macos-r2-publication.mjs"
       - "scripts/ci/macos-r2-publication.test.mjs"
+      - "scripts/release/generate-final-launch-evidence.mjs"
+      - "scripts/release/generate-final-launch-evidence.test.mjs"
       - "scripts/ci/verify-apple-appcheck-release-artifact.sh"
       - "scripts/ci/verify-apple-appcheck-release-artifact.test.sh"
       - "scripts/upload-macos-downloads-r2.sh"
@@ -461,6 +465,9 @@ jobs:
             scripts/ci/promote-github-release.test.mjs \
             scripts/ci/macos-r2-publication.test.mjs \
             scripts/ci/verify-release-promotion-workflow.test.mjs
+
+      - name: Self-test launch-evidence skeleton writer
+        run: node --test scripts/release/generate-final-launch-evidence.test.mjs
 
       - name: Self-test packaged macOS release feed contract
         run: bash scripts/ci/verify-apple-appcheck-release-artifact.test.sh

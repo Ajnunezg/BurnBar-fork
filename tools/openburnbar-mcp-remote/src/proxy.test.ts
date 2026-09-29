@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import http from "node:http";
@@ -321,6 +323,34 @@ test("authorization is loopback-only and uses explicit bearer tokens", () => {
     }),
     true
   );
+});
+
+test("bearer parsing tolerates scheme case and whitespace, and rejects adversarial whitespace in linear time", () => {
+  const options = { allowLocalKey: true };
+  for (const header of [
+    `bearer ${LOCAL_CLIPROXY_KEY}`,
+    `BEARER ${LOCAL_CLIPROXY_KEY}`,
+    `Bearer \t ${LOCAL_CLIPROXY_KEY} \t`,
+    `Bearer\n ${LOCAL_CLIPROXY_KEY}`,
+  ]) {
+    assert.equal(isAuthorized(header, undefined, "127.0.0.1", options), true, JSON.stringify(header));
+  }
+  for (const header of [
+    `Bearer${LOCAL_CLIPROXY_KEY}`,
+    "Bearer",
+    "Bearer \t ",
+    `Bearer ${LOCAL_CLIPROXY_KEY}\n`,
+    `Bearer ${LOCAL_CLIPROXY_KEY}\nx`,
+    `Token ${LOCAL_CLIPROXY_KEY}`,
+  ]) {
+    assert.equal(isAuthorized(header, undefined, "127.0.0.1", options), false, JSON.stringify(header));
+  }
+
+  // The pre-fix pattern /^Bearer\s+(.+)$/ took seconds on this input (quadratic).
+  const adversarial = `bearer${"\t".repeat(100_000)}\n`;
+  const started = performance.now();
+  assert.equal(isAuthorized(adversarial, undefined, "127.0.0.1", options), false);
+  assert.ok(performance.now() - started < 1_000, "bearer parsing must stay linear in the header length");
 });
 
 test("health proves service identity without exposing the control token", async () => {
@@ -1028,6 +1058,31 @@ test("token file reading securely loads token and validates CLI options", () => 
     assert.throws(
       () => parseProxyCliOptions(["--token-file", join(tempDir, "nonexistent.token")], {}),
       /could not read token file/u
+    );
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test("token file must be a private regular file: symlinks, directories, and group-readable files are refused", () => {
+  const tempDir = mkdtempSync(join(tmpdir(), "obb-token-file-"));
+  try {
+    const tokenFile = join(tempDir, "secret.token");
+    writeFileSync(tokenFile, "file-based-secret-token-32-chars-long\n", { mode: 0o600 });
+    const link = join(tempDir, "link.token");
+    symlinkSync(tokenFile, link);
+    assert.throws(
+      () => parseProxyCliOptions(["--token-file", link], {}),
+      /could not read token file .*regular file, not a symlink/u
+    );
+    assert.throws(
+      () => parseProxyCliOptions(["--token-file", tempDir], {}),
+      /could not read token file .*regular file, not a symlink/u
+    );
+    chmodSync(tokenFile, 0o640);
+    assert.throws(
+      () => parseProxyCliOptions(["--token-file", tokenFile], {}),
+      /could not read token file .*permissions are too open/u
     );
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
