@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 # Regression test for scripts/ci/verify-codeowners-security-trees.sh.
 #
-# Verifies that:
-#   1. The existing verifier PASSES against the current CODEOWNERS file.
-#   2. The verifier catches a missing .gitleaks.toml entry (fail-closed).
+# Verifies that the verifier:
+#   1. PASSES against the current CODEOWNERS file.
+#   2. Fails closed on a missing security rule (.gitleaks.toml, .gitleaksignore,
+#      a moved Cloud Functions security module).
+#   3. Fails on a dead path: a CODEOWNERS rule, or a REQUIRED rule, that names a
+#      file which no longer exists (the pre-2026-09-28 functions/src/*.ts state).
+#   4. Fails when a required path loses its specific owner (a later catch-all
+#      shadows it, or the rule drops the security owner).
 set -euo pipefail
 SOURCE_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 VERIFY="$SOURCE_ROOT/scripts/ci/verify-codeowners-security-trees.sh"
+CODEOWNERS="$SOURCE_ROOT/.github/CODEOWNERS"
 TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
@@ -27,12 +33,19 @@ expect_pass() {
   fi
 }
 
+# expect_fail NAME EXPECTED_MESSAGE CMD... — the command must exit nonzero AND
+# print EXPECTED_MESSAGE, so an unrelated failure cannot satisfy the case.
 expect_fail() {
   local name="$1"
-  shift
+  local expected="$2"
+  shift 2
   local log="$TMP_ROOT/${name//[^A-Za-z0-9_.-]/_}.log"
   if "$@" >"$log" 2>&1; then
     echo "  FAIL $name (expected failure)" >&2
+    cat "$log" >&2
+    failed=$((failed + 1))
+  elif ! grep -qF -- "$expected" "$log"; then
+    echo "  FAIL $name (failed without: $expected)" >&2
     cat "$log" >&2
     failed=$((failed + 1))
   else
@@ -41,55 +54,63 @@ expect_fail() {
   fi
 }
 
+# run_with CODEOWNERS_COPY [VERIFIER] — check the real tree's tracked paths
+# against a mutated CODEOWNERS (and optionally a mutated verifier).
+run_with() {
+  CODEOWNERS_REPO_ROOT="$SOURCE_ROOT" CODEOWNERS_FILE="$1" bash "${2:-$VERIFY}"
+}
+
+mutate() {
+  local name="$1"
+  shift
+  local out="$TMP_ROOT/$name.CODEOWNERS"
+  "$@" "$CODEOWNERS" >"$out"
+  if cmp -s "$CODEOWNERS" "$out"; then
+    echo "  FAIL mutation $name did not change CODEOWNERS" >&2
+    exit 1
+  fi
+  echo "$out"
+}
+
 echo "Self-test: verify-codeowners-security-trees.sh"
 echo
 
-# ---------------------------------------------------------------------------
-# Test 1: verifier passes on the current (correct) CODEOWNERS file.
-# ---------------------------------------------------------------------------
-# The verifier script hard-codes its own path references and cd's to repo root.
-# We run it directly from the real repo.
 expect_pass "current CODEOWNERS passes verifier" bash "$VERIFY"
 
-# ---------------------------------------------------------------------------
-# Test 2: verifier catches a missing .gitleaks.toml entry.
-#
-# We create a temporary CODEOWNERS with the .gitleaks.toml line removed, then
-# run the verifier with a modified CODEOWNERS path via a wrapper script.
-# The verifier script reads ".github/CODEOWNERS" from the repo root, so we
-# need a temp repo root with the mutated CODEOWNERS. We copy just the
-# CODEOWNERS file and point the verifier at it by creating a temp repo tree.
-# ---------------------------------------------------------------------------
-MUTATED_REPO="$TMP_ROOT/mutated-repo"
-mkdir -p "$MUTATED_REPO/.github"
-mkdir -p "$MUTATED_REPO/scripts/ci"
-
-# Copy the real CODEOWNERS and remove the .gitleaks.toml line.
-sed '/^\.gitleaks\.toml /d' "$SOURCE_ROOT/.github/CODEOWNERS" \
-  > "$MUTATED_REPO/.github/CODEOWNERS"
-
-# Copy the verifier script itself (it is self-contained Python embedded in
-# bash, reading from the current working directory).
-cp "$VERIFY" "$MUTATED_REPO/scripts/ci/verify-codeowners-security-trees.sh"
-
-# Run the verifier from the mutated repo root so it reads the mutated
-# CODEOWNERS. We expect it to FAIL because .gitleaks.toml is missing.
+no_gitleaks="$(mutate no-gitleaks sed '/^\.gitleaks\.toml /d')"
 expect_fail "missing .gitleaks.toml entry caught by verifier" \
-  bash -c "cd '$MUTATED_REPO' && bash scripts/ci/verify-codeowners-security-trees.sh"
+  "missing explicit CODEOWNERS rule for .gitleaks.toml" run_with "$no_gitleaks"
 
-# ---------------------------------------------------------------------------
-# Test 3: verifier catches a missing .gitleaksignore entry.
-# ---------------------------------------------------------------------------
-MUTATED_REPO2="$TMP_ROOT/mutated-repo2"
-mkdir -p "$MUTATED_REPO2/.github"
-mkdir -p "$MUTATED_REPO2/scripts/ci"
-
-sed '/^\.gitleaksignore /d' "$SOURCE_ROOT/.github/CODEOWNERS" \
-  > "$MUTATED_REPO2/.github/CODEOWNERS"
-cp "$VERIFY" "$MUTATED_REPO2/scripts/ci/verify-codeowners-security-trees.sh"
-
+no_gitleaksignore="$(mutate no-gitleaksignore sed '/^\.gitleaksignore /d')"
 expect_fail "missing .gitleaksignore entry caught by verifier" \
-  bash -c "cd '$MUTATED_REPO2' && bash scripts/ci/verify-codeowners-security-trees.sh"
+  "missing explicit CODEOWNERS rule for .gitleaksignore" run_with "$no_gitleaksignore"
+
+no_auth="$(mutate no-auth sed '/^packages\/functions-shared\/src\/auth\.ts /d')"
+expect_fail "missing owner rule for a moved security module caught" \
+  "missing explicit CODEOWNERS rule for packages/functions-shared/src/auth.ts" run_with "$no_auth"
+
+dead_rule="$(mutate dead-rule awk '{ print } END { print "functions/src/auth.ts @Ajnunezg @emilio3435" }')"
+expect_fail "dead CODEOWNERS path caught" \
+  "rule 'functions/src/auth.ts' matches no tracked path" run_with "$dead_rule"
+
+# The pre-fix state: verifier and CODEOWNERS both still name the old path.
+stale_verify="$TMP_ROOT/stale-verify.sh"
+sed 's#"packages/functions-shared/src/ssrfGuard.ts"#"functions/src/ssrfGuard.ts"#' "$VERIFY" >"$stale_verify"
+if cmp -s "$VERIFY" "$stale_verify"; then
+  echo "  FAIL mutation stale-verify did not change the verifier" >&2
+  exit 1
+fi
+stale_codeowners="$(mutate stale-required sed 's#^packages/functions-shared/src/ssrfGuard\.ts #functions/src/ssrfGuard.ts #')"
+expect_fail "dead REQUIRED path caught even when CODEOWNERS agrees" \
+  "required rule functions/src/ssrfGuard.ts matches no tracked path" run_with "$stale_codeowners" "$stale_verify"
+
+catch_all="$(mutate catch-all awk '{ print } END { print "* @Ajnunezg @emilio3435" }')"
+expect_fail "required path shadowed by a trailing catch-all caught" \
+  "resolves to non-security rule '*'" run_with "$catch_all"
+
+no_owner="$(mutate no-owner sed 's#^\(packages/functions-shared/src/logging\.ts\) .*#\1 @emilio3435#')"
+expect_fail "required rule without the security owner caught" \
+  "packages/functions-shared/src/logging.ts is present but lacks required security/platform owner(s)" run_with "$no_owner"
 
 echo
 if [ "$failed" -eq 0 ]; then
