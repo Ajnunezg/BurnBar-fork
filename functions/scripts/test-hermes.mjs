@@ -230,13 +230,12 @@ for (const collection of ["hermes_relay_requests"]) {
   assert.doesNotMatch(block, /"body"|"data"|"ciphertext"/);
   assert.doesNotMatch(block, /d\.schemaVersion < 2/);
 }
-assert.match(
-  readFileSync(new URL("../src/callables/hermes.ts", import.meta.url), "utf8"),
-  /current\.status === "revoked"/,
-);
+// The Hermes pairing callables ship from the functions-media deploy codebase.
+const hermesCallablesUrl = new URL("../../functions-media/src/domains/hermes/hermes.ts", import.meta.url);
+assert.match(readFileSync(hermesCallablesUrl, "utf8"), /current\.status === "revoked"/);
 {
-  const indexSource = readFileSync(new URL("../src/index.ts", import.meta.url), "utf8");
-  const hermesSource = readFileSync(new URL("../src/callables/hermes.ts", import.meta.url), "utf8");
+  const indexSource = readFileSync(new URL("../../functions-media/src/index.ts", import.meta.url), "utf8");
+  const hermesSource = readFileSync(hermesCallablesUrl, "utf8");
   for (const exportedName of [
     "createHermesPairing",
     "completeHermesPairing",
@@ -246,11 +245,19 @@ assert.match(
   ]) {
     assert.match(indexSource, new RegExp(`\\b${exportedName}\\b`), `${exportedName} must be exported from index`);
     const start = hermesSource.indexOf(`export const ${exportedName}`);
-    assert.notEqual(start, -1, `${exportedName} must exist in callables/hermes.ts`);
+    assert.notEqual(start, -1, `${exportedName} must exist in functions-media/src/domains/hermes/hermes.ts`);
     const block = callableExportBlock(hermesSource, exportedName);
     assert.match(block, /await assertActiveHostedQuotaEntitlement\(uid\);/, `${exportedName} must be premium-gated`);
   }
 }
-assert.match(firestoreFunctionBlock(rules, "hasNoPlaintextSecretFields"), /!\("secretVersionName" in d\)/);
+// hasNoPlaintextSecretFields delegates to one shared denylist
+// (plaintextSecretFieldNames) since the 32b5d9bafa rules refactor; the Hermes
+// secret reference must stay on it.
+assert.match(
+  firestoreFunctionBlock(rules, "hasNoPlaintextSecretFields"),
+  /mapHasNoPlaintextSecretKeys\(request\.resource\.data\)/,
+);
+assert.match(firestoreFunctionBlock(rules, "mapHasNoPlaintextSecretKeys"), /hasAny\(plaintextSecretFieldNames\(\)\)/);
+assert.match(firestoreFunctionBlock(rules, "plaintextSecretFieldNames"), /"secretVersionName"/);
 
 console.log("Hermes contract and Firestore rule invariants passed");

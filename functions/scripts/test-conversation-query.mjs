@@ -12,7 +12,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { Timestamp } from "firebase-admin/firestore";
+import { createRequire } from "node:module";
+
+// conversationQuery ships from the functions-sync deploy codebase with its own
+// firebase-admin install; its `instanceof Timestamp` checks only accept that
+// copy's class, so fixtures must be built from it (functions/'s is distinct).
+const { Timestamp } = createRequire(new URL("../../functions-sync/package.json", import.meta.url))(
+  "firebase-admin/firestore",
+);
 
 import {
   CONVERSATION_IN_CLAUSE_LIMIT,
