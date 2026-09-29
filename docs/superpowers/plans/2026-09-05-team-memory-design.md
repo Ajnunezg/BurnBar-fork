@@ -105,7 +105,7 @@ moved on where the amendments say so.
 
 ### 1.2 CloudVault crypto — what is reusable verbatim
 
-- `CloudVaultAADContext.init` treats the `uid` slot as a free-form validated part; `validatedPart` bans only control chars and `|` (`OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/CloudVaultCrypto.swift:108-116`). **`uid: "team:\(teamId)"` is legal today.** No new AAD primitive is needed.
+- `CloudVaultAADContext.init` treats the `uid` slot as a free-form validated part; `validatedPart` bans only control chars and `|` (`OpenBurnBarCore/Sources/OpenBurnBarVaultModels/CloudVaultCrypto.swift`). **`uid: "team:\(teamId)"` is legal today.** No new AAD primitive is needed.
 - Rules-side: `cloudVaultAADContext(userId, collection, docID, field)` at `firestore.rules:1050-1052`, and the generic validator `validCloudVaultAAD` at `:1060-1062` uses `[^|]+` in slot 2, so `team:<teamId>` already passes.
 - `validCloudSealedBlob` (`firestore.rules:1098-1135`) governs the **real** envelope shape: `schemaVersion / algorithm / keyVersion / plaintextHMAC / integrityHashVersion / sealedBoxBase64 / createdAt / aad`. **The spec §3.2 example document showing `nonce`/`ciphertext`/`tag` is not the shipped shape and must not be implemented.** Note also `keyVersion <= 100` at `:1113`.
 - `sealBlob(_:keyData:keyVersion:aadContext:)` already accepts an explicit `keyVersion` (`CloudVaultCrypto.swift:376-395`). `keyVersion` sits **outside** the AAD and outside the ciphertext; the keyed `plaintextHMAC` is what actually binds the key.
@@ -128,9 +128,9 @@ moved on where the amendments say so.
 ### 1.4 Cloud Functions: what exists, what does not
 
 - **No multi-user roster or membership construct exists.** The only `teamId` in rules is the single-user pseudo-team `workspaces/{workspaceId}/teams/{teamId}/artifacts`, gated by `callerOwnsWorkspacePath` (`firestore.rules:4953-4966`, helper `:1825-1832`) — intra-account, confirming KD11 as corrected.
-- Callable pattern with App Check: `functions/src/callables/escrowDeviceCallables.ts:93-99` and `:363-369` (`enforceAppCheck: getConfig().enforceAppCheck`).
-- Invite/redeem with hashed tokens, expiry and public rate limiting: `functions/src/callables/cliLink.ts:30-131`, `functions/src/callables/publicRateLimit.ts`.
-- `onCallProduction(name, options, handler)` passes `options` straight through (`functions/src/logging.ts:287-293`) — **it does not enforce App Check on its own.**
+- Callable pattern with App Check: `functions-sync/src/callables/escrowDeviceCallables.ts` and `:363-369` (`enforceAppCheck: getConfig().enforceAppCheck`).
+- Invite/redeem with hashed tokens, expiry and public rate limiting: `functions-identity/src/domains/devices/cliLink.ts`, `packages/functions-shared/src/callables/publicRateLimit.ts`.
+- `onCallProduction(name, options, handler)` passes `options` straight through (`packages/functions-shared/src/logging.ts`) — **it does not enforce App Check on its own.**
 - Rules-test harness: `functions/scripts/test-firestore-rules.mjs:38` (`initializeTestEnvironment`), `sealedBlobAt` `:192-197`, `seedBurnBarProMaxEntitlement` `:86`, and the `memory_facts` precedent block T19 at `:5645-5760`. Runner: `functions/package.json:19` → `npm run test:firestore-rules`.
 
 ### 1.5 Consent
@@ -165,7 +165,7 @@ moved on where the amendments say so.
 | 1 | `firestore.rules` team facts `allow create, update` checks only `request.resource.data.uid == request.auth.uid` (branch `firestore.rules:5038-5041`), so any active member overwrites any fact | **Split `create` from `update`.** `create`: `request.resource.data.uid == request.auth.uid`. `update`: `request.resource.data.uid == resource.data.uid && (request.auth.uid == resource.data.uid \|\| isTeamAdmin(teamId))` plus `teamId`/`docID` immutability. Author is immutable even for admins. RED-TEAM-11/12. | PR1 |
 | 2 | Doc id HMAC'd under the **current team key**, and `openTeamFact` ignores `keyVersion` (`TeamMemorySyncService.swift:56-59`, `:121-153`) | **Two keys.** A non-rotating `teamSlugKey` derives doc ids; `teamVaultKey_vN` seals content. Pre-image is the engine's convergence identity, not a row id. `openTeamFact` selects the key by `sealedMemory.keyVersion` from a client-held retained-key set; an unheld version is a non-permanent refusal (park, retry after the envelope lands). | PR2 (keys), PR3 (open) |
 | 3 | `"a".repeating(64)` placeholder citation HMACs while `citationCount` is real (`TeamMemorySyncService.swift:109-110`) | Reuse `KnowledgeSyncService.sourceRefHmac` verbatim, **keyed under `teamSlugKey`** (not the vault key, so a rotation does not orphan forget-receipt matching), dedup + `prefix(50)`, and `citationCount = sourceRefHmacs.count` — one derivation, not two independent numbers. A rules test asserts the placeholder is rejected. | PR3 |
-| 4 | `acceptTeamInvite` never binds the invite to the caller (`functions/src/teamRoster.ts:137-190`): a forwarded token grants full historical read | **Invites are uid-bound at issue.** `inviteTeamMember` resolves the invitee's uid server-side from a verified email via `admin.auth().getUserByEmail`, stores `inviteeUid` + `sha256(token)` (never the token), and `acceptTeamInvite` requires `request.auth.uid === invite.inviteeUid` **and** `request.auth.token.email_verified`. Single-use, 7-day expiry, App Check enforced, rate-limited. RED-TEAM-16. | PR1 |
+| 4 | `acceptTeamInvite` never binds the invite to the caller (`functions-identity/src/teamRoster.ts`): a forwarded token grants full historical read | **Invites are uid-bound at issue.** `inviteTeamMember` resolves the invitee's uid server-side from a verified email via `admin.auth().getUserByEmail`, stores `inviteeUid` + `sha256(token)` (never the token), and `acceptTeamInvite` requires `request.auth.uid === invite.inviteeUid` **and** `request.auth.token.email_verified`. Single-use, 7-day expiry, App Check enforced, rate-limited. RED-TEAM-16. | PR1 |
 | 5 | No key source — "out-of-band" | Per-**device** ECIES envelopes at `team_key_envelopes/{teamId}/envelopes/{uid}_{deviceId}_{escrowKeyVersion}_v{teamKeyVersion}`, wrapped by a member/admin client with `CloudVaultCrypto.wrapVaultKey` against that device's published `users/{uid}/escrow_public_keys/{deviceId}_{keyVersion}`. Server writes none. Join issues an envelope for **every retained** team key version before promotion to `active`. | PR2 |
 | 6 | No upload path, no UI, a consent gate nothing calls | `TeamMemorySyncDomain` runs after the personal cycle inside `MemoryCloudSyncDomain.sync()` (nested `do/catch`, same shape as the pull half at `MemoryCloudSyncDomain.swift:373-400`), with `TeamMemoryPullService` writing into `agent_memory_inbox`, plus a real Settings section. | PR3, PR4 |
 | 7 | "zero-knowledge" wording (`TeamMemorySyncService.swift:7`, `TeamMemoryCopy.swift:19`) — trips a live CI gate | Repo-sanctioned phrasing only: **"blind (the server holds only ciphertext and opaque ids)"**. `scripts/ci/verify-signal-honesty-copy.sh` runs in PR1's command block so the regression cannot land. | PR1 (gate), PR4 (copy) |
@@ -231,7 +231,7 @@ let docID          = try CloudVaultCrypto.pensieveSlugHmac(slugInput, keyData: t
 
 ### (c) Roster authority
 
-`functions/src/teamRoster.ts` — rewritten, exporting six callables, **all** with `enforceAppCheck: getConfig().enforceAppCheck` (the held attempt passed `{ region }` only, `teamRoster.ts:307`), all wrapped in `onCallProduction`, all appending to `team_rosters/{teamId}/audit_log`:
+`functions-identity/src/teamRoster.ts` — rewritten, exporting six callables, **all** with `enforceAppCheck: getConfig().enforceAppCheck` (the held attempt passed `{ region }` only, `teamRoster.ts:307`), all wrapped in `onCallProduction`, all appending to `team_rosters/{teamId}/audit_log`:
 
 - `createTeam(name, orgId?)` — requires `hasActiveDataVaultEntitlement` on the caller (checked server-side against the entitlement doc, not trusted from the client).
 - `inviteTeamMember(teamId, inviteeEmail, role)` — active-admin only; resolves `inviteeUid` via `admin.auth().getUserByEmail`; stores `{ inviteeUid, tokenHash: sha256(token), role, status, expiresAt }`; returns the token once. **Never stores the token.**
@@ -321,7 +321,7 @@ Team sync is a strict **subset** of personal sync: turning personal cloud backup
 ## 5. PR plan (4 PRs, each ≤ ~400 changed lines)
 
 ### PR 1 — Roster authority, rules, and the red-team suite
-**Files.** `functions/src/teamRoster.ts` (rewritten, ~330 lines), `functions/src/index.ts` (exports), `firestore.rules` (new `team_rosters` / `team_key_envelopes` / `team_memory_facts` blocks, ~110 lines), `functions/scripts/test-firestore-rules.mjs` (block T27), `functions/src/__tests__/teamRoster.test.mjs` (new).
+**Files.** `functions-identity/src/teamRoster.ts` (rewritten, ~330 lines), `functions/src/index.ts` (exports), `firestore.rules` (new `team_rosters` / `team_key_envelopes` / `team_memory_facts` blocks, ~110 lines), `functions/scripts/test-firestore-rules.mjs` (block T27), `functions/src/__tests__/teamRoster.test.mjs` (new).
 **Tests.** The 13 rules tests in §3(c) plus `test_an_invite_is_bound_to_the_invitee_uid`, `test_an_invite_is_single_use`, `test_an_expired_invite_is_refused`, `test_a_non_admin_cannot_invite_or_remove`, `test_rotate_rejects_a_non_sequential_key_version`, `test_rotate_batches_beyond_five_hundred_writes`, `test_promote_refuses_without_envelope_coverage_for_every_retained_version`.
 **Commands.** `npm run test:firestore-rules`; `npm --prefix functions test`; `scripts/ci/verify-signal-honesty-copy.sh`.
 **Acceptance.** No client-writable roster path exists anywhere in `firestore.rules`. Every red-team case is green. A forwarded token grants nothing.
@@ -790,7 +790,7 @@ removal used to clear the `keyRotationRequired` flag that removal had just set.
   `readMembershipEpoch`, deliberately not through `readTeam`: eviction must keep
   working on a team document whose key state is malformed, or a bad team document
   becomes the very freeze C-2 closes.
-- The guarded-commit plumbing moved to `functions/src/teamRosterState.ts`
+- The guarded-commit plumbing moved to `functions-identity/src/teamRosterState.ts`
   (`readTeam`, `auditRef`, `auditEvent`, `commitChunked`,
   `commitGuardedByTeamState`, `readMembershipEpoch`). `teamRoster.ts` is back to
   490 lint-counted lines against the 600 ceiling, which is the headroom PR 2's
@@ -1579,7 +1579,7 @@ computing it once before `selfWrapKeys` turns
 ### D16 write-once `slugKeyId` ruling (2026-09-06)
 
 Controller ruling issued after the second Cursor security round on the same PR
-(one thread, MEDIUM, on `functions/src/teamSlugKeyRecord.ts:91`). It **amends
+(one thread, MEDIUM, on `functions-identity/src/teamSlugKeyRecord.ts`). It **amends
 §3(b)3** — the roster's founding-fingerprint write — and is binding.
 
 **The defect.** `recordTeamSlugKeyId`'s write-once check ran on a snapshot taken

@@ -33,7 +33,7 @@ Similar patterns across all 17 parsers (no provenance tags or LLM-safety escapin
 - **Primary:** [`AgentLens/Views/Chat/ChatSessionController.swift`](../../../AgentLens/Views/Chat/ChatSessionController.swift) (lines ~1552-1740)
 - **Context/Evidence:** [`AgentLens/Services/ContextBuilder.swift`](../../../AgentLens/Services/ContextBuilder.swift) (buildDatabaseAnalystSystemPrompt, formatPack, summarizeSession*Prompt)
 - **CLI Wrapping:** [`AgentLens/Services/CLIBridge/CLIArgumentBuilder.swift`](../../../AgentLens/Services/CLIBridge/CLIArgumentBuilder.swift) (combinedPrompt, forgePrompt, sanitizedPrompt only strips control chars)
-- **Hosted Insights:** [`functions/src/insightsHostedAnswer.ts`](../../../functions/src/insightsHostedAnswer.ts) (systemPromptText + userPromptText: raw `args.prompt` + digest)
+- **Hosted Insights:** [`functions-sync/src/domains/search/insightsHostedAnswer.ts`](../../../functions-sync/src/domains/search/insightsHostedAnswer.ts) (systemPromptText + userPromptText: raw `args.prompt` + digest)
 - **Insight Analysis:** [`functions/src/insightAnalysis.ts`](../../../functions/src/insightAnalysis.ts) (types + audit for `promptHash`)
 - **CLIBridge:** [`AgentLens/Services/CLIBridge/CLIBridge.swift`](../../../AgentLens/Services/CLIBridge/CLIBridge.swift) (chat* methods pass full system+user)
 - **Session Formatter (poison vector):** [`AgentLens/Services/SessionLogMarkdownFormatter.swift`](../../../AgentLens/Services/SessionLogMarkdownFormatter.swift) (raw `message.content`, tool details into Markdown stored in fullText)
@@ -72,7 +72,7 @@ static func combinedPrompt(systemPrompt: String, userMessage: String) -> String 
 Only NUL/BS/etc. stripping in `sanitizedPrompt`. No injection-resistant delimiters (e.g., no `<|end_of_prompt|>` or XML tags with provenance).
 
 ### 1.3 Insight Engine + Hosted Answers (MiniMax / OpenRouter etc.)
-- **Hosted:** `functions/src/insightsHostedAnswer.ts:279-304` (system: "using ONLY the privacy-bounded digest"; user includes raw `prompt` + JSON digestSummary)
+- **Hosted:** `functions-sync/src/domains/search/insightsHostedAnswer.ts` (system: "using ONLY the privacy-bounded digest"; user includes raw `prompt` + JSON digestSummary)
 - **Local/Engine:** InsightAnalysisEngine (Swift/Kotlin mirrors in OpenBurnBarCore + android), `InsightDigestBuilder` (24KB cap), `InsightAnalysisRequest.prompt`
 - **Providers:** `functions/src/providers/{minimax.ts, openai.ts, xai.ts, ...}` (quota primarily; completions via OpenRouter in hosted path or gateways)
 - **Flow:** Usage rollups/quotas/digests → LLM (OpenRouter) → structured JSON widgets/findings. User `prompt` (question) is in user message.
@@ -110,7 +110,7 @@ case .macInspectAccessibility: ...
   - Chunks in `search_chunks` + FTS from `conversations.fullText` (populated by ProjectionPipeline from parsers).
   - Hybrid (lexical FTS + semantic) → formatPack into prompts.
 - **Cloud (BurnBar Pro):** `functions/src/cloudSearchCore.ts`, `callables/encryptedSearch*.ts`; sealed titles/snippets + keyed hashes only (bodies in Storage, encrypted); server never sees plaintext for search.
-- **MCP Exposure:** `tools/openburnbar-mcp/server.py` (local stdio MCP: semantic search over SQLite embeddings + resume/usage), `tools/openburnbar-mcp-remote/` (shim + vault for hosted), `functions/src/callables/remoteMcp.ts`, `remoteMcpGrant.ts`
+- **MCP Exposure:** `tools/openburnbar-mcp/server.py` (local stdio MCP: semantic search over SQLite embeddings + resume/usage), `tools/openburnbar-mcp-remote/` (shim + vault for hosted), `functions-identity/src/domains/identity/remoteMcp.ts`, `remoteMcpGrant.ts`
 - **Docs:** `docs/OPENBURNBAR_SEARCH_ARCHITECTURE_SPINE.md` (privacy via encryption/hashes; 16KB chunks, posting edges)
 
 **No sanitization of chunk content for LLM consumption (SearchService+Retrieval.swift:95+).**
@@ -129,7 +129,7 @@ case .macInspectAccessibility: ...
 
 ### 1.8 Budget / Loop Guards / Cost Exhaustion
 - `AgentLens/Services/CloudBudgetService.swift`, `OpenAICompatibleChatGatewayClient.swift:720` (BudgetEnforcement.evaluate)
-- `functions/src/computerUseBudget.ts`, `computerUseQuota.ts`, `mediaBudget.ts`
+- `functions-sync/src/domains/computer-use/computerUseBudget.ts`, `computerUseQuota.ts`, `mediaBudget.ts`
 - Remote Config kill switches + daily envelopes ($5 normal user, tighter for soft/hard).
 - `evaluateComputerUseBudget` Cloud Function (hourly).
 
@@ -238,7 +238,7 @@ case .macInspectAccessibility: ...
 | **Phone Control** | Intent (tap/type/shortcut/panic) → validated Ed25519 + counter → same Mac tools | User holds phone (implicit approval); same scope/deny | N/A (user is approver) | Medium (intents drive actions whose results feed agent) | PhoneControl* + Coordinator |
 | **Chat Tool Broker / Desktop Grants** | Varies by grant (workspaceRead/Write/Shell + desktopControl) | Grant UI + per-session | YOLO in grants | High (desktopControlPromptSection appended to system) | ChatSessionController:1597-1601 |
 | **Local MCP (openburnbar-mcp)** | Semantic search over chunks, usage ledger, resume, burnbar DB queries | None (stdio to Cursor/Claude Desktop etc.) | Full read of user's index | High (search results = RAG snippets fed to external agent) | tools/openburnbar-mcp/server.py + tests |
-| **Remote/Hosted MCP** | Encrypted search, resume, grants (per REMOTE_MCP_THREAT_MODEL) | Entitlement + token scopes + recheck | Revocation server-side | Medium (hashes only; but decrypted results to client) | functions/src/callables/remoteMcp.ts + cloudSearchCore |
+| **Remote/Hosted MCP** | Encrypted search, resume, grants (per REMOTE_MCP_THREAT_MODEL) | Entitlement + token scopes + recheck | Revocation server-side | Medium (hashes only; but decrypted results to client) | functions-identity/src/domains/identity/remoteMcp.ts + cloudSearchCore |
 | **External Connectors (GitHub/Slack/Linear/Gmail...)** | test_connection + sample_request only | Explicit config + Keychain | N/A (no write) | Low (sample responses could contain crafted data) | THREAT_MODEL.md:162 |
 | **Daemon RPC** | Enumerated JSON-RPC (no dynamic shell) | UNIX socket ACL + per-request auth token (launchd env) | Same-user process | Low (input size 64KB cap + typed Codable) | THREAT_MODEL.md:48-76 |
 | **Insights Hosted / Analysis** | Structured JSON output (widgets, missions) | Digest budget cap (24KB) + audit | N/A | Medium (user prompt + digest in context) | insightsHostedAnswer.ts + insightAnalysis.ts |
@@ -346,7 +346,7 @@ case .macInspectAccessibility: ...
 - `docs/THREAT_MODEL.md` (added cross-ref + LLM section pointer).
 - `CHANGELOG.md` (Unreleased security review entry).
 - `docs/INSIGHTS_ARCHITECTURE.md` and `HERMES_COMPUTER_USE.md` (added injection notes + human-in-loop callouts).
-- `docs/ARCHITECTURE/README.md` (cross-link to this security ADR-like doc).
+- `docs/architecture/README.md` (cross-link to this security ADR-like doc).
 
 **Test Plan for CI / Manual:**
 - `./scripts/test-openburnbar-app.sh` (or specific `OpenBurnBarTests/AgentLensTests/Security/...`) — run prompt safety suite.
@@ -366,7 +366,7 @@ case .macInspectAccessibility: ...
 - Existing BurnBar: THREAT_MODEL.md, REMOTE_MCP_THREAT_MODEL.md, PRIVILEGED_INPUT_THREAT_MODEL.md, HERMES_COMPUTER_USE.md, OPENBURNBAR_SEARCH_ARCHITECTURE_SPINE.md, computer-use-master-plan.md
 - Code entrypoints listed throughout (absolute paths from repo root `/Users/albertonunez/Documents/Windsurf/BurnBar/...`)
 - `AgentLensTests/README.md` for test layout
-- `functions/src/types.ts` + generated for contracts
+- `packages/functions-shared/src/types.ts` + generated for contracts
 - Playwright bridge + MCP servers for external surfaces
 
 **This review ships the complete artifact:** threat model, 6+ concrete payloads, full matrix, evidence-backed findings, implemented delimiters + tests + doc updates. No dangling threads.

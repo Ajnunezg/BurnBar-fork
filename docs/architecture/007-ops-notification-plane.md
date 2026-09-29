@@ -11,7 +11,7 @@ OpenBurnBar had resilience policies, structured logging, and billing alert defin
 
 1. **Repo-owned policy manifest** — [`functions/scripts/ops-alert-policy-definitions.mjs`](../../functions/scripts/ops-alert-policy-definitions.mjs) merges SLO + billing policies; apply via [`apply-ops-alert-policies.mjs`](../../functions/scripts/apply-ops-alert-policies.mjs).
 2. **GCP Monitoring primary** — log-based user metrics + Cloud Run metrics route to notification channels (`OPS_ALERT_CHANNELS`).
-3. **Sentry secondary** — `captureException` at callable choke point in [`logging.ts`](../../functions/src/logging.ts); operators configure mirror alerts in Sentry UI ([oncall.md](../runbooks/oncall.md)).
+3. **Sentry secondary** — `captureException` at callable choke point in [`logging.ts`](../../packages/functions-shared/src/logging.ts); operators configure mirror alerts in Sentry UI ([oncall.md](../runbooks/oncall.md)).
 4. **Deploy gate** — `v*` tags run [deploy-production.yml](../../.github/workflows/deploy-production.yml) with blocking [`post-deploy-health-gate.sh`](../../scripts/ci/post-deploy-health-gate.sh).
 5. **CI enforcement** — [`verify-ops-readiness.sh`](../../scripts/ci/verify-ops-readiness.sh) runs callable logging + resilience wiring checks.
 

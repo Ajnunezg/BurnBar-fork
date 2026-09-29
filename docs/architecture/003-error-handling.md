@@ -32,7 +32,7 @@ Each error exposes `metricKey` as `{domain}_{code}` for [SLO counters](../runboo
 
 ### Handling rules
 
-1. **Log with domain + stable code** — `AppLogger.error("sync_upload_failed", metadata: OpenBurnBarError.sync(...).logMetadata)`. Cloud Functions use `logError` from `functions/src/logging.ts` with the same `event` naming style.
+1. **Log with domain + stable code** — `AppLogger.error("sync_upload_failed", metadata: OpenBurnBarError.sync(...).logMetadata)`. Cloud Functions use `logError` from `packages/functions-shared/src/logging.ts` with the same `event` naming style.
 2. **No empty `catch {}`** — CI counts empty catches via `scripts/ci/update-tech-debt-metrics.sh`; new empty catches fail review.
 3. **`try?` requires justification** — allowed for truly optional cosmetic paths; forbidden for Firestore writes, daemon RPC, and ledger persistence.
 4. **Daemon HTTP errors** — gateway returns JSON `{"error":"..."}` with appropriate status; never leak stack traces on loopback (see `BurnBarHTTPGatewayServer`).

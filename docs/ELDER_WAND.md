@@ -85,7 +85,7 @@ Panel models and the judge get `web_search` + `web_fetch`, capped per model by
   text. Always available.
 - **`web_search`** has two modes:
   - Production hosted search runs through `performElderWandHostedSearch`
-    (`functions/src/elderWandHostedSearch.ts`) with server-owned keys. It calls
+    (`functions-sync/src/domains/search/elderWandHostedSearch.ts`) with server-owned keys. It calls
     **Perplexity Search API first** and uses **Tavily basic search as fallback**
     when Perplexity fails or is unconfigured. No SERP-style provider is used in
     the production hosted runtime.
@@ -111,7 +111,7 @@ usage:
 - Monthly cap: **1,000 hosted searches** for Cloud Pro, **2,000 hosted searches**
   for Ultra, including top-ups.
 - Remote Config overrides are read by
-  `functions/src/cloudProAllowanceRemoteConfig.ts`:
+  `packages/functions-shared/src/cloudProAllowanceRemoteConfig.ts`:
   `cloud_pro_included_fusion_searches_monthly`,
   `cloud_ultra_included_fusion_searches_monthly`,
   `cloud_pro_monthly_fusion_search_cap`,
@@ -161,7 +161,7 @@ orchestrator.
 
 ## Entitlement gate (Cloud Pro)
 
-- **Server-authoritative:** the hosted relay path (`functions/src/callables/hermesGateway.ts`)
+- **Server-authoritative:** the hosted relay path (`functions-media/src/domains/hermes/hermesGateway.ts`)
   calls `assertActiveBurnBarCloudProEntitlement` before forwarding any request that
   carries an active fusion plugin, returning `403 { error: "entitlement_required",
   requiredTier: "pro", feature: "elderWand" }` for non-Pro callers — before any

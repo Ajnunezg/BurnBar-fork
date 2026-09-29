@@ -138,7 +138,7 @@ After this, BurnBar never proactively mentions Cloud again unless the user touch
 
 Every trial CTA carries a plain secondary link: **"Subscribe now — $7.99/mo"**. No discount, no urgency, no strikethrough. Some buyers know what they want on day one and resent being routed through a trial. This is one line of UI and it is the cheapest conversion in the plan.
 
-If Alberto later wants a true card-required auto-converting trial on the web rail, **it is already a one-line change**: `functions/src/callables/shared/stripe.ts:42` already treats `"trialing"` as an active state, and `functions/src/callables/stripe.ts:308` already builds a `subscription_data` block. Adding `trial_period_days: 14` there ships it. I am deliberately not doing that, because it would make the Apple and direct-download channels behave differently.
+If Alberto later wants a true card-required auto-converting trial on the web rail, **it is already a one-line change**: `functions-identity/src/shared/stripe.ts` already treats `"trialing"` as an active state, and `functions-identity/src/domains/billing/stripe.ts` already builds a `subscription_data` block. Adding `trial_period_days: 14` there ships it. I am deliberately not doing that, because it would make the Apple and direct-download channels behave differently.
 
 ---
 
@@ -212,13 +212,13 @@ Three independent comps sit on the identical anchor: **Raycast Pro $8/mo annual*
 
 ### 4.3 Why Cloud Pro and Ultra die
 
-**Ultra has never once been sold.** `tenXMemory` / `TEN_X_MEMORY` has **zero call sites on macOS, iOS and Android**. Nothing in the shipped product has ever asked a human being to buy it. And its own upsell copy (`GatedFeature.swift:319`, `GatedFeature.kt:282`) advertises *15 sources / 50,000 chunks / 250 MB* against enforced server limits of *100 / 500,000 / 10 GiB* (`functions/src/callables/knowledgeMemory.ts:158-161`) — it understates the real product by 10–40×. A tier with no upsell surface and inverted copy is not a tier.
+**Ultra has never once been sold.** `tenXMemory` / `TEN_X_MEMORY` has **zero call sites on macOS, iOS and Android**. Nothing in the shipped product has ever asked a human being to buy it. And its own upsell copy (`GatedFeature.swift:319`, `GatedFeature.kt:282`) advertises *15 sources / 50,000 chunks / 250 MB* against enforced server limits of *100 / 500,000 / 10 GiB* (`functions-sync/src/domains/knowledge/knowledgeMemory.ts`) — it understates the real product by 10–40×. A tier with no upsell surface and inverted copy is not a tier.
 
 **Cloud Pro's content is exactly what the day-one plan hides.** Its justification was Floo, Agent Control and Wand ×8. All three leave the front of the product. A paid tier whose contents are hidden is not a tier.
 
 **Three paid tiers for an unproven product is one too many.** Pricing-page norms for solo-dev tools are free + one paid + (optionally) team. Every extra rung costs conversion in decision cost and costs the team a copy set, a paywall set, and a grandfathering story.
 
-**One repricing correction to land with the collapse:** move **hosted Remote MCP down to Cloud**. `functions/src/callables/remoteMcp.ts:61` uses `assertActiveBurnBarProEntitlement` — the **Cloud** floor — and `services/hosted-mcp/src/entitlements.ts:74-78` maps `burnbar_pro` to tier `"pro"`. Meanwhile the shared catalog and every client require Cloud Pro. Right now BurnBar blocks paying Cloud subscribers from a surface its own server would happily serve. Fix the client to match the server, not the other way around.
+**One repricing correction to land with the collapse:** move **hosted Remote MCP down to Cloud**. `functions-identity/src/domains/identity/remoteMcp.ts` uses `assertActiveBurnBarProEntitlement` — the **Cloud** floor — and `services/hosted-mcp/src/entitlements.ts:74-78` maps `burnbar_pro` to tier `"pro"`. Meanwhile the shared catalog and every client require Cloud Pro. Right now BurnBar blocks paying Cloud subscribers from a surface its own server would happily serve. Fix the client to match the server, not the other way around.
 
 ### 4.4 Team, at month 6+
 
@@ -242,24 +242,24 @@ $15/seat/mo, $12/seat annual, 3-seat minimum. Sits inside the $15–40/seat band
 
 **Billing rails: all three are real and finished.**
 - Apple StoreKit 2 buy/restore on iOS (`OpenBurnBarMobile/Models/HostedQuotaSubscriptionStore.swift:417`) and macOS (`AgentLens/Views/Settings/CloudStoreSettingsView+Support.swift:466`).
-- Google Play Billing 9.1.0 with `verifyGooglePlayBurnBarProSubscription`, RTDN reconciliation (`functions/src/googlePlayRtdn.ts`), and a daily voided-purchase backstop.
-- Stripe Checkout web (`functions/src/callables/stripe.ts`), with a webhook dedupe ledger.
+- Google Play Billing 9.1.0 with `verifyGooglePlayBurnBarProSubscription`, RTDN reconciliation (`functions-identity/src/domains/billing/googlePlayRtdn.ts`), and a daily voided-purchase backstop.
+- Stripe Checkout web (`functions-identity/src/domains/billing/stripe.ts`), with a webhook dedupe ledger.
 
-**Verification is genuinely strong.** `functions/src/appstore/verifier.ts` pins three Apple root-CA SHA-256 fingerprints and fails cold start on mismatch. The client mints a server-side `appAccountToken` via `beginEntitlementBinding` *before* `Product.purchase()`, so the server never trusts a client-supplied uid. `users/{uid}/entitlements/*` is client-**read-only** — "entitlements" appears in the read allowlist at `firestore.rules:1878` and in none of the write allowlists.
+**Verification is genuinely strong.** `functions-identity/src/domains/billing/appstore/verifier.ts` pins three Apple root-CA SHA-256 fingerprints and fails cold start on mismatch. The client mints a server-side `appAccountToken` via `beginEntitlementBinding` *before* `Product.purchase()`, so the server never trusts a client-supplied uid. `users/{uid}/entitlements/*` is client-**read-only** — "entitlements" appears in the read allowlist at `firestore.rules:1878` and in none of the write allowlists.
 
 **Entitlement expiry is already the auto-downgrade mechanism.** `packages/entitlements/src/predicate.ts:evaluateEntitlement` grants a feature iff `active === true` **AND** `productID ∈ the feature's allowlist` **AND** `expireAt > now`. `firestore.rules:422-476` independently re-checks the same three things. **This means a time-boxed grant expires by itself, server-side and rules-side, with no cron job, no client cooperation and no revocation call.** That is the entire trial engine, already built.
 
 **Client tier resolution needs no changes.** `MacCloudEntitlementStore` (`AgentLens/Services/MacCloudEntitlementStore.swift:413`) resolves `cloudTier` from live Firestore listeners on five docs including `hosted_quota_sync`, and `isActive → .cloud` opens every Cloud gate. iOS and Android do the same.
 
-**Stripe already honors trials.** `functions/src/callables/shared/stripe.ts:42` — `STRIPE_ACTIVE_STATES = {"active", "trialing", "past_due"}`.
+**Stripe already honors trials.** `functions-identity/src/shared/stripe.ts` — `STRIPE_ACTIVE_STATES = {"active", "trialing", "past_due"}`.
 
 ### 5.2 What does not exist
 
 - **No trial of any kind.** Zero `introductoryOffer` / `freeTrial` / `isEligibleForIntroOffer` hits in any shipped client. The only artifact is `OpenBurnBarMobileTests/Resources/OpenBurnBarPaidTiers.storekit` (a `P2W` free trial on `com.openburnbar.pro.monthly`), attached only to the Xcode LaunchAction — it never reaches a user and creates no App Store Connect offer.
 - **No `startTrial` / `grantTrial` callable anywhere.** `functions/src/index.ts` exports 65 functions; none of them grant anything.
 - **No purchase path on the direct-download Mac build.** `DISTRIBUTION_MAS` is set only by the MAS build scripts; `CloudStoreSettingsView` has no non-MAS purchase branch, so `Product.products` returns empty and the only fallback is a plain `Link` to `https://burnbar.ai/pricing` at `CloudStoreSettingsView.swift:1472` — not `/subscribe`, not a checkout.
-- **Stripe price IDs have no compiled default** (`functions/src/config.ts:358-405`). The web rail is dead until they're provisioned.
-- **Linux gets the whole Cloud product free.** `functions/src/callables/linuxCloudReplica.ts` — `pushLinuxCloudReplicas` (:210) and `pullLinuxCloudReplicas` (:283) sync usage, conversations, session_logs, text_expansion and roaming_profile behind `assertAuth` + `assertAppCheck` **only**. Grep for `assertActive` in that file returns **0**.
+- **Stripe price IDs have no compiled default** (`packages/functions-shared/src/config.ts:358-405`). The web rail is dead until they're provisioned.
+- **Linux gets the whole Cloud product free.** `functions-sync/src/domains/support/linuxCloudReplica.ts` — `pushLinuxCloudReplicas` (:210) and `pullLinuxCloudReplicas` (:283) sync usage, conversations, session_logs, text_expansion and roaming_profile behind `assertAuth` + `assertAppCheck` **only**. Grep for `assertActive` in that file returns **0**.
 - **The website actively contradicts the plan.** `website/src/pages/pricing.astro:61-63` — "No introductory offer is promised" — backed by `website/CLAIMS.md:168`. The claims matrix is a build gate; this must change in the same PR.
 
 ### 5.3 StoreKit introductory offer vs. self-managed grant — the both-channels answer
@@ -295,11 +295,11 @@ Rationale:
 
 3. **New callable `startCloudTrial`** (`functions/src/callables/cloudTrial.ts`, registered in `functions/src/index.ts`). Guards: `assertAuth` (non-anonymous), `assertAppCheck`, **refuse** if a `hosted_quota_sync` doc already exists (legacy subscriber), **refuse** if any active `burnbar_pro`/`burnbar_pro_max`/`burnbar_ultra`, **refuse** if the one-per-uid ledger `users/{uid}/trial_grants/cloud_v1` exists (server-owned, client-unwritable), **refuse** on a hashed-install-identifier ledger hit. Writes `{ active: true, productID: TRIAL_ID, source: "internal_trial_grant", platform, isTrial: true, expireAt: now + 14d }`. Add a Remote Config kill switch to stop granting new trials.
 
-4. **Extend `sameEntitlementWriteSource`** (`functions/src/callables/shared/entitlementWriteSource.ts`) so any verified provider write supersedes an `internal_trial_grant` doc, mirroring the existing `internal_operator_grant` + Stripe escape hatch. **This is a real hazard, not a formality:** `paidEntitlementWriteWouldDowngrade` (`shared/entitlements.ts:331-348`) returns `true` — i.e. *skips the write* — whenever an active existing doc with a later expiry has a different `source`. Without this fix, a revocation or a short-dated verified write against a live trial is silently dropped.
+4. **Extend `sameEntitlementWriteSource`** (`packages/functions-shared/src/shared/entitlementWriteSource.ts`) so any verified provider write supersedes an `internal_trial_grant` doc, mirroring the existing `internal_operator_grant` + Stripe escape hatch. **This is a real hazard, not a formality:** `paidEntitlementWriteWouldDowngrade` (`shared/entitlements.ts:331-348`) returns `true` — i.e. *skips the write* — whenever an active existing doc with a later expiry has a different `source`. Without this fix, a revocation or a short-dated verified write against a live trial is silently dropped.
 
 5. **Close the Linux hole.** Add `assertActiveBurnBarProEntitlement(uid)` at `linuxCloudReplica.ts:210` and `:283`. Otherwise the trial is meaningless on Linux and Cloud is permanently free there.
 
-6. **Provision the Stripe price IDs** (`functions/src/config.ts:358-405`) — the web rail is the *only* purchase path for direct-download Mac, Linux and Windows.
+6. **Provision the Stripe price IDs** (`packages/functions-shared/src/config.ts:358-405`) — the web rail is the *only* purchase path for direct-download Mac, Linux and Windows.
 
 **Client:**
 

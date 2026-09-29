@@ -8,8 +8,9 @@
  *   - Loops EVERY manifest domain, not just provider-account.
  *   - Compares parsed field name + optionality (`?`) instead of a raw
  *     substring includes() that a comment or unrelated identifier could satisfy.
- *   - Registers functions/src/types/legacy.ts as a `tsHandMirror` so the doc
- *     types it re-declares a second time are field-checked against the canon.
+ *   - Registers packages/functions-shared/src/types/legacy/connections.ts as a
+ *     `tsHandMirror` so the doc types it re-declares a second time are
+ *     field-checked against the canon.
  *
  * A mirror "carries" a generated interface when, for every field the generated
  * interface declares, the mirror declares a field with the same name and (for
@@ -28,7 +29,7 @@
  * code while failing closed on any NEW drift, and the gate fails if a listed
  * `knownDrift` entry is no longer real (stale grandfather) so the list ratchets
  * down as the migration burns it off. Do NOT "fix" the drift by editing
- * legacy.ts here — burn it down domain-at-a-time via the strangler plan.
+ * the legacy modules here — burn it down domain-at-a-time via the strangler plan.
  */
 
 import { readFileSync } from "node:fs";

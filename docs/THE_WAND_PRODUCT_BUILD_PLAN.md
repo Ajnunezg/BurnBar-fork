@@ -9,14 +9,14 @@
 - **Gating** = `OpenBurnBarCore/.../Membership/GatedFeature.swift` (`CloudTier` ladder + `GatedFeatureID` + `requiredTier`), checked via `.gatedFeature(.id, tier:)` (binary only). Tier from `MacCloudEntitlementStore`/`HostedQuotaSubscriptionStore`. **The only unforgeable cross-client cap is `firestore.rules validMissionGroup()` — a flat `<=16` for everyone.**
 
 ## The cap ladder (locked): Free **1** · Cloud **3** · Cloud Pro **8** · Ultra **16**
-Single source of truth: `WandFanOut.maxParallel(for:)` in Core, mirrored in `firestore.rules` (unforgeable cap), `functions/src/callables/dataDomainUsage.ts` (server read seam), `website/src/data/site.ts` (display), Android `GatedFeature.kt`, and `OPENBURNBAR_WAND_PARALLEL_MAX` when the local MCP is spawned.
+Single source of truth: `WandFanOut.maxParallel(for:)` in Core, mirrored in `firestore.rules` (unforgeable cap), `functions-sync/src/domains/usage/dataDomainUsage.ts` (server read seam), `website/src/data/site.ts` (display), Android `GatedFeature.kt`, and `OPENBURNBAR_WAND_PARALLEL_MAX` when the local MCP is spawned.
 
 ## Phase 1 — Real tier gate (bounded, the crux of "real gating")
 - **Declare:** add `GatedFeatureID.theWand` (`requiredTier .cloud`, honesty-checked copy) to `GatedFeature.swift`; Android parity (`android/.../ui/pro/GatedFeature.kt`); `docs/FEATURE_GATING_SPEC.md` §3.
 - **Ladder data:** `WandFanOut.maxParallel(for:)` in Core (Free 1 / Cloud 3 / Pro 8 / Ultra 16).
 - **Enforce (the real cap):** `firestore.rules validMissionGroup()` — replace the flat `childMissionIDs/runtimeTokens/parallelismLimit <= 16` with a **tier-derived bound** using existing helpers (`hasActiveHostedQuotaEntitlement`, entitlement paths, ultra ids). Regenerate the generated SKU block (`node tools/gen-rules-entitlements.mjs`); **add rules tests**. *(Security-sensitive — on a feature branch, not the security branch.)*
 - **Gate the UI:** `FanOutComposerSheet` (iOS) — clamp selectable runtimes to `maxFanOut(tier)`; present `FeatureUnlockSheet(gatedFeature(.theWand))` when exceeding; show "N of cap" + upsell (copy the Elder Wand pattern in `ElderWandChatEntry.swift`).
-- **Display + cap feed:** `site.ts` `wandParallelMax` per tier + `PricingPlans.astro` line; `functions/src/callables/dataDomainUsage.ts` returns `wandParallelMax` and must resolve Cloud to cap 3, not Free cap 1.
+- **Display + cap feed:** `site.ts` `wandParallelMax` per tier + `PricingPlans.astro` line; `functions-sync/src/domains/usage/dataDomainUsage.ts` returns `wandParallelMax` and must resolve Cloud to cap 3, not Free cap 1.
 
 ## Phase 2 — Make it a true Wand (quota-aware routing)
 - Bridge Headmaster's/Pareto routing into the app fan-out: **port `ministry.select_models_for_wand` ranking into the Swift daemon** (preferred, local-first/E2EE — the Mac listener already resolves backend+model at claim time) OR a tier-aware server callable. `dispatchFanOut` consumes routed `(runtime, model)` workers (already tier-capped) instead of manual runtimes + the hardcoded model switch. Keep the MCP env cap (`OPENBURNBAR_WAND_PARALLEL_MAX`), Firestore rules cap, and app cap against one catalog.

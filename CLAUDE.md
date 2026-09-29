@@ -36,7 +36,7 @@ The factory handles review, small fix loops, CI waiting, re-review, merge, close
 
 When agents react to each other, leave a `Cross-agent receipt` in the PR. Keep it scannable: saw, reaction, status, next owner. Include review/comment/thread ids and commit SHAs when available so Alberto can manage the team from GitHub.
 
-Do **not** dump known-broken work into the factory. Do **not** open vague mega-PRs and expect automation to discover the intent. Big PRs must be coherent, well-mapped, and validated enough for an independent reviewer to reason about them. If cheap local checks fail, fix them before PR unless the failure is environmental and documented in the PR body. Do **not** treat Cursor Approval Agent output as approval evidence. Cursor/Bugbot/Cloud Agent may implement scoped fixes; Codex is the independent reviewer and approval gate; GitHub branch protection is the mechanical merge gate.
+Do **not** dump known-broken work into the factory. Do **not** open vague mega-PRs and expect automation to discover the intent. Big PRs must be coherent, well-mapped, and validated enough for an independent reviewer to reason about them. If cheap local checks fail, fix them before PR unless the failure is environmental and documented in the PR body. Do **not** treat Cursor Approval Agent output as approval evidence. Cursor/Bugbot/Cloud Agent may implement scoped fixes; Codex is the independent AI reviewer, and its verdict is compensating analysis, never the required approval ([`docs/SOLO_OPERATOR_POLICY.md`](docs/SOLO_OPERATOR_POLICY.md)); GitHub branch protection is the mechanical merge gate.
 
 ---
 
@@ -50,7 +50,7 @@ mem0 is an advisory retrieval cache, not policy and not source of truth. Verify 
 
 ---
 
-For repository-specific expectations (tests, docs, scope), see [`AGENTS.md`](AGENTS.md).
+For repository-specific expectations (tests, docs, scope, the Firestore schema canon, and the Computer Use safety invariants), see [`AGENTS.md`](AGENTS.md).
 
 ## Cheap + fast + quality (Alberto 2026-08-15)
 
@@ -58,12 +58,4 @@ Standing rule: `~/.agent/runs/mailbox/CHEAP_FAST.md`. Mac app build is nightly, 
 
 ### Main-red circuit breaker
 
-`BurnBar CI Gate` is in `observe` mode tonight: it records missing and
-completed-red `app-pr-gate` verdicts from main without blocking the merge queue.
-Wave 1 flips it to `enforce`; only a current `ci-freeze-override` label applied
-by Alberto (`Ajnunezg`) can override a completed main-red verdict, and the
-label event is recorded for audit. The gate reads that label on merge-queue and `pull_request_target` runs alike, and removing the label re-runs the gate so a revoked override cannot keep an earlier green verdict current. The full Mac app proof stays off the merge door
-under `CHEAP_FAST`; it remains a post-merge/nightly proof reused by the breaker
-instead of running for every merge candidate. The door runs only the bounded
-app-smoke lane (`pr-native-fast.yml`: smoke catalog + impacted tests, 20 min).
-
+The breaker's mode lives in [`governance/burnbar-ci-gate.json`](governance/burnbar-ci-gate.json) (`circuitBreaker.mode`): `observe` records missing and completed-red `app-pr-gate` verdicts from main without blocking the merge queue; `enforce` blocks them. Read the file for the current mode rather than trusting prose. Under `enforce`, only a current `ci-freeze-override` label applied by Alberto (`Ajnunezg`) can override a completed main-red verdict, and the label event is recorded for audit. The gate reads that label on merge-queue and `pull_request_target` runs alike, and removing the label re-runs the gate so a revoked override cannot keep an earlier green verdict current. The full Mac app XCTest corpus (`openburnbar-pr-harness.yml`) stays off the merge door under `CHEAP_FAST` and runs post-merge/nightly; merge-queue candidates still compile the macOS and iOS apps and run the macOS smoke catalog through `app-pr-gate.yml`, whose `App build + test (AgentLens)` aggregate the full `BurnBar CI Gate` inventory requires. On pull requests, native code gets SwiftLint plus SwiftPM build + test for `OpenBurnBarCore` and `OpenBurnBarDaemon` (`pr-native-fast.yml`). That workflow's Mac app smoke job is parked unless the repository variable `MACOS_APP_SMOKE_ENABLED` is `true` (unset on 2026-09-28), so do not count it as door coverage.

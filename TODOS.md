@@ -57,19 +57,19 @@ above. Everything previously listed here that no longer exists in code has moved
 "Resolved" below — this file lists only what is still deferred.
 
 - **iOS project-scope budget spend is not measurable** — `UsageRollupDoc` carries no
-  per-project breakdown, so `OpenBurnBarMobile/Models/BudgetLedger.swift` (`rollupSpend`,
+  per-project breakdown, so `OpenBurnBarMobile/Models/RollupBudgetLedger.swift` (`rollupSpend`,
   `.project` case, ~line 173) throws `projectScopeUnsupported` and the gate fails closed
   (block / warn-only warn) instead of silently enforcing nothing. Real measurement needs
   per-project summaries added to the Cloud Functions rollup pipeline and the rollup schema.
   *Owner note: budget lane; requires functions/ rollup schema work, then delete the throw
   and the Budget Center "not measurable on iOS" copy.*
 - **iOS budget periods approximate rollup windows** — `rollupWindowKey(for:)` in
-  `OpenBurnBarMobile/Models/BudgetLedger.swift` (~line 238) maps week→7d and month→30d
+  `OpenBurnBarMobile/Models/RollupBudgetLedger.swift` (~line 238) maps week→7d and month→30d
   because rollups don't align with calendar periods. Conservative but inexact near period
   boundaries. *Owner note: budget lane; needs calendar-aligned rollup windows server-side.*
 - **BudgetLedger backend fork is architectural** — macOS sums raw `token_usage` SQL
-  (`AgentLens/Services/DataStore/BudgetLedger.swift`); iOS sums Firestore rollups
-  (`OpenBurnBarMobile/Models/BudgetLedger.swift`). Intentional (no raw SQL on mobile), and
+  (`AgentLens/Services/DataStore/GRDBBudgetLedger.swift`); iOS sums Firestore rollups
+  (`OpenBurnBarMobile/Models/RollupBudgetLedger.swift`). Intentional (no raw SQL on mobile), and
   guarded: `scripts/ci/check-budget-fork-drift.sh` fails CI when either side of the pair
   (or BudgetEnforcement/BudgetSettings) drifts without a reviewed baseline update. The gate
   itself is no longer forked (single `BudgetGate` in

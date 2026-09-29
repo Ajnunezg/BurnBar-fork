@@ -520,8 +520,8 @@ tools/openburnbar-mcp-remote/src/doctor.ts
 tools/openburnbar-mcp-remote/test/*.test.ts
 
 functions/src/cloudSearchCore.ts
-functions/src/remoteMcpGrant.ts
-functions/src/remoteMcpOAuth.ts
+packages/functions-shared/src/remoteMcpGrant.ts
+functions-identity/src/remoteMcpOAuth.ts
 functions/scripts/prove-hosted-mcp-live.mjs
 
 scripts/deploy-hosted-mcp.sh
@@ -668,8 +668,8 @@ Goal: make access subscription-gated and client-safe.
 Owner files:
 
 ```text
-functions/src/remoteMcpOAuth.ts
-functions/src/remoteMcpGrant.ts
+functions-identity/src/remoteMcpOAuth.ts
+packages/functions-shared/src/remoteMcpGrant.ts
 services/hosted-mcp/src/auth.ts
 services/hosted-mcp/src/entitlements.ts
 firestore.rules

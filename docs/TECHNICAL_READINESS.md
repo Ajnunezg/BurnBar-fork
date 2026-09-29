@@ -22,11 +22,11 @@ exists as `burnbar-staging`. Signal at-rest remains readiness-gated, not live.
 |------|----------------------|--------------------------------|
 | Public endpoints | `functions/src/security/endpointAuthorizationCatalog.generated.ts`; endpoint inventory tests; `latestRouterRundown` product-layer rate limit | Deployed endpoint catalog and production traffic telemetry |
 | Storage rules | `scripts/ci/test-storage-rules.sh`; storage emulator suite in release, security, full-matrix, and deploy-firestore workflows | Deployed Firebase Storage ruleset ID |
-| Launch evidence hygiene | `scripts/ci/check-no-stale-launch-evidence.sh` rejects tracked commercial `NO_GO` gate artifacts | Fresh commercial launch gate JSON from the release machine |
+| Launch evidence hygiene | `scripts/ci/check-no-stale-launch-evidence.sh` fails if a tracked `launch-evidence/*commercial-launch-gate*.json` carries a `NO_GO` verdict. It is preventive: no such file is tracked today, so it passes by construction and is not evidence of launch readiness | Fresh commercial launch gate JSON from the release machine |
 | Build artifact hygiene | `.gitignore` plus `scripts/ci/check-no-committed-build-artifacts.sh` blocks tracked module caches, DerivedData, and `.pcm` files | Clean release checkout generated from tracked source only |
 | Ops readiness | `scripts/ci/verify-ops-readiness.sh` checks logging, resilience, legal packet, and Hermes provenance | `verify-production-ops-plane.sh` with production credentials and a matching `HERMES_AGENT_SRC` checkout |
 | Android E2E | PR harness and nightly E2E now execute `scripts/e2e/android-iroh-chat.sh` on emulator when the relevant lane runs | Green instrumented result from GitHub Actions or a local emulator with valid Firebase config |
-| Rollback | Fixture dry-run plus `scripts/ci/check-runbook-topology.mjs` topology lint | Staging/production revision-pin receipt — **PENDING** (human queue item 15 runs the live drill) |
+| Rollback | Fixture dry-run plus `scripts/ci/check-runbook-topology.mjs` topology lint | The live revision-pin drill ran on 2026-09-23 and **failed safe**: previous images were pruned in both projects, every pin was refused, and traffic never moved (`launch-evidence/rollback-drill-2026-09-23.json`, `ok: false`). Fast rollback is not viable until a fresh deploy repopulates an N-1 image and the drill passes; today's path is the source rebuild in `scripts/rollback.sh` |
 
 ## Diligence Interpretation
 

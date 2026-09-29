@@ -177,7 +177,7 @@ prevent connection-hijacking. `IrohRelayPairing` solves this:
   `users/{uid}/iroh_pairing_keys/host` (a dedicated singleton collection,
   not the per-account provider records) so iOS can fetch one canonical
   verifier per user without scanning provider docs. Schema:
-  `IrohPairingPublicKeyDoc` in `functions/src/types.ts`.
+  `IrohPairingPublicKeyDoc` in `packages/functions-shared/src/types.ts`.
 * When a Mac wants to advertise an iroh `NodeId`, it signs
   `"openburnbar.iroh.pairing.v1|{uid}|{connectionId}|{nodeId}|{publishedAtMillis}"`
   with the Ed25519 key and writes the signed record to
@@ -220,7 +220,7 @@ seven phases now land in this PR.
 | --- | --- | --- |
 | **1. Spine + crypto + transport contract** | Rust crate, xcframework workflow, Swift package target, frame codec, pairing primitives, in-process loopback transport, encrypted echo, full test coverage. | ✅ |
 | **2. Real iroh transport (xcframework-backed)** | `IrohXcframeworkTransport` (Swift) + `IrohEndpointBackend` protocol + `OpenBurnBarIrohFFIBackend` (UniFFI bridge). Conditionally compiled with `#if canImport(OpenBurnBarIrohFFI)` so the SwiftPM package builds before the xcframework binary is published. | ✅ |
-| **3. Pairing handshake in production** | `IrohPairingDirectory` protocol + `InMemoryIrohPairingDirectory` + `FirestoreIrohPairingDirectory` (Mac + iOS variants). `firestore.rules` gates `/users/{uid}/iroh_pairing/*` and `/users/{uid}/iroh_audit_events/*`. `functions/src/types.ts` ships `IrohPairingRecordDoc` + `IrohTransportAuditEventDoc`. `scripts/deploy-iroh-relay.sh` rolls the changes. | ✅ |
+| **3. Pairing handshake in production** | `IrohPairingDirectory` protocol + `InMemoryIrohPairingDirectory` + `FirestoreIrohPairingDirectory` (Mac + iOS variants). `firestore.rules` gates `/users/{uid}/iroh_pairing/*` and `/users/{uid}/iroh_audit_events/*`. `packages/functions-shared/src/types.ts` ships `IrohPairingRecordDoc` + `IrohTransportAuditEventDoc`. `scripts/deploy-iroh-relay.sh` rolls the changes. | ✅ |
 | **4. Real Hermes payload over iroh** | `HermesIrohRelayHostClient` (Mac) — accept-loop, request handler, pairing-record heartbeat. `HermesIrohRelayTransport` (iOS) — conforms to `HermesRelayTransporting`. Composite chain is now iroh → Firestore after WSS retirement. Feature flag `SettingsManager.hermesIrohTransportEnabled`. | ✅ |
 | **5. Audit + RTT telemetry** | `IrohTransportAuditLogging` protocol + `FirestoreIrohAuditLogger`. Every stream open / close / failure / pairing event / fallback hop emits `IrohTransportAuditEventDoc` with `transport`, `rttMillis`, and `detail`. `rollupIrohTransportDaily` converts the raw per-user stream into daily success/fallback/RTT rollups for rollout gates. | ✅ |
 | **6. Owned hosted relay** | Rust crate's `bootstrap()` takes a `relay_url` parameter; Swift transport exposes a `relayURLProvider` closure. Iroh Services provisions the managed relay in the dashboard; `scripts/cutover-n0-hosted-relay.sh` then publishes the captured URL through Firebase Remote Config so all devices pick it up on next boot. | ✅ |

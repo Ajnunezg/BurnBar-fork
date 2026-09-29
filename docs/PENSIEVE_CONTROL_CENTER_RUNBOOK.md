@@ -444,7 +444,7 @@ before C7. Vector indexes return before the build finishes — actually wait for
 ## Stream D — External integrations
 
 ### D1. Ultra subscriptions (App Store Connect + Google Play)
-Exact, **immutable** product IDs (byte-match `functions/src/config.ts`; identical on
+Exact, **immutable** product IDs (byte-match `packages/functions-shared/src/config.ts`; identical on
 both stores — do not platform-suffix):
 - `com.openburnbar.ultra.monthly` → **$59.99 / month**
 - `com.openburnbar.ultra.annual` → **$599 / year**
@@ -524,7 +524,7 @@ Against the deployed callable, setup returns `{ok:true, recoveryId}` and re-entr
 flips `confirmed:true` in `listRecovery`.
 
 ### E2. `verifyPasskeyAssertion` callable + web wiring
-1. `functions/src/callables/passkey.ts`: a `registerPasskey` + `verifyPasskeyAssertion`
+1. `functions-identity/src/domains/identity/passkey.ts`: a `registerPasskey` + `verifyPasskeyAssertion`
    pair (e.g. `@simplewebauthn/server`). `verifyPasskeyAssertion` (onCall,
    us-central1, `enforceAppCheck`) takes `{assertion, challenge}`, verifies against
    the stored credential public key + **RP ID `app.burnbar.ai`** + origin, consumes

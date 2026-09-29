@@ -62,7 +62,7 @@ codebase. Confirmed findings, folded into v2:
 
 **Two potentially existential blockers added (were underweighted):**
 - **Firebase App Check attestation lockout (R14, Critical).** `enforceAppCheck` defaults **true** and prod refuses
-  to boot without it (`functions/src/config.ts:397-411`); **52 function files enforce it**; the Firestore product
+  to boot without it (`packages/functions-shared/src/config.ts:397-411`); **52 function files enforce it**; the Firestore product
   is console-tier App-Check-gated; the Hermes relay checks `x-firebase-appcheck`. The only providers are Apple
   **App Attest/DeviceCheck** — **no Windows attestation exists.** A Windows REST client is rejected at the network
   boundary across *all* cloud surfaces. This needs a **new backend custom-attestation provider** (or a written,

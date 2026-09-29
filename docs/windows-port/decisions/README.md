@@ -4,7 +4,7 @@ Phase-by-phase decision records for the Windows port
 ([`docs/WINDOWS_PORT_MASTER_PLAN.md`](../../WINDOWS_PORT_MASTER_PLAN.md)). These
 capture **context / decision / rationale / consequences** for choices made while
 executing the port under Zenith + the software factory. They are distinct from
-the cross-cutting engineering [ADRs](../../ARCHITECTURE/README.md): a WPD becomes
+the cross-cutting engineering [ADRs](../../architecture/README.md): a WPD becomes
 an ADR only if the choice outlives the port and governs the whole codebase.
 
 | WPD | Topic | Contract |

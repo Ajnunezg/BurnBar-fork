@@ -270,7 +270,7 @@ The original master-plan wording asked for an Apple/iCloud device-certificate si
 
 `validateOpenTimestampsProof` is the server-side Phase 13 cross-check:
 
-- Callable Cloud Function exported from `functions/src/computerUseOpenTimestamps.ts`.
+- Callable Cloud Function exported from `functions-sync/src/domains/computer-use/computerUseOpenTimestamps.ts`.
 - Requires Firebase Auth + App Check and enforces `request.auth.uid == uid`.
 - Checks `users/{uid}/computer_use_sessions/{sessionId}.auditHeadHashHex` against the submitted head hash before attempting proof validation.
 - Accepts the `.ots` proof bytes as base64 and optional `chain.jsonl` bytes as base64.

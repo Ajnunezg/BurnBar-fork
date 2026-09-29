@@ -5,7 +5,7 @@
 
 ## Context
 
-Firestore document shapes were originally hand-maintained in `functions/src/types.ts` while clients duplicated models in Swift and Kotlin. Drift caused silent decode failures (`@IgnoreExtraProperties` masked missing fields) and blocked collaboration features.
+Firestore document shapes were originally hand-maintained in the Cloud Functions types module (today the legacy modules under `packages/functions-shared/src/types/legacy/`) while clients duplicated models in Swift and Kotlin. Drift caused silent decode failures (`@IgnoreExtraProperties` masked missing fields) and blocked collaboration features.
 
 ## Decision
 
@@ -14,7 +14,7 @@ Firestore document shapes were originally hand-maintained in `functions/src/type
 ```text
 tools/schema-sync/typespec/*.tsp
         │ emit
-        ├── functions/src/types.ts (+ generated sections)
+        ├── packages/functions-shared/src/types/generated/*.ts
         ├── OpenBurnBarCore/Sources/OpenBurnBarFirestoreModels/*.swift
         └── android/.../generated/*Models.kt
         │
@@ -26,7 +26,7 @@ tools/schema-sync/typespec/*.tsp
 | Artifact | Owner | Change process |
 |----------|-------|----------------|
 | TypeSpec sources | Platform / backend | Edit `.tsp` → run emitters → commit all generated outputs |
-| `functions/src/types.ts` | Cloud Functions | Generated blocks + legacy hand types during migration; new collections start in TypeSpec |
+| `packages/functions-shared/src/types/` | Cloud Functions | `generated/` is emitted; `legacy/` holds hand types during migration (barrel: `types.ts`); new collections start in TypeSpec |
 | Swift `*Models.swift` | macOS / iOS | Generated only; extend via computed properties in hand-written wrappers |
 | Kotlin `generated/*` | Android | Generated only; `@PropertyName` for Firestore key drift |
 | Firestore rules + indexes | Backend | Must match emitted field names; rules tests in CI |

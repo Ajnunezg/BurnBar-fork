@@ -42,7 +42,7 @@ Track trends monthly against targets in [TECH_DEBT_STRATEGY.md](TECH_DEBT_STRATE
 
 ## Remediation links
 
-- [Architecture ADRs](ARCHITECTURE/README.md)
+- [Architecture ADRs](architecture/README.md)
 - [SLO runbook](runbooks/slos.md)
 - [Type debt budget](TYPE_DEBT.md)
 - [Technical readiness](TECHNICAL_READINESS.md)

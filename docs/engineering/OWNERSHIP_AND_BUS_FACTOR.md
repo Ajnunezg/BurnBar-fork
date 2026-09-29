@@ -22,9 +22,13 @@ managed* risk with a mitigation plan — which is what an investor wants to see.
 
 ## What already reduces the risk (keep + point to in diligence)
 
-- **Governance-as-code**: `governance/branch-protection.main.json` (23 required contexts,
-  `enforce_admins: true`), applied as an org-level ruleset with admin escrow held by a *second*
-  org owner — this removes the self-serve `enforce_admins` toggle that history shows was abused.
+- **Governance-as-code**: `governance/branch-protection.main.json` declares 10 required
+  contexts, `enforce_admins: true`, one approving review, code-owner review, and last-push
+  approval. Live state read from the GitHub API on 2026-09-28 matches the contexts, admin
+  enforcement, and review count, but has `require_code_owner_reviews: false` and
+  `require_last_push_approval: false` — drift that `scripts/ops/verify-github-governance.sh`
+  exists to catch. The organization has one admin (`@Ajnunezg`); there is no second org owner
+  holding admin escrow, so the `enforce_admins` toggle is still self-serve for that account.
 - **Self-testing CI gates** and adversarial rules tests mean a lot of judgment is *encoded*, not
   tribal — a new engineer inherits guardrails, not just prose.
 - **Honest, current engineering docs** (`AGENTS.md`, the tech-debt audits, this `docs/engineering/`

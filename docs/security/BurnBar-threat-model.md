@@ -100,27 +100,27 @@ Audit verdict: BurnBar has meaningful and code-backed controls for sealed curren
 | Mobile iOS/iPadOS app | User-facing remote control, Hermes Gateway client, CloudVault client, trusted device, push receiver | Message plaintext before sealing/after opening, vault keys, device private keys, push tokens, approvals, attachments | High trust endpoint | Firebase Auth/App Check, iOS Keychain, APNs, CloudVault, Hermes/Iroh | `OpenBurnBarMobile/Services/MobileCloudVaultKeyAccess.swift`, `OpenBurnBarMobile/Services/iOSDeviceKeypair.swift` |
 | Android app | Mobile client parity for chat, CloudVault, trusted device, push, media | Message plaintext, vault keys, Android private keys, FCM tokens, approvals | High trust endpoint | Firebase, Android Keystore, Firestore, FCM | `android/app/src/main/java/com/openburnbar/data/cloud/CloudVaultCrypto.kt` |
 | macOS OpenBurnBar / AgentLens | Desktop host for local agents, Hermes/Iroh endpoint, local memory/indexing, device trust root publisher | Agent prompts/responses, local files/logs, key material, provider metadata, runtime output | High trust endpoint | macOS Keychain, local process APIs, Firebase, Iroh, Hermes | `AgentLens/Services/CLIBridge/CLIProcessStreamRunner.swift`, `AgentLens/Services/CloudVaultKeyAccess.swift` |
-| OpenBurnBarCore | Shared crypto, sealed envelopes, Iroh pairing, CloudVault types, Signal at-rest helpers | Crypto envelopes, AAD, key wrapping primitives, pairing records | Security-critical shared library | CryptoKit, Swift shared models, Android-compatible formats | `OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/HermesRelayCrypto.swift`, `CloudVaultCrypto.swift`, `OpenBurnBarSignalCore/SignalAtRestSealer.swift` |
-| BurnBar Cloud / Firebase Functions | Authenticated control plane, Gateway HTTP/callables, push fanout, provider secrets, search/session APIs, entitlement checks | Auth context, metadata, sealed payloads, provider secret refs, push requests, audit events | Trusted service, not plaintext-blind for all data | Firebase Auth, App Check, Firestore, Storage, Secret Manager, KMS, APNs, FCM | `functions/src/index.ts`, `functions/src/auth.ts`, `functions/src/logging.ts` |
+| OpenBurnBarCore | Shared crypto, sealed envelopes, Iroh pairing, CloudVault types, Signal at-rest helpers | Crypto envelopes, AAD, key wrapping primitives, pairing records | Security-critical shared library | CryptoKit, Swift shared models, Android-compatible formats | `OpenBurnBarCore/Sources/OpenBurnBarHermesModels/HermesRelayCrypto.swift`, `CloudVaultCrypto.swift`, `OpenBurnBarSignalCore/SignalAtRestSealer.swift` |
+| BurnBar Cloud / Firebase Functions | Authenticated control plane, Gateway HTTP/callables, push fanout, provider secrets, search/session APIs, entitlement checks | Auth context, metadata, sealed payloads, provider secret refs, push requests, audit events | Trusted service, not plaintext-blind for all data | Firebase Auth, App Check, Firestore, Storage, Secret Manager, KMS, APNs, FCM | `functions/src/index.ts`, `packages/functions-shared/src/auth.ts`, `packages/functions-shared/src/logging.ts` |
 | Firestore | Primary control-plane and sync database | Sealed documents, metadata, indexes, device records, trust roots, tokens, audit events | Trusted storage for metadata; untrusted for sealed content confidentiality | Firestore rules, Functions Admin SDK | `firestore.rules` |
-| Cloud Storage | Encrypted session blobs, attachment objects, profile photos | Sealed blobs and some public/auth-visible profile photos | Trusted storage for availability and object metadata; untrusted for sealed content confidentiality | Storage rules, signed URLs | `storage.rules`, `functions/src/callables/encryptedSearch.ts` |
-| Hermes Gateway | Phone/cloud/Mac Gateway for paired devices and agent replies | Sealed Gateway events/messages/attachments, metadata, bearer token hashes, client signing keys | Trusted relay/control plane, content-blind for current sealed writes | Firebase Functions, Firestore, Storage, client relay keys | `functions/src/hermesGateway.ts`, `functions/src/callables/hermesGateway.ts` |
+| Cloud Storage | Encrypted session blobs, attachment objects, profile photos | Sealed blobs and some public/auth-visible profile photos | Trusted storage for availability and object metadata; untrusted for sealed content confidentiality | Storage rules, signed URLs | `storage.rules`, `functions-sync/src/domains/search/encryptedSearch.ts` |
+| Hermes Gateway | Phone/cloud/Mac Gateway for paired devices and agent replies | Sealed Gateway events/messages/attachments, metadata, bearer token hashes, client signing keys | Trusted relay/control plane, content-blind for current sealed writes | Firebase Functions, Firestore, Storage, client relay keys | `packages/functions-shared/src/hermesGateway.ts`, `functions-media/src/domains/hermes/hermesGateway.ts` |
 | Iroh relay/direct transport | Device-to-device transport and endpoint discovery | Length-prefixed frames, pairing records, endpoint addresses, node IDs | Transport layer should not inspect frame contents; endpoint identity matters | Iroh, Keychain, Firestore pairing directory | `OpenBurnBarCore/Sources/OpenBurnBarIrohRelay/IrohRelayTransport.swift`, `IrohRelayPairing.swift` |
 | Hermes realtime relay / WSS fallback | Possible fallback relay path for realtime transport | Realtime frames and routing metadata if deployed | Deployment status needs confirmation | `services/hermes-realtime-relay`, Gateway fallback flags | `services/hermes-realtime-relay/`, audit event names such as `iroh_fallback_to_wss` |
 | Local agent runtimes | Execute model CLIs or managed runtimes on the user's Mac | Prompts, responses, tool output, local filesystem access, environment variables | High-risk local execution surface | macOS process APIs, user PATH/config, local files | `AgentLens/Services/CLIBridge/CLIProcessStreamRunner.swift`, `AgentLens/Services/ManagedAgentRuntime/ManagedRuntimeProcessRunner.swift` |
 | OpenBurnBarDaemon / privileged helpers | Local system actions, remote unlock, privileged socket boundary | Credential envelopes, HID/system actions, socket peer identities | Very high trust local component | macOS code signing, Unix sockets, Keychain, HPKE | `OpenBurnBarDaemon/.../PrivilegedPeerAuthenticator.swift`, `OpenBurnBarComputerUseCore/PrivilegedSocketTrust.swift` |
 | CloudVault and trusted-device key management | At-rest sealing and cross-device vault-key wrapping | Vault keys, wrapped vault keys, escrow keys, device trust records, Signal identity bindings | Security-critical client/server boundary | Keychain/Keystore, Firestore rules, high-risk callables | `CloudVaultCrypto.swift`, `CloudVaultKeyAccess.swift`, `computerUseSecurity.ts`, `firestore.rules` |
 | Signal directory and at-rest Signal helpers | Publish public identity/prekey material and seal at-rest payloads to recipient devices | Public Signal keys, at-rest envelopes, sender signatures, recipient wraps | Security-critical but production Gateway Signal status is staged/flagged | Firestore rules, client identity keys | `SignalAtRestSealer.swift`, `SignalEnvelopeAAD.swift`, `firestore.rules` |
-| Provider credential store | Hosted/cloud-refreshable account connection and quota refresh | API credentials, Secret Manager resource names, provider account metadata | Backend-trusted; not E2EE | Secret Manager, Cloud KMS, provider APIs | `functions/src/secrets.ts`, `functions/src/callables/providerAccounts.ts` |
-| Notification service | Agent reply, call, VoIP, and Android push fanout | Push tokens, event IDs, thread IDs, call IDs, caller/display metadata | Trusted metadata service; third-party push providers see payloads | APNs, FCM, Firestore | `functions/src/agentNotifications.ts`, `functions/src/callables/voipPush.ts`, `functions/src/apnsSender.ts`, `functions/src/fcmAndroidSender.ts` |
-| Hosted MCP / remote access | Remote MCP grants, hosted search facade, local decrypt shim mode | OAuth-style grants, access/refresh tokens, scopes, encrypted search results, audit logs | High-risk remote access control plane | HMAC token service, Firebase Admin, local Keychain shim | `functions/src/callables/remoteMcp.ts`, `functions/src/remoteMcpOAuth.ts`, `services/hosted-mcp/src/` |
+| Provider credential store | Hosted/cloud-refreshable account connection and quota refresh | API credentials, Secret Manager resource names, provider account metadata | Backend-trusted; not E2EE | Secret Manager, Cloud KMS, provider APIs | `packages/functions-shared/src/secrets.ts`, `functions-identity/src/domains/identity/providerAccounts.ts` |
+| Notification service | Agent reply, call, VoIP, and Android push fanout | Push tokens, event IDs, thread IDs, call IDs, caller/display metadata | Trusted metadata service; third-party push providers see payloads | APNs, FCM, Firestore | `functions-sync/src/domains/notify/agentNotificationTriggers.ts`, `functions-media/src/domains/push/voipPush.ts`, `functions-media/src/domains/push/apnsSender.ts`, `functions-media/src/domains/push/fcmAndroidSender.ts` |
+| Hosted MCP / remote access | Remote MCP grants, hosted search facade, local decrypt shim mode | OAuth-style grants, access/refresh tokens, scopes, encrypted search results, audit logs | High-risk remote access control plane | HMAC token service, Firebase Admin, local Keychain shim | `functions-identity/src/domains/identity/remoteMcp.ts`, `functions-identity/src/remoteMcpOAuth.ts`, `services/hosted-mcp/src/` |
 | Entitlements and billing | Gate Pro/paid capabilities and high-risk flows | Subscription state, account IDs, purchase/Stripe metadata | Trusted business-control plane | Store APIs, Stripe, Firestore | `functions/src/index.ts`, entitlement helper usage across callables |
 
 ## 3. Significant Data Flows
 
 | Flow | Sender -> Receiver | Transport | Authentication | Encryption | Plaintext in transit | Plaintext at rest | Evidence and notes |
 |---|---|---|---|---|---|---|---|
-| Firebase callable access | Client -> Functions | HTTPS callable | Firebase Auth; App Check via `enforceAuthAndAppCheck`; entitlement checks on gated APIs | TLS | Yes at client and function handler for non-sealed request fields | Depends on handler; many writes sealed, some metadata plaintext | `functions/src/auth.ts:22-72`, `functions/src/config.ts:68-106` |
+| Firebase callable access | Client -> Functions | HTTPS callable | Firebase Auth; App Check via `enforceAuthAndAppCheck`; entitlement checks on gated APIs | TLS | Yes at client and function handler for non-sealed request fields | Depends on handler; many writes sealed, some metadata plaintext | `packages/functions-shared/src/auth.ts:22-72`, `packages/functions-shared/src/config.ts:68-106` |
 | High-risk Computer Use action | Trusted device -> Functions -> Firestore | HTTPS callable and Admin SDK write | Auth, App Check attestation binding, high-risk nonce, trusted-device signed action proof | TLS plus signed proof; payload may be sealed depending on action | Approval metadata plaintext to Functions | Firestore stores status, device IDs, audit metadata; sealed mission fields where required | `appCheckAttestation.ts:98-253`, `computerUseSecurity.ts:793-860`, `firestore.rules:1330-1568` |
 | CloudVault conversation/chat/CLI sync | Client -> Firestore | Firestore SDK or Functions | Auth/App Check and rules | Client-side AES-GCM sealed payloads with AAD for current schema | Plaintext exists on endpoint before seal | Current payload ciphertext at rest; metadata visible | `CloudVaultCrypto.swift:428-622`, `firestore.rules:1167-1328` |
 | CloudVault key wrapping | Trusted source device -> Firestore -> target device | Firestore SDK/callables | Auth/rules; trusted escrow device requirements | Vault key wrapped to target device public key | Vault key plaintext exists on source and target endpoints | Wrapped key blobs and device metadata at rest | `CloudVaultKeyAccess.swift:172-358`, `MobileCloudVaultKeyAccess.swift:170-388`, `firestore.rules:2153-2198` |
@@ -388,18 +388,18 @@ The table below is organized around realistic component/data-flow threats rather
 
 ### Authentication and App Check
 
-- `assertAuth`, `assertAppCheck`, `assertOwnership`, and `enforceAuthAndAppCheck` gate standard callables (`functions/src/auth.ts:22-72`).
-- App Check enforcement defaults on, and production-looking projects refuse to start if App Check is disabled (`functions/src/config.ts:68-84`).
-- High-risk Computer Use flows require App Check attestation-bound custom claims, a fresh high-risk nonce, and trusted-device proof (`functions/src/appCheckAttestation.ts:98-253`, `functions/src/callables/computerUseSecurity.ts:793-860`).
+- `assertAuth`, `assertAppCheck`, `assertOwnership`, and `enforceAuthAndAppCheck` gate standard callables (`packages/functions-shared/src/auth.ts:22-72`).
+- App Check enforcement defaults on, and production-looking projects refuse to start if App Check is disabled (`packages/functions-shared/src/config.ts:68-84`).
+- High-risk Computer Use flows require App Check attestation-bound custom claims, a fresh high-risk nonce, and trusted-device proof (`packages/functions-shared/src/appCheckAttestation.ts:98-253`, `functions-sync/src/domains/computer-use/computerUseSecurity.ts`).
 
 Audit note: deployed config must be read back. The code has strong defaults, but an external review should not accept defaults as proof of production state.
 
 ### Gateway Sealing and PoP Authentication
 
-- Gateway tokens are bearer-compatible only as an index hint. Every HTTP request must also prove possession of a client signing key pinned at pairing (`functions/src/hermesGateway.ts:41-48`).
-- Gateway relay envelopes are designed so the phone seals to the agent key and the agent seals replies to the phone key; the server validates envelope shape but does not decrypt current sealed bodies (`functions/src/hermesGateway.ts:83-123`).
-- New Gateway writes require relay v2/v3 or ratchet envelopes; v1 is legacy/read-tolerant only, and plaintext writes are closed (`functions/src/hermesGateway.ts:157-189`, `794-817`, `functions/src/callables/hermesGateway.ts:404-455`).
-- Gateway send/finalize paths require bearer+PoP and reject new plaintext message bodies and plaintext attachment filenames (`functions/src/callables/hermesGateway.ts:1116-1193`, `1409-1605`).
+- Gateway tokens are bearer-compatible only as an index hint. Every HTTP request must also prove possession of a client signing key pinned at pairing (`packages/functions-shared/src/hermesGateway.ts:41-48`).
+- Gateway relay envelopes are designed so the phone seals to the agent key and the agent seals replies to the phone key; the server validates envelope shape but does not decrypt current sealed bodies (`packages/functions-shared/src/hermesGateway.ts:83-123`).
+- New Gateway writes require relay v2/v3 or ratchet envelopes; v1 is legacy/read-tolerant only, and plaintext writes are closed (`packages/functions-shared/src/hermesGateway.ts:157-189`, `794-817`, `functions-media/src/domains/hermes/hermesGateway.ts`).
+- Gateway send/finalize paths require bearer+PoP and reject new plaintext message bodies and plaintext attachment filenames (`functions-media/src/domains/hermes/hermesGateway.ts`, `1409-1605`).
 
 Audit note: Signal v4 Gateway support is not a production claim unless the deployed production Signal version set is enabled and tested.
 
@@ -583,10 +583,10 @@ Audit note: this is a local trust boundary. A signed app compromise or local pri
 
 ### Authentication, App Check, and Logging
 
-- `functions/src/auth.ts:22-72` - Auth, App Check, ownership helpers.
-- `functions/src/config.ts:68-106` - App Check and high-risk nonce defaults.
-- `functions/src/appCheckAttestation.ts:98-253` - App Check claim binding and high-risk nonce flow.
-- `functions/src/logging.ts:1-195` - Structured logging scrubber and Sentry capture wrapper.
+- `packages/functions-shared/src/auth.ts:22-72` - Auth, App Check, ownership helpers.
+- `packages/functions-shared/src/config.ts:68-106` - App Check and high-risk nonce defaults.
+- `packages/functions-shared/src/appCheckAttestation.ts:98-253` - App Check claim binding and high-risk nonce flow.
+- `packages/functions-shared/src/logging.ts` - Structured logging scrubber and Sentry capture wrapper.
 
 ### Firestore and Storage Rules
 
@@ -601,14 +601,14 @@ Audit note: this is a local trust boundary. A signed app compromise or local pri
 
 ### Hermes Gateway and Crypto
 
-- `functions/src/hermesGateway.ts:41-189` - Gateway token/PoP model, relay envelope model, Signal staging, plaintext cutoff.
-- `functions/src/hermesGateway.ts:691-817` - Signal production gating and relay envelope validation.
-- `functions/src/callables/hermesGateway.ts:404-455` - body resolution and plaintext rejection.
-- `functions/src/callables/hermesGateway.ts:810-865` - bearer+PoP request resolution.
-- `functions/src/callables/hermesGateway.ts:884-982` - device start and pending pairing session.
-- `functions/src/callables/hermesGateway.ts:1116-1193` - message send sealed-write path.
-- `functions/src/callables/hermesGateway.ts:1409-1605` - attachment init/finalize sealed upload path.
-- `OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/HermesRelayCrypto.swift:5-588` - relay security considerations, AAD, v2/v3 crypto.
+- `packages/functions-shared/src/hermesGateway.ts:41-189` - Gateway token/PoP model, relay envelope model, Signal staging, plaintext cutoff.
+- `packages/functions-shared/src/hermesGateway.ts:691-817` - Signal production gating and relay envelope validation.
+- `functions-media/src/domains/hermes/hermesGateway.ts` - body resolution and plaintext rejection.
+- `functions-media/src/domains/hermes/hermesGateway.ts` - bearer+PoP request resolution.
+- `functions-media/src/domains/hermes/hermesGateway.ts` - device start and pending pairing session.
+- `functions-media/src/domains/hermes/hermesGateway.ts` - message send sealed-write path.
+- `functions-media/src/domains/hermes/hermesGateway.ts` - attachment init/finalize sealed upload path.
+- `OpenBurnBarCore/Sources/OpenBurnBarHermesModels/HermesRelayCrypto.swift` - relay security considerations, AAD, v2/v3 crypto.
 - `OpenBurnBarCore/Sources/OpenBurnBarCore/SharedModels/HermesRatchetCrypto.swift:130-399` - ratchet encrypt/decrypt, skipped-key handling, AAD validation.
 - `OpenBurnBarCore/Sources/OpenBurnBarCore/SharedModels/HermesRelayAuthenticatedRequest.swift:91-260` - replay cache and authenticated relay opening.
 - `AgentLens/Services/HermesRelaySenderTrustResolver.swift:22-163` - pinned relay sender key and verified Signal identity resolver.
@@ -622,19 +622,19 @@ Audit note: this is a local trust boundary. A signed app compromise or local pri
 - `android/app/src/main/java/com/openburnbar/data/cloud/CloudVaultCrypto.kt:39-409` - Android CloudVault AAD and envelope compatibility.
 - `android/app/src/main/java/com/openburnbar/data/cloud/CloudVaultCrypto.kt:817-992` - Android device keypair and local secret box.
 - `OpenBurnBarCore/Sources/OpenBurnBarSignalCore/SignalAtRestSealer.swift:62-268` - Signal at-rest payload seal/open and sender authentication.
-- `OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/SignalEnvelopeAAD.swift:3-128` - Signal envelope canonical AAD binding.
-- `functions/src/callables/encryptedSearch.ts:52-907` - encrypted session blob upload/download, search index, project memory, search/query APIs.
-- `functions/src/callables/conversationQuery.ts:132-163` - plaintext facets and sealed row projection.
+- `OpenBurnBarCore/Sources/OpenBurnBarVaultModels/SignalEnvelopeAAD.swift:3-128` - Signal envelope canonical AAD binding.
+- `functions-sync/src/domains/search/encryptedSearch.ts` - encrypted session blob upload/download, search index, project memory, search/query APIs.
+- `functions-sync/src/callables/conversationQuery.ts` - plaintext facets and sealed row projection.
 
 ### Provider Secrets, Push, MCP, Agents, and Daemon
 
-- `functions/src/callables/providerAccounts.ts:43-249` - provider account connect and hosted credential storage entrypoints.
-- `functions/src/secrets.ts:1-263` - Secret Manager and KMS envelope encryption helpers.
+- `functions-identity/src/domains/identity/providerAccounts.ts` - provider account connect and hosted credential storage entrypoints.
+- `packages/functions-shared/src/secrets.ts:1-263` - Secret Manager and KMS envelope encryption helpers.
 - `functions/src/callables/shared.ts:1465-1607` - provider secret ref writes and provider adapter connection flow.
-- `functions/src/agentNotifications.ts:21-327` - generic agent reply notification payloads.
-- `functions/src/callables/voipPush.ts:14-113` and `functions/src/voipPush.ts:42-104` - call/VoIP push metadata.
-- `functions/src/callables/remoteMcp.ts:18-128` - remote MCP grants and encrypted-search-required behavior.
-- `functions/src/remoteMcpOAuth.ts:23-100` and `functions/src/remoteMcpGrant.ts:38-110` - HMAC tokens, refresh token hashing, grant expiry.
+- `functions-sync/src/domains/notify/agentNotificationTriggers.ts` - generic agent reply notification payloads.
+- `functions-media/src/domains/push/voipPush.ts` and `functions-media/src/voipPush.ts` - call/VoIP push metadata.
+- `functions-identity/src/domains/identity/remoteMcp.ts` - remote MCP grants and encrypted-search-required behavior.
+- `functions-identity/src/remoteMcpOAuth.ts` and `packages/functions-shared/src/remoteMcpGrant.ts` - HMAC tokens, refresh token hashing, grant expiry.
 - `services/hosted-mcp/src/auth.ts:83-152` and `services/hosted-mcp/src/server.ts:77-155` - hosted MCP bearer token and origin/protocol validation.
 - `tools/openburnbar-mcp-remote/src/vaultStore.ts:32-68` - local decrypt shim vault-key storage and insecure fallback opt-in.
 - `AgentLens/Services/CLIBridge/CLIProcessStreamRunner.swift:8-250` - local CLI runtime process execution.

@@ -14,7 +14,7 @@ Per-feature caps tighten automatically when hosted-relay budget enters soft cap 
 
 ## Storage
 
-Per-user usage is recorded in `users/{uid}/media_quota_usage/{YYYY-MM-DD}` per the schema in `functions/src/types.ts` (`MediaQuotaUsageDoc`). Mac writes during active sessions every 30 s in batched updates; the scheduled Cloud Function `recomputeMediaQuotaUsage` corrects drift hourly by re-reading `users/{uid}/iroh_audit_events` for the day.
+Per-user usage is recorded in `users/{uid}/media_quota_usage/{YYYY-MM-DD}` per the schema in `packages/functions-shared/src/types.ts` (`MediaQuotaUsageDoc`). Mac writes during active sessions every 30 s in batched updates; the scheduled Cloud Function `recomputeMediaQuotaUsage` corrects drift hourly by re-reading `users/{uid}/iroh_audit_events` for the day.
 
 ## Enforcement
 

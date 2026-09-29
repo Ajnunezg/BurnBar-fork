@@ -110,7 +110,7 @@ lane:
    (store-level exclusion + an end-to-end `MemoryCloudSyncDomain.sync()` run
    with every chat-lane lever open).
 2. **Cloaked-vector lane** — `users/{uid}/cloud_search_knowledge`
-   (`commitKnowledgeBatch` in `functions/src/callables/knowledgeMemory.ts`):
+   (`commitKnowledgeBatch` in `functions-sync/src/domains/knowledge/knowledgeMemory.ts`):
    the `SOURCE_KINDS` allowlist is exactly
    `{repo_docs, notes, chat_memory, code}`; `requireSourceKind` rejects
    `safari_ask` / `agent_session` on every write path. Pinned by

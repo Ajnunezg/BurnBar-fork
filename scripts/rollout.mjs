@@ -2,8 +2,12 @@
 /**
  * OpenBurnBar Progressive Rollout Manager
  *
- * Manages staged feature rollouts using Firebase Remote Config percentage conditions.
- * Implements ring-based deployment: 1% → 5% → 25% → 100% with automated health checks.
+ * Plans staged feature rollouts using Firebase Remote Config percentage conditions.
+ * Ring model: 1% → 5% → 25% → 100%. This is an operator CLI, not automation:
+ * --status reads the live template; --stage/--advance/--halt print the Remote
+ * Config change for a human to apply (the script never writes Remote Config),
+ * and no health metric is checked — --advance only prints the minimum dwell
+ * reminder. No workflow invokes this script.
  *
  * Usage:
  *   # List current rollout status for all flags:
@@ -12,7 +16,7 @@
  *   # Start a new rollout at 1%:
  *   node scripts/rollout.mjs --flag computer_use_system_enabled --stage ring-1
  *
- *   # Advance to next ring after health check passes:
+ *   # Advance to next ring (check health yourself first):
  *   node scripts/rollout.mjs --flag computer_use_system_enabled --advance
  *
  *   # Emergency halt (set to 0%):

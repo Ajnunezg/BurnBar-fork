@@ -180,8 +180,8 @@ are unaffected. Migration v62 is additive and nullable, so no data is lost.
 | Piece | Path |
 |---|---|
 | Canon schema | `tools/schema-sync/typespec/domains/war-room.tsp` |
-| Originator | `OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/BurnBarOriginator.swift` |
-| Wire gate | `OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/WarWireGate.swift` |
+| Originator | `OpenBurnBarCore/Sources/OpenBurnBarProviderModels/BurnBarOriginator.swift` |
+| Wire gate | `OpenBurnBarCore/Sources/OpenBurnBarHermesModels/WarWireGate.swift` |
 | Body publish / read | `AgentLens/Services/WarRoom/HermesBodyPublisher.swift`, `HermesBodyDirectory.swift` |
 | Hardware probe | `AgentLens/Services/WarRoom/MacHardwareInventory.swift` |
 | Grants | `AgentLens/Services/WarRoom/WarWireGrantStore.swift` |

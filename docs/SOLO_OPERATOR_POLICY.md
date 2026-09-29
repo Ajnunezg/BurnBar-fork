@@ -7,23 +7,52 @@ merged PR, `enforce_admins` toggled around merges, and on 06-11 a coverage gate
 relaxed to flip a red check on the team's own diff. The artifacts were strong;
 the _process integrity_ was not.
 
-This repository is run with a deliberately small reviewer set. Pretending that a
-rubber-stamp account is a second review is the failure mode those reviews caught,
-not a control. This document states the honest model instead: a **hybrid
-control** in which the live GitHub gate requires the non-author code-owner
+This repository is run with a deliberately small reviewer set and a single
+operator (risk AR-008; [`runbooks/HANDOVER.md`](runbooks/HANDOVER.md)). Pretending
+that a rubber-stamp account is a second review is the failure mode those reviews
+caught, not a control. This document states the intended model — a **hybrid
+control** in which the GitHub gate requires the non-author code-owner
 (`@Ajnunezg` or `@emilio3435`) and a credentialed AI reviewer posts a checkable
-verdict on every PR. It records what compensates for the small team, when a
-bounded break-glass merge is acceptable, and what is never acceptable.
+verdict on every PR — and, below, how far the live settings currently fall short
+of it. It records what compensates for the small team, when a bounded
+break-glass merge is acceptable, and what is never acceptable.
 
-## The hybrid control (what actually governs)
+## Live state vs. this policy (read from the GitHub API on 2026-09-28)
 
-1. **Small-team ownership, stated plainly.** The live reviewer set is
-   `@Ajnunezg` and `@emilio3435`. Branch protection requires one code-owner
-   approval, dismisses stale approvals, requires approval of the latest push, and
-   has zero standing PR-review bypass allowances. Because GitHub does not allow a
-   PR author to self-approve, a PR from one writer requires the other writer's
-   review. This is the configured control; do not describe it as stronger than
-   that.
+- **Declared** in [`governance/branch-protection.main.json`](../governance/branch-protection.main.json):
+  one approving review, code-owner review required, last-push approval required,
+  stale approvals dismissed, admin enforcement on.
+- **Live** on `main`: one approving review, stale approvals dismissed, admin
+  enforcement on — but `require_code_owner_reviews: false` and
+  `require_last_push_approval: false`. Any account with write access, including a
+  bot, can satisfy the review requirement.
+- **What actually approved:** the last 20 merged PRs (all authored by
+  `@Ajnunezg`) were approved only by the `Lionsfan4` account and/or the
+  `cursor[bot]` automation. `@emilio3435` approved none of them. Under this
+  policy a bot verdict is compensating analysis, never the required approval, so
+  those merges did not meet the intended control.
+- `NEEDS ALBERTO` (admin API write, not something an agent may do): re-apply
+  the declared protection so code-owner review and last-push approval are
+  enforced again, then confirm `bash scripts/ops/verify-github-governance.sh`
+  passes.
+- `NEEDS ALBERTO`: for each approving account (`Lionsfan4`, `@emilio3435`),
+  state whether it belongs to an independent person who reads the diff. An
+  account that does not must not be counted as review, and should not hold
+  write access that lets it satisfy the gate.
+
+Until both are done, describe the review gate as "one approval from any writer
+or bot", not as independent human review.
+
+## The hybrid control (intended)
+
+1. **Small-team ownership, stated plainly.** The intended reviewer set is
+   `@Ajnunezg` and `@emilio3435`. The declared branch protection requires one
+   code-owner approval, dismisses stale approvals, requires approval of the latest
+   push, and has zero standing PR-review bypass allowances. Because GitHub does not
+   allow a PR author to self-approve, a PR from one writer would then require the
+   other writer's review. The live settings do not enforce the code-owner and
+   latest-push parts today (see the live-state section above); do not describe the
+   control as stronger than what is live.
 2. **A credentialed AI reviewer posts a checkable verdict on every PR.** An
    independent AI review (the factory's Codex reviewer / `/code-review`) runs on
    the final diff of **every** PR and posts a **verdict artifact**: a durable,
@@ -39,7 +68,7 @@ bounded break-glass merge is acceptable, and what is never acceptable.
    lanes non-deadlocking, and the explicit sensitive rules make future expansion
    of the reviewer set auditable instead of hidden in a default catch-all.
 
-## The default (branch protection)
+## The default (declared branch protection)
 
 - `enforce_admins` stays **on**. It is not toggled to merge — that toggle, not
   the review gate, was the control the diligence reviews flagged.
@@ -74,7 +103,7 @@ bounded break-glass merge is acceptable, and what is never acceptable.
 
 - Crypto / E2EE lanes (`CloudVault*`, Signal-HPKE, key handling).
 - Privileged input: daemon/HID/XPC/socket paths.
-- Billing / entitlements (`functions/src/callables/stripe.ts`, `shared.ts`
+- Billing / entitlements (`functions-identity/src/domains/billing/stripe.ts`, `shared.ts`
   entitlement writes).
 - Firestore / storage security rules.
 - Release / deploy workflows and the provenance manifest
