@@ -175,7 +175,10 @@ tools/**/lib/
 packages/**/node_modules/
 packages/**/lib/
 
-# Local-only Factory skills and xcodegen scratch
+# Factory skills are local-only by default. A skill the repo shares (every
+# SKILL.md under .factory/skills/ that git tracks today) is added once with
+# `git add -f` and is then tracked normally; this rule only hides new local ones.
+# xcodegen scratch stays local.
 .factory/skills/
 .xcodegen-validate/
 .gstack/
