@@ -1,0 +1,337 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://burnbar.ai/schemas/firestore-restore-drill-receipt.schema.json",
+  "title": "OpenBurnBar Firestore restore drill receipt",
+  "description": "Redaction-safe receipt for a Firestore restore drill: a PITR clone or backup restore into a throwaway dr-drill-* database, verified by comparing collection-group document counts between the source snapshot and the restored database. Project IDs, resource paths, backup names, access tokens, and operator identities are intentionally not part of this contract. Written by scripts/ops/run-firestore-restore-drill.sh; required by scripts/commercial-launch-gate.mjs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schemaVersion",
+    "generatedAt",
+    "mode",
+    "liveDrill",
+    "ok",
+    "source",
+    "restore",
+    "counts",
+    "cleanup",
+    "posture",
+    "failures"
+  ],
+  "properties": {
+    "schema": {
+      "const": "openburnbar.firestore-restore-drill-receipt.v1"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mode": {
+      "description": "clone restores a PITR snapshot taken at a whole minute; backup restores a READY scheduled backup.",
+      "enum": [
+        "clone",
+        "backup"
+      ]
+    },
+    "liveDrill": {
+      "description": "True only when the counts were read from firestore.googleapis.com. A loopback test server (FIRESTORE_DRILL_API_BASE) yields false, and the launch gate rejects such a receipt.",
+      "type": "boolean"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "databaseId",
+        "snapshotTime"
+      ],
+      "properties": {
+        "databaseId": {
+          "description": "Firestore database ID only; never a projects/... resource path.",
+          "type": "string",
+          "pattern": "^(\\(default\\)|[a-z][a-z0-9-]{2,61}[a-z0-9])$"
+        },
+        "snapshotTime": {
+          "description": "The PITR clone time, or the restored backup's snapshotTime.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "restore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "databaseId",
+        "operationDone",
+        "elapsedSeconds"
+      ],
+      "properties": {
+        "databaseId": {
+          "type": "string",
+          "pattern": "^dr-drill-[a-z0-9-]+$"
+        },
+        "operationDone": {
+          "description": "The restore operation finished without an error.",
+          "type": "boolean"
+        },
+        "elapsedSeconds": {
+          "description": "Wall-clock seconds from issuing the restore to observing it done; the drill's RTO measurement.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "counts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collectionGroup",
+          "sourceCount",
+          "restoredCount",
+          "match",
+          "vacuous"
+        ],
+        "properties": {
+          "collectionGroup": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,100}$"
+          },
+          "sourceCount": {
+            "description": "Clone: the count at the snapshot time. Backup: the counts at the whole minutes on either side of the backup's snapshotTime, because PITR reads older than one hour must use whole minutes. Null when the source read failed.",
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "floor",
+                  "ceil"
+                ],
+                "properties": {
+                  "floor": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "ceil": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            ]
+          },
+          "restoredCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "match": {
+            "description": "The restored count equals the source count (clone) or lies inside the floor/ceil range (backup).",
+            "type": "boolean"
+          },
+          "vacuous": {
+            "description": "The source held no documents in this collection group, so a match proves nothing on its own.",
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested",
+        "databaseDeleted"
+      ],
+      "properties": {
+        "requested": {
+          "description": "False when FIRESTORE_DRILL_CLEANUP=0 kept the drill database for incident inspection.",
+          "type": "boolean"
+        },
+        "databaseDeleted": {
+          "description": "The drill's own delete call for the drill database succeeded.",
+          "type": "boolean"
+        }
+      }
+    },
+    "posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok"
+      ],
+      "properties": {
+        "ok": {
+          "description": "scripts/ops/verify-firestore-disaster-recovery.sh passed against the source database.",
+          "type": "boolean"
+        }
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "properties": {
+              "snapshotTime": {
+                "type": "string"
+              }
+            }
+          },
+          "restore": {
+            "properties": {
+              "operationDone": {
+                "const": true
+              },
+              "elapsedSeconds": {
+                "type": "integer"
+              }
+            }
+          },
+          "counts": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "match": {
+                  "const": true
+                }
+              }
+            },
+            "contains": {
+              "properties": {
+                "vacuous": {
+                  "const": false
+                }
+              }
+            }
+          },
+          "cleanup": {
+            "properties": {
+              "requested": {
+                "const": true
+              },
+              "databaseDeleted": {
+                "const": true
+              }
+            }
+          },
+          "posture": {
+            "properties": {
+              "ok": {
+                "const": true
+              }
+            }
+          },
+          "failures": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "failures": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "clone"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "counts": {
+            "items": {
+              "properties": {
+                "sourceCount": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "backup"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "counts": {
+            "items": {
+              "properties": {
+                "sourceCount": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
