@@ -554,31 +554,32 @@ impl AuthorizedConnection {
         tokio::spawn(async move {
             while let Some(event) = events.next().await {
                 let mapped = match event {
-                    iroh::endpoint::PathEvent::Opened { id, remote_addr } => {
-                        TransportPathEvent::Opened {
-                            path_id: id.to_string(),
-                            remote_addr: remote_addr.to_string(),
-                            kind: classify_addr(&remote_addr),
-                        }
-                    }
+                    iroh::endpoint::PathEvent::Opened {
+                        id, remote_addr, ..
+                    } => TransportPathEvent::Opened {
+                        path_id: id.to_string(),
+                        remote_addr: remote_addr.to_string(),
+                        kind: classify_addr(&remote_addr),
+                    },
                     iroh::endpoint::PathEvent::Closed {
                         id,
                         remote_addr,
                         last_stats,
+                        ..
                     } => TransportPathEvent::Closed {
                         path_id: id.to_string(),
                         remote_addr: remote_addr.to_string(),
                         kind: classify_addr(&remote_addr),
                         rtt_micros: u64_saturating_from_u128(last_stats.rtt.as_micros()),
                     },
-                    iroh::endpoint::PathEvent::Selected { id, remote_addr } => {
-                        TransportPathEvent::Selected {
-                            path_id: id.to_string(),
-                            remote_addr: remote_addr.to_string(),
-                            kind: classify_addr(&remote_addr),
-                        }
-                    }
-                    iroh::endpoint::PathEvent::Lagged { missed } => {
+                    iroh::endpoint::PathEvent::Selected {
+                        id, remote_addr, ..
+                    } => TransportPathEvent::Selected {
+                        path_id: id.to_string(),
+                        remote_addr: remote_addr.to_string(),
+                        kind: classify_addr(&remote_addr),
+                    },
+                    iroh::endpoint::PathEvent::Lagged { missed, .. } => {
                         TransportPathEvent::Lagged { missed }
                     }
                     _ => TransportPathEvent::Unknown,

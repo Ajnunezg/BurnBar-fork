@@ -1,5 +1,6 @@
 export const memory: WebAssembly.Memory;
 export const __wbg_cloudvaultescrowwireparts_free: (a: number, b: number) => void;
+export const __wbg_cloudvaultrecoverywrappedvaultkey_free: (a: number, b: number) => void;
 export const __wbg_cloudvaultsearchanalysis_free: (a: number, b: number) => void;
 export const __wbg_cloudvaultsearchresult_free: (a: number, b: number) => void;
 export const calculateTokenCostNanoUsd: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
@@ -34,6 +35,7 @@ export const cloudVaultSubscriptionDocId: (a: number, b: number, c: number, d: n
 export const cloudVaultValidateP256X963PublicKey: (a: number, b: number, c: number) => void;
 export const cloudvaultescrowwireparts_aesGcmCombined: (a: number, b: number) => void;
 export const cloudvaultescrowwireparts_ephemeralPublicKey: (a: number, b: number) => void;
+export const cloudvaultrecoverywrappedvaultkey_combined: (a: number, b: number) => void;
 export const cloudvaultrecoverywrappedvaultkey_verificationHash: (a: number, b: number) => void;
 export const cloudvaultsearchanalysis_exactPhraseTokenAt: (a: number, b: number, c: number) => void;
 export const cloudvaultsearchanalysis_exactPhraseTokenCount: (a: number) => number;
@@ -54,9 +56,7 @@ export const pensieveDeterministicEmbedAndCloak: (a: number, b: number, c: numbe
 export const pensieveL2Normalize: (a: number, b: number, c: number) => void;
 export const pensieveVectorCloak: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => void;
 export const priceLegacyKimiWireEvent: (a: number, b: bigint, c: bigint, d: bigint, e: bigint) => void;
-export const __wbg_cloudvaultrecoverywrappedvaultkey_free: (a: number, b: number) => void;
-export const cloudvaultrecoverywrappedvaultkey_combined: (a: number, b: number) => void;
 export const __wbindgen_add_to_stack_pointer: (a: number) => number;
-export const __wbindgen_export: (a: number, b: number, c: number) => void;
-export const __wbindgen_export2: (a: number, b: number) => number;
-export const __wbindgen_export3: (a: number, b: number, c: number, d: number) => number;
+export const __wbindgen_export: (a: number, b: number) => number;
+export const __wbindgen_export2: (a: number, b: number, c: number, d: number) => number;
+export const __wbindgen_export3: (a: number, b: number, c: number) => void;

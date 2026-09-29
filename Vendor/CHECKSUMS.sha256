@@ -3,6 +3,6 @@
 #   scripts/supply-chain/refresh-vendor-checksums.sh
 # after re-vendoring an AAR; scripts/supply-chain/verify-vendor-checksums.sh
 # fails on any binary without an entry, any entry without a binary, and any drift.
-dd83d351b9348a9a1e9e03694a2b9d31238d844a298a6e218f0162e39e359b75  burnbar-remote.aar
-b5eab11d3d7ed6db21c5ab9c4859dc7d1a2b88a0864e954322dc4b49832b9c76  openburnbar-domain-core.aar
-bdc4302c784c68b717adcafe231ea7410804197d13ff01325b11d36ce619b1a1  openburnbar-iroh.aar
+283a5bbe9af30eefea6f9453c454cbae4086c10402f4eb0b5154740ba735719d  burnbar-remote.aar
+7cbb0733932f6c3298331c9beed7f2b81377ca9467eb98965519a43472172252  openburnbar-domain-core.aar
+ba4b676fa10a8f73f554aa222a8ee3771ad11b989052b6e41472a5330f2129b8  openburnbar-iroh.aar
