@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-const required = { major: 22, minor: 19, patch: 0 };
+// eslint-plugin-astro 3 (ESLint 10) requires ^22.22.3 || ^24.16.0 || >=26.3.0.
+const required = { major: 22, minor: 22, patch: 3 };
 
 function parseVersion(raw) {
   const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(raw);
@@ -23,7 +24,7 @@ const current = parseVersion(process.version);
 if (!current || !isAtLeast(current, required)) {
   console.error(
     [
-      "OpenBurnBar website requires Node >=22.19.0.",
+      "OpenBurnBar website requires Node >=22.22.3.",
       `Current Node is ${process.version}.`,
       "Run `nvm use` from the repo root or website/ before running website commands.",
     ].join("\n"),
