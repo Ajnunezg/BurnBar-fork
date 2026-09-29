@@ -5,6 +5,7 @@ const BLOCKER_LABEL = "known-red-named-blocker";
 const ESCALATED_LABEL = "escalated:72h";
 const REPAGE_LABEL = "repage:7d";
 const PAGED_LABEL = "paged:ops";
+const UNDELIVERED_LABEL = "paging:undelivered";
 const INFRA_REASON_CODES = new Set([
   "emulator-not-ready",
   "emulator-start-skipped",
@@ -261,6 +262,62 @@ function shouldPageP0({ mode, labels, repageUntilGreen = false }) {
   return { shouldPage: true, reason: "p0-unpaged" };
 }
 
+/**
+ * Decide what an ops run must do about paging delivery. Undelivered paging is
+ * a loud failure, never a warning: a due P0 page that could not be sent (no
+ * OPS_PAGING_SLACK_WEBHOOK, non-2xx, timeout, network error) fails the ops job,
+ * and the first failure of a streak comments on the issue and adds
+ * `paging:undelivered`; the next delivered page clears the label. A P0 lane
+ * without a webhook fails even when no page is due (already paged), because
+ * its next page would be dropped. Close mode and non-P0 lanes (which do not
+ * page) are never affected. The returned text never contains the webhook URL.
+ *
+ * @param {object} params
+ * @param {string} params.mode              - "open" | "close"
+ * @param {Array}  params.labels            - labels on the issue (strings or {name})
+ * @param {boolean} params.webhookConfigured - OPS_PAGING_SLACK_WEBHOOK is non-empty
+ * @param {boolean} params.pageDue          - an initial / repage-until-green / seven-day page is due
+ * @param {{ok: boolean, status?: number|null, errorName?: string}|null} [params.delivery]
+ * @returns {{failJob: boolean, reason: string, detail: string|null, comment: string|null, addUndeliveredLabel: boolean, removeUndeliveredLabel: boolean}}
+ */
+function evaluatePagingDelivery({ mode, labels, webhookConfigured, pageDue, delivery = null }) {
+  const names = new Set(
+    (labels || [])
+      .map((label) => (typeof label === "string" ? label : label?.name))
+      .filter(Boolean)
+  );
+  const quiet = { failJob: false, detail: null, comment: null, addUndeliveredLabel: false, removeUndeliveredLabel: false };
+  if (mode !== "open" || !names.has(P0_LABEL)) return { ...quiet, reason: "not-applicable" };
+  const firstOfStreak = !names.has(UNDELIVERED_LABEL);
+  const undelivered = (reason, detail) => ({
+    failJob: true,
+    reason,
+    detail,
+    comment: firstOfStreak ? `Paging NOT delivered: ${detail}` : null,
+    addUndeliveredLabel: firstOfStreak,
+    removeUndeliveredLabel: false,
+  });
+  if (!webhookConfigured) {
+    return undelivered(
+      "webhook-unset",
+      pageDue
+        ? "a P0 page was due but the OPS_PAGING_SLACK_WEBHOOK repository secret is not configured. Set it (see docs/runbooks/alert-delivery-drill.md) and re-run."
+        : "the OPS_PAGING_SLACK_WEBHOOK repository secret is not configured, so the next P0 page for this lane would be dropped. Set it (see docs/runbooks/alert-delivery-drill.md).",
+    );
+  }
+  if (!pageDue) return { ...quiet, reason: "no-page-due" };
+  if (delivery?.ok === true) {
+    return { ...quiet, reason: "delivered", removeUndeliveredLabel: !firstOfStreak };
+  }
+  const status = Number.isInteger(delivery?.status) ? delivery.status : null;
+  return undelivered(
+    status === null ? "post-failed" : `http-${status}`,
+    status === null
+      ? `the Slack webhook request failed (${delivery?.errorName || "no response"}). Check the webhook and run the ops paging drill.`
+      : `the Slack webhook returned HTTP ${status}. Rotate or fix OPS_PAGING_SLACK_WEBHOOK and run the ops paging drill.`,
+  );
+}
+
 module.exports = {
   BLOCKER_LABEL,
   BUDGET_REASON_CODES,
@@ -273,8 +330,10 @@ module.exports = {
   PAGED_LABEL,
   REPAGE_LABEL,
   SEVEN_DAY_REPAGE_AFTER_MS,
+  UNDELIVERED_LABEL,
   classifyFailure,
   evaluateP0Escalation,
+  evaluatePagingDelivery,
   evaluateSevenDayRepage,
   shouldRepageP0,
   shouldPageP0,
