@@ -167,8 +167,11 @@ extension BurnBarProjectCodeMemoryStore {
     static func enumerateIndexableFiles(root: URL, maxFiles: Int) -> [URL] {
         let patterns = gitignorePatterns(root: root)
         let canonicalRoot = root.resolvingSymlinksInPath().standardizedFileURL
+        // nil when git could not answer (not a worktree, failed, timed out, or
+        // over the output cap): fall back to .gitignore patterns rather than
+        // treat that as "nothing ignored".
         let gitIgnored = gitIgnoredPaths(root: canonicalRoot)
-        let useGitIgnore = isGitWorktree(root: canonicalRoot)
+        let useGitIgnore = gitIgnored != nil
         guard let enumerator = FileManager.default.enumerator(
             at: root,
             includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey],
@@ -187,13 +190,13 @@ extension BurnBarProjectCodeMemoryStore {
             if let resource = try? url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey]),
                resource.isDirectory == true {
                 if ignoredDirectories.contains(url.lastPathComponent)
-                    || isGitIgnored(relativePath, isDirectory: true, ignoredPaths: gitIgnored)
+                    || isGitIgnored(relativePath, isDirectory: true, ignoredPaths: gitIgnored ?? [])
                     || (useGitIgnore == false && isIgnored(relativePath, isDirectory: true, patterns: patterns)) {
                     enumerator.skipDescendants()
                 }
                 continue
             }
-            if isGitIgnored(relativePath, isDirectory: false, ignoredPaths: gitIgnored)
+            if isGitIgnored(relativePath, isDirectory: false, ignoredPaths: gitIgnored ?? [])
                 || (useGitIgnore == false && isIgnored(relativePath, isDirectory: false, patterns: patterns)) { continue }
             let ext = url.pathExtension.lowercased()
             guard indexedExtensions.contains(ext) else { continue }
@@ -913,8 +916,8 @@ extension BurnBarProjectCodeMemoryStore {
         FileManager.default.fileExists(atPath: root.appendingPathComponent(".git", isDirectory: false).path)
     }
 
-    static func gitIgnoredPaths(root: URL) -> Set<String> {
-        guard isGitWorktree(root: root) else { return [] }
+    static func gitIgnoredPaths(root: URL) -> Set<String>? {
+        guard isGitWorktree(root: root) else { return nil }
         let process = hardenedGitProcess(
             root: root,
             // Default untracked mode: a fully ignored tree (node_modules/,
@@ -925,7 +928,7 @@ extension BurnBarProjectCodeMemoryStore {
         )
         guard let data = runHelperProcess(process),
               process.terminationStatus == 0 else {
-            return []
+            return nil
         }
         return Set(data.split(separator: 0).compactMap { raw -> String? in
             let entry = String(decoding: raw, as: UTF8.self)

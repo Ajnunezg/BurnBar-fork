@@ -106,10 +106,33 @@ final class BurnBarProjectCodeMemoryHelperProcessTests: XCTestCase {
             FileManager.default.createFile(atPath: root.appendingPathComponent("\(name)-\(index).log").path, contents: nil)
         }
 
-        let ignored = BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root)
+        let ignored = try XCTUnwrap(BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root))
 
         XCTAssertEqual(ignored.count, 2_000)
         XCTAssertTrue(ignored.contains("\(name)-1999.log"))
+    }
+
+    func test_ignore_pruning_falls_back_to_gitignore_when_git_status_overflows_the_cap() throws {
+        // Glob-ignored files stay one status entry each, so a big enough
+        // generated tree overflows the cap. That must not read as "nothing
+        // is ignored" and let every generated file into the index.
+        setenv("OPENBURNBAR_CODE_HELPER_MAX_OUTPUT_BYTES", "16384", 1)
+        defer { unsetenv("OPENBURNBAR_CODE_HELPER_MAX_OUTPUT_BYTES") }
+        let root = try makeRepository(ignoring: "*.generated.swift\n")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let name = String(repeating: "g", count: 40)
+        for index in 0..<1_000 {
+            FileManager.default.createFile(
+                atPath: root.appendingPathComponent("\(name)-\(index).generated.swift").path,
+                contents: Data("let x = 1\n".utf8)
+            )
+        }
+        FileManager.default.createFile(atPath: root.appendingPathComponent("Kept.swift").path, contents: Data("let y = 2\n".utf8))
+
+        XCTAssertNil(BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root))
+        let files = BurnBarProjectCodeMemoryStore.enumerateIndexableFiles(root: root, maxFiles: 5_000)
+
+        XCTAssertEqual(files.map(\.lastPathComponent), ["Kept.swift"])
     }
 
     func test_git_ignored_paths_collapses_an_ignored_tree_to_its_directory() throws {
@@ -123,7 +146,7 @@ final class BurnBarProjectCodeMemoryHelperProcessTests: XCTestCase {
             FileManager.default.createFile(atPath: nested.appendingPathComponent("\(index).js").path, contents: nil)
         }
 
-        let ignored = BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root)
+        let ignored = try XCTUnwrap(BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root))
 
         XCTAssertEqual(ignored, ["node_modules"])
         XCTAssertTrue(BurnBarProjectCodeMemoryStore.isGitIgnored(
