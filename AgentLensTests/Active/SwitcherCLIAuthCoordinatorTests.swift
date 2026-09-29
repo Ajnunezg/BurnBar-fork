@@ -2137,8 +2137,10 @@ final class AccountManagerTests: XCTestCase {
     }
 
     func test_isCloudSyncEnabled_defaultValue() {
-        let manager = AccountManager()
-        XCTAssertTrue(manager.isCloudSyncEnabled)
+        // Wave 0.5 consent: a missing key means "never chose", so sync is off.
+        // Isolated suite so the test host's real app defaults cannot leak an opt-in.
+        let manager = AccountManager(userDefaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+        XCTAssertFalse(manager.isCloudSyncEnabled)
     }
 
     // MARK: - Account identity observers (Memory Blind Sync PR-2)

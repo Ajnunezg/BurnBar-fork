@@ -16,10 +16,9 @@ extension Color {
     /// hexes so editorial ink hairlines can carry alpha.
     static func adaptive(editorial: String, light: String, dark: String) -> Color {
         Color(NSColor(name: nil) { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let hex: String = isDark
-                ? dark
-                : (AppSkin.current == .editorial ? editorial : light)
+            let hex: String = AppSkin.current == .editorial
+                ? editorial
+                : (appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light)
             return NSColor(nsColorHex: hex)
         })
     }

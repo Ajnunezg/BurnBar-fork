@@ -841,9 +841,9 @@ private struct DataControlCenterSettingsLanding: View {
 extension SettingsManager {
     var preferredSwiftUIColorScheme: ColorScheme? {
         _ = appearanceMutationVersionForPresentation
-        if let modeScheme = appearance.appearanceMode.colorScheme {
-            return modeScheme
-        }
-        return appearance.appearanceSkin == .editorial ? .light : nil
+        // Editorial is light-locked (docs/EDITORIAL_SKIN.md): its paper palette
+        // must never sit on a dark app appearance, regardless of the mode picker.
+        if appearance.appearanceSkin == .editorial { return .light }
+        return appearance.appearanceMode.colorScheme
     }
 }
