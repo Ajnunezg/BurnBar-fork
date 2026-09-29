@@ -15,14 +15,14 @@ Track trends monthly against targets in [TECH_DEBT_STRATEGY.md](TECH_DEBT_STRATE
 | `@MainActor` on I/O facades (listed set) | 3 | 4 | 0 |
 | Empty `catch {}` blocks (app + daemon) | 0 | 0 | 0 |
 | `Task.detached` in `AgentLens/Services/` | 30 | ≤ 10 | 0 |
-| `try?` in `AgentLens/Services/` (untagged debt / tagged `try?-ok` best-effort) | 0 untagged (476 tagged) | ≤ 120 | ≤ 50 |
-| Unsafe cast assert-zero gate | 0 | 0 | 0 |
+| `try?` in `AgentLens/Services/` (untagged debt / tagged `try?-ok` best-effort) | 0 untagged (485 tagged) | ≤ 120 | ≤ 50 |
+| Unsafe cast assert-zero gate | 2 | 0 | 0 |
 | Untyped GRDB row cast assert-zero gate | 0 | 0 | 0 |
 | Untyped `[String: Any]` dictionaries (App: 285, Mobile: 155, Core: 227, Daemon: 110) | 777 total | shrinking | ≤ 500 |
 | Knip dead-code budget (`budgets/knip-baseline.json`, functions) | 0 | 0 | 0 |
 | Schema `knownDrift` tokens (`tools/schema-sync/manifest.json`) | 0 | 0 | 0 |
 | `@unchecked Sendable` ratchet (assert-zero gate; 91 documented allowlist exceptions) | 0 (91 allowlisted) | 0 | 0 |
-| Top-4 service LOC (CloudSync + Search + UsageAgg + Projection) | 4334 | ≤ 5000 | ≤ 3500 |
+| Top-4 service LOC (CloudSync + Search + UsageAgg + Projection) | 4220 | ≤ 5000 | ≤ 3500 |
 | `packages/functions-shared/src/types.ts` LOC (barrel) | 8 | stable (re-export) | — |
 | `packages/functions-shared/src/types/legacy.ts` LOC | 19 | shrinking (TypeSpec migration) | — |
 | `functions/src/index.ts` LOC | 30 | modularize | — |
@@ -38,7 +38,7 @@ Track trends monthly against targets in [TECH_DEBT_STRATEGY.md](TECH_DEBT_STRATE
 | `AgentLens/Services/CloudSyncService.swift` | 255 |
 | `AgentLens/Services/Search/` (SearchService + extensions) | 1543 |
 | `AgentLens/Services/UsageAggregator.swift` | 826 |
-| `AgentLens/Services/ProjectionPipeline/` | 1710 |
+| `AgentLens/Services/ProjectionPipeline/` | 1596 |
 
 ## Remediation links
 
