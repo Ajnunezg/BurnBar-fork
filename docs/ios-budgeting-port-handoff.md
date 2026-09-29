@@ -82,8 +82,8 @@ The iOS app uses `@Observable @MainActor` classes for all stores (see [`Dashboar
 
 ### 2A. BudgetRulesStore
 
-**macOS source**: [`AgentLens/Services/DataStore/BudgetRulesStore.swift`](file:///Users/albertonunez/Documents/Windsurf/BurnBar/AgentLens/Services/DataStore/BudgetRulesStore.swift) (295 lines)
-**iOS target**: `OpenBurnBarMobile/Models/BudgetRulesStore.swift`
+**macOS source**: [`AgentLens/Services/DataStore/GRDBBudgetRulesStore.swift`](file:///Users/albertonunez/Documents/Windsurf/BurnBar/AgentLens/Services/DataStore/BudgetRulesStore.swift) (295 lines)
+**iOS target**: `OpenBurnBarMobile/Models/FirestoreBudgetRulesStore.swift`
 
 SQLite CRUD against `budget_rules` and `budget_events`. **Pure GRDB** — no Firestore, no platform-specific code. The macOS version is `final class BudgetRulesStore: @unchecked Sendable` with a `DatabaseWriter` dependency.
 
@@ -154,8 +154,8 @@ migrator.registerMigration("v42_budget_rules_and_events") { db in
 
 ### 2B. BudgetSettings
 
-**macOS source**: [`AgentLens/Services/DataStore/BudgetSettings.swift`](file:///Users/albertonunez/Documents/Windsurf/BurnBar/AgentLens/Services/DataStore/BudgetSettings.swift) (188 lines)
-**iOS target**: `OpenBurnBarMobile/Models/BudgetSettings.swift`
+**macOS source**: [`AgentLens/Services/Settings/Stores/BudgetSettings+AgentLens.swift`](file:///Users/albertonunez/Documents/Windsurf/BurnBar/AgentLens/Services/DataStore/BudgetSettings.swift) (188 lines)
+**iOS target**: `OpenBurnBarMobile/Models/BudgetSettings+Mobile.swift`
 
 Observable façade over `BudgetRulesStore`. Pattern: `@Observable @MainActor final class`. This is the **write entry point** for UI, Hermes, and MCP. Maintains an in-memory cache of all enabled rules refreshed on every write.
 
@@ -202,8 +202,8 @@ final class BudgetSettings {
 
 ### 2C. BudgetLedger
 
-**macOS source**: [`AgentLens/Services/DataStore/BudgetLedger.swift`](file:///Users/albertonunez/Documents/Windsurf/BurnBar/AgentLens/Services/DataStore/BudgetLedger.swift) (88 lines)
-**iOS target**: `OpenBurnBarMobile/Models/BudgetLedger.swift`
+**macOS source**: [`AgentLens/Services/DataStore/GRDBBudgetLedger.swift`](file:///Users/albertonunez/Documents/Windsurf/BurnBar/AgentLens/Services/DataStore/BudgetLedger.swift) (88 lines)
+**iOS target**: `OpenBurnBarMobile/Models/RollupBudgetLedger.swift`
 
 Swift `actor` that queries `token_usage` for running totals. The SQL is tight and indexed — a single `SELECT COALESCE(SUM(cost), 0) FROM token_usage WHERE ...` per rule.
 
@@ -286,7 +286,7 @@ struct BudgetBlockedError: Error, LocalizedError, Sendable {
 ### 2E. BudgetForecast
 
 **macOS source**: [`AgentLens/Services/DataStore/BudgetForecast.swift`](file:///Users/albertonunez/Documents/Windsurf/BurnBar/AgentLens/Services/DataStore/BudgetForecast.swift) (148 lines)
-**iOS target**: `OpenBurnBarMobile/Models/BudgetForecast.swift`
+**iOS target**: `OpenBurnBarMobile/Models/RollupBudgetForecast.swift`
 
 Swift `actor` that produces forward projections. Answers "at the current burn rate, when will this rule's running spend cross the limit?"
 
@@ -320,8 +320,8 @@ actor BudgetForecast {
 
 ### 2F. BudgetNotificationCenter
 
-**macOS source**: [`AgentLens/Services/DataStore/BudgetNotificationCenter.swift`](file:///Users/albertonunez/Documents/Windsurf/BurnBar/AgentLens/Services/DataStore/BudgetNotificationCenter.swift) (71 lines)
-**iOS target**: `OpenBurnBarMobile/Services/BudgetNotificationCenter.swift`
+**macOS source**: [`AgentLens/Services/DataStore/BudgetNotificationCenter+AgentLens.swift`](file:///Users/albertonunez/Documents/Windsurf/BurnBar/AgentLens/Services/DataStore/BudgetNotificationCenter.swift) (71 lines)
+**iOS target**: `OpenBurnBarMobile/Services/BudgetNotificationCenter+Mobile.swift`
 
 `UNUserNotificationCenter`-based notifications. Debounces 80% warnings to one per `(rule, period)`. 100% blocks always fire.
 
@@ -348,7 +348,7 @@ final class BudgetNotificationCenter {
 ### 2G. BudgetEnforcement (singleton wiring)
 
 **macOS source**: [`AgentLens/Services/DataStore/BudgetEnforcement.swift`](file:///Users/albertonunez/Documents/Windsurf/BurnBar/AgentLens/Services/DataStore/BudgetEnforcement.swift) (154 lines)
-**iOS target**: `OpenBurnBarMobile/Models/BudgetEnforcement.swift`
+**iOS target**: `OpenBurnBarCore/Sources/OpenBurnBarKernel/Budget/BudgetEnforcement.swift`
 
 Process-wide singleton that gate-aware call sites use. Before configuration, `evaluate()` returns `.allow` so test harnesses work.
 
@@ -786,7 +786,7 @@ match /users/{userId}/budgetEvents/{eventId} {
 
 ### Gap 2: Missing TypeScript Schema
 
-`functions/src/types.ts` has no `BudgetRuleDoc` or `BudgetEventDoc` interfaces, even though Firestore collections exist. The Swift `BudgetRule` model in OpenBurnBarCore is the de facto schema. Add TypeScript mirrors to `types.ts` for consistency.
+`packages/functions-shared/src/types.ts` has no `BudgetRuleDoc` or `BudgetEventDoc` interfaces, even though Firestore collections exist. The Swift `BudgetRule` model in OpenBurnBarCore is the de facto schema. Add TypeScript mirrors to `types.ts` for consistency.
 
 ### Gap 3: Zero macOS Unit Tests for Budget Stack
 

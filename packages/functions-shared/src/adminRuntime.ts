@@ -13,7 +13,7 @@ import "./sentry.js";
 import { FUNCTIONS_REGION } from "./runtimeOptions.js";
 
 // Pin every function to the single deployment region (see
-// docs/ARCHITECTURE/region-strategy.md). Set early so functions that do not
+// docs/architecture/region-strategy.md). Set early so functions that do not
 // specify a region inherit it; per-function options still pass FUNCTIONS_REGION.
 setGlobalOptions({ region: FUNCTIONS_REGION });
 

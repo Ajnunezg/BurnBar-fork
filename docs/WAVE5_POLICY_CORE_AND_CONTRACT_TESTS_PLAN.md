@@ -26,7 +26,7 @@ ONE pure decision core — inputs: rules, spend snapshots, request descriptor �
 ## 2. WS1 — remaining un-fork work (Swift)
 
 ### 2.1 `BudgetCredentialIdentity` hashing → Core
-`AgentLensCredentialIdentity` (`AgentLens/.../BudgetEnforcement.swift:129-161`) and `MobileCredentialIdentity` (`OpenBurnBarMobile/Models/BudgetEnforcement.swift:161-192`) are byte-identical FNV-1a slot-hash builders. Move once into `OpenBurnBarCore/Sources/OpenBurnBarCore/Budget/BudgetCredentialIdentityBuilder.swift`; seams keep a typealias. Pure move + dedupe; existing tests keep passing.
+`AgentLensCredentialIdentity` (`AgentLens/.../BudgetEnforcement.swift:129-161`) and `MobileCredentialIdentity` (`OpenBurnBarCore/Sources/OpenBurnBarKernel/Budget/BudgetEnforcement.swift`) are byte-identical FNV-1a slot-hash builders. Move once into `OpenBurnBarCore/Sources/OpenBurnBarCore/Budget/BudgetCredentialIdentityBuilder.swift`; seams keep a typealias. Pure move + dedupe; existing tests keep passing.
 
 ### 2.2 `BudgetEnforcement` pure parts → Core
 Split BudgetEnforcement into:

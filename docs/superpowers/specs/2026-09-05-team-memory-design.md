@@ -34,7 +34,7 @@ In this single-user model, user authorization is synonymous with user namespace 
 ### 2.2 The Named Server-Side Writer: `TeamRosterService`
 To maintain a strict security boundary, team roster state is managed exclusively by an authoritative server-side writer:
 - **Service Name:** `TeamRosterService`
-- **Implementation:** Firebase Cloud Functions running with Firebase Admin SDK credentials (`functions/src/teamRoster.ts`).
+- **Implementation:** Firebase Cloud Functions running with Firebase Admin SDK credentials (`functions-identity/src/teamRoster.ts`).
 - **Callable Entrypoints:**
   - `createTeam(name, billingAccountId)`: Creates team entity and assigns caller as `admin`.
   - `inviteTeamMember(teamId, inviteeEmail, role)`: Emits an authenticated cryptographic invitation token.

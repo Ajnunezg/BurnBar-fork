@@ -9,7 +9,7 @@ kill flag → entitlement (lane-scoped) → validate → estimate → RESERVE
          → OpenRouter (CoreWeave-pinned) → SETTLE actual → respond
 ```
 
-Source of truth: `functions/src/callables/usageCuration.ts` plus the
+Source of truth: `functions-sync/src/domains/usage/usageCuration.ts` plus the
 `functions/src/usageCuration/` modules (`limits.ts`, `allowance.ts`,
 `openrouterClient.ts`, `prompt.ts`). This page documents the operational
 contract; when it disagrees with the code, the code wins and this page needs a
@@ -128,7 +128,7 @@ Semantics (mirrors the cloudProAllowance reservation pattern):
 ## Resilience
 
 The OpenRouter call goes through `modelInferenceFetch`
-(`functions/src/resilienceHelpers.ts`): a provider-isolated circuit breaker
+(`packages/functions-shared/src/resilienceHelpers.ts`): a provider-isolated circuit breaker
 (`model_inference:openrouter`) with a 60-second cap and NO retry — inference
 is paid, non-idempotent work, and a timed-out attempt may still bill upstream.
 It deliberately does not use the generic `resilientFetch` (shared breaker,
@@ -140,7 +140,7 @@ callable runs with `timeoutSeconds: 120`, `memory: 512MiB`,
 
 `users/{uid}/usageCurationAllowance` is not yet registered in
 `packages/data-domains/registry.json` / `DATA_DOMAIN_PATHS`
-(`functions/src/callables/dataExport.ts`), so domain-scoped export and
+(`functions/src/domains/compliance/dataExport.ts`), so domain-scoped export and
 deletion do not cover the ledger yet. Registering it fans out into the
 generated Swift/Kotlin/web domain artifacts and needs a product decision on
 whether reservation docs are export-excluded bookkeeping (like `_rate_limits`)

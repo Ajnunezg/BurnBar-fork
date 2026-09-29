@@ -21,4 +21,4 @@ Stable `event` field names for log-based SLOs, alerts, and incident correlation.
 
 Hosted MCP and billing events: [REMOTE_MCP_RUNBOOK.md](../REMOTE_MCP_RUNBOOK.md), [functions/scripts/ops-alert-policy-definitions.mjs](../../functions/scripts/ops-alert-policy-definitions.mjs).
 
-**Outbound HTTP:** Provider adapters use `providerFetch` (`functions/src/providers/httpClient.ts`). Stripe **webhook** signature verification intentionally uses raw request body handling (not `resilientFetch`) — do not wrap the webhook HTTP handler with outbound fetch resilience.
+**Outbound HTTP:** Provider adapters use `providerFetch` (`packages/functions-shared/src/providers/httpClient.ts`). Stripe **webhook** signature verification intentionally uses raw request body handling (not `resilientFetch`) — do not wrap the webhook HTTP handler with outbound fetch resilience.

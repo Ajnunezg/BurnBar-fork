@@ -1,6 +1,6 @@
 # SLO runbook — app, daemon, Cloud Functions
 
-Operator runbook for **latency**, **availability**, and **error budgets** across OpenBurnBar surfaces. Plan of record for observability Phase 5–6 remediation; pairs with [OBSERVABILITY.md](../OBSERVABILITY.md) and [ARCHITECTURE/error-taxonomy.md](../ARCHITECTURE/error-taxonomy.md).
+Operator runbook for **latency**, **availability**, and **error budgets** across OpenBurnBar surfaces. Plan of record for observability Phase 5–6 remediation; pairs with [OBSERVABILITY.md](../OBSERVABILITY.md) and [architecture/error-taxonomy.md](../architecture/error-taxonomy.md).
 
 ## Unified metrics approach
 
@@ -49,7 +49,7 @@ When adding a new critical path, ship **one structured log event** and **one cou
 |------|------------|------------|-------|
 | Hybrid search (local) | `< 120 ms` | `< 350 ms` | From `retrieval_health.totalQueryLatencyMs`; see `LocalMetricsAggregator` |
 | Dashboard refresh | `< 2 s` | `< 5 s` | Versioned caches on `DataStoreCoordinator.usagesVersion` |
-| Cloud sync upload batch | `< 30 s` | `< 120 s` | Excludes user offline; backoff per [error-taxonomy](../ARCHITECTURE/error-taxonomy.md) |
+| Cloud sync upload batch | `< 30 s` | `< 120 s` | Excludes user offline; backoff per [error-taxonomy](../architecture/error-taxonomy.md) |
 
 **Playbook:**
 
@@ -120,7 +120,7 @@ When adding a new critical path, ship **one structured log event** and **one cou
 
 **Signals:**
 
-- `functions/src/logging.ts` — `logInfo` / `logError` / `logWarn` emit JSON with `event`, `trace_id`, `severity`
+- `packages/functions-shared/src/logging.ts` — `logInfo` / `logError` / `logWarn` emit JSON with `event`, `trace_id`, `severity`
 - **Stable `event` keys** (log-based SLO filters):
 
   | Event | Surface |
@@ -196,7 +196,7 @@ for 30 minutes.
 ### Cold-start mitigation (hot path warm pool, A4)
 
 Hot revenue/control paths pin a warm instance via `HOT_PATH_OPTIONS`
-(`minInstances`, `concurrency: 40`) in [`functions/src/runtimeOptions.ts`](../../functions/src/runtimeOptions.js)
+(`minInstances`, `concurrency: 40`) in [`packages/functions-shared/src/runtimeOptions.ts`](../../functions/src/runtimeOptions.js)
 so the first request at launch never pays a full cold start (which would time
 out the Stripe and App Store webhooks). `minInstances` defaults to `1` and is
 overridable per-environment via the `HOT_MIN_INSTANCES` env var (set `0` to
@@ -300,6 +300,6 @@ cat docs/TECH_DEBT_METRICS.md
 
 - [Observability contract](../OBSERVABILITY.md)
 - [Tech debt metrics](../TECH_DEBT_METRICS.md)
-- [Architecture ADRs](../ARCHITECTURE/README.md)
+- [Architecture ADRs](../architecture/README.md)
 - [Computer Use budget runbook](computer-use-budget.md)
 - [Media quota runbook](media-quota.md)

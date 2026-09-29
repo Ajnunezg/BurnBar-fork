@@ -8,7 +8,7 @@ source-offer obligations are tracked in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOT
 ## Bundled provider and vendor logos
 
 - `AgentLens/Resources/Assets.xcassets/*Logo.imageset/` — bundled provider and model logos used by:
-- `AgentLens/Models/AgentProvider.swift` (agent/provider branding)
+- `AgentLens/Models/ProviderUsageSummaries.swift` (agent/provider branding)
 - `AgentLens/Theme/LLMModelBrand.swift` (model vendor branding)
 - `AgentLens/Theme/ProviderBrand.swift` (catalog/provider branding)
 

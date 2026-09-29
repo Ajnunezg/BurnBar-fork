@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Freeze dual-writer SQLite tables. New tables must have a single process owner
-# in docs/ARCHITECTURE/005-sync-ownership.md; INSERT INTO from both app and
+# in docs/architecture/005-sync-ownership.md; INSERT INTO from both app and
 # daemon is only allowed for tables listed in the dual-writer baseline.
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

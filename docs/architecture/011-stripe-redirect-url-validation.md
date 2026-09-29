@@ -6,7 +6,7 @@ Stripe checkout and customer-portal sessions accept `success_url`, `cancel_url`,
 
 ## Decision
 
-All Stripe redirect URLs in Cloud Functions are validated by `boundedHttpsURL` in `functions/src/callables/shared/validators.ts` before being passed to Stripe.
+All Stripe redirect URLs in Cloud Functions are validated by `boundedHttpsURL` in `packages/functions-shared/src/shared/validators.ts` before being passed to Stripe.
 
 The validator:
 

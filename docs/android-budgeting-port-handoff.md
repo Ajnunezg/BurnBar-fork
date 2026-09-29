@@ -2,13 +2,13 @@
 
 ## Summary
 
-Port the enterprise budgeting, forecasting, and hard spending limits feature to the Android app (`android/app/src/main/java/com/openburnbar/`). The canonical schema lives in `functions/src/types.ts` and the canonical models in `OpenBurnBarCore/Sources/OpenBurnBarCore/SharedModels/BudgetRule.swift`. Android needs Kotlin data classes mirroring those types, a Room DAO for `budget_rules`/`budget_events`, a settings UI in Compose, and Firestore sync for cross-device rule persistence.
+Port the enterprise budgeting, forecasting, and hard spending limits feature to the Android app (`android/app/src/main/java/com/openburnbar/`). The Firestore schema canon is TypeSpec (`tools/schema-sync/typespec/`; Functions runtime types are re-exported from `packages/functions-shared/src/types.ts`) and the canonical models in `OpenBurnBarCore/Sources/OpenBurnBarCore/SharedModels/BudgetRule.swift`. Android needs Kotlin data classes mirroring those types, a Room DAO for `budget_rules`/`budget_events`, a settings UI in Compose, and Firestore sync for cross-device rule persistence.
 
 ## What Already Exists (Cross-Platform)
 
 | Component | Location | Android status |
 |---|---|---|
-| Firestore schema for `usage`, `usage_rollups`, `quota_snapshots` | `functions/src/types.ts` | Android already reads these via `FirestoreRepository` |
+| Firestore schema for `usage`, `usage_rollups`, `quota_snapshots` | `packages/functions-shared/src/types.ts` | Android already reads these via `FirestoreRepository` |
 | `TokenUsage` model | `android/.../data/models/TokenUsage.kt` | Fully implemented with `@IgnoreExtraProperties` + `@PropertyName` |
 | `DashboardStore` | `android/.../data/stores/DashboardStore.kt` | Reads Firestore `UsageRollups` |
 | `VelocityForecastStore` (mobile) | `OpenBurnBarMobile/Models/VelocityForecastStore.swift` | iOS-only; Android has no equivalent yet |
@@ -400,7 +400,7 @@ Per `android/app/AGENTS.md`, after porting, run:
 cd android && ./gradlew :app:testDebugUnitTest --no-daemon
 ```
 
-And update `tools/schema-sync/` if the Room schema drifts from `functions/src/types.ts`.
+And update `tools/schema-sync/` if the Room schema drifts from `packages/functions-shared/src/types.ts`.
 
 ### 12. Key Invariants (Same as macOS/iOS)
 

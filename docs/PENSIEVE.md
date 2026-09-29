@@ -250,7 +250,7 @@ is absent; see the script header for the env vars):
 | Encrypted storage | 1 GB | 10 GB |
 | MCP query rate | 60/min (`knowledge:standard`) | 180/min (`search:ultra`) |
 
-Limits live in `functions/src/callables/knowledgeMemory.ts` (`PENSIEVE_LIMITS`),
+Limits live in `functions-sync/src/domains/knowledge/knowledgeMemory.ts` (`PENSIEVE_LIMITS`),
 enforced via Firestore `count()` + `sum(byteCount)` aggregates before any write.
 Ultra **mirrors** proMax (inherits every Cloud Pro gate); only the limit lookup
 branches on the `burnbar_ultra` doc. Ultra stays a clean **10×** of Pro on chunks

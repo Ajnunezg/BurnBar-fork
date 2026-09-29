@@ -98,7 +98,7 @@ Plus: `ControlKind` (`AgentLens/Models/ControlDeck/ControlKind.swift:76-88`) —
 
 | Feature | File / view | Reason |
 |---|---|---|
-| Pet companion first-run window | `AgentLens/PetCompanion/Onboarding/PetOnboardingWindowPresenter.swift:14-15` (`openIfNeeded` force-activates ~1s after launch, gated only on `pet.firstRunCompleted`, not on `PetCompanionFeature.isEnabled`) | A spend tracker's first sentence to a new user must not be "choose your companion." |
+| Pet companion first-run window | `AgentLens/Lab/PetCompanion/Onboarding/PetOnboardingWindowPresenter.swift` (`openIfNeeded` force-activates ~1s after launch, gated only on `pet.firstRunCompleted`, not on `PetCompanionFeature.isEnabled`) | A spend tracker's first sentence to a new user must not be "choose your companion." |
 | Delayed first scan | `AgentLens/App/AgentLensApp+LiveServices.swift:294-305` (30×1s sign-in poll + 15s sleep before `refreshAll()`) | 45 seconds of blank app before the one thing the product exists to do; the sign-in poll was never meant to gate the scan. |
 | Menu bar icon-only label | `AgentLens/App/MenuBarLabel.swift:72-101` (`.labelStyle(.iconOnly)`, cost in hover tooltip) | The number the product is named for never appears in the menu bar. |
 | Three chained consent modals | `AgentLens/Views/Dashboard/DashboardView.swift:581-598, 611-620, 621-632, 932-942` | Three privacy decisions asked before the user has seen a single number, so they have no basis to judge them. |
@@ -287,7 +287,7 @@ Ordered by leverage. **[SHIP-BLOCKING]** = the 1.1 release does not go out witho
 | 15 | Naming enforcement: BurnBar everywhere in copy; CI grep for the 13 codenames | **[SHIP-BLOCKING]** |
 | 16 | Collapse tiers: stop selling Cloud Pro, Ultra, and the 4 top-ups; grandfather every existing subscriber forever | **[SHIP-BLOCKING]** for pricing honesty |
 | 17 | 30-day reverse trial, no card, landing softly on Local — plus flip `pricing.astro:61-63` and `CLAIMS.md:168` in the same commit | **[SHIP-BLOCKING]** — there is currently *zero* trial of any kind |
-| 18 | Close the free Linux cloud replica hole (`functions/src/callables/linuxCloudReplica.ts` — auth + App Check only, no entitlement assert) | **[SHIP-BLOCKING]** — it gives the entire paid tier away |
+| 18 | Close the free Linux cloud replica hole (`functions-sync/src/domains/support/linuxCloudReplica.ts` — auth + App Check only, no entitlement assert) | **[SHIP-BLOCKING]** — it gives the entire paid tier away |
 | 19 | Resolve hosted-MCP tier mismatch **down** to Cloud (server already serves it there; the client blocks paying subscribers) | not blocking |
 | 20 | Stripe handoff for the direct-download Mac build (today: `productUnavailable` + a bare link to `/pricing`) | **[SHIP-BLOCKING]** for revenue |
 | 21 | Fix version pin (1.0.29 → current), canonical GitHub org, `/mcp` self-contradiction, stale `/router/daily` | not blocking |

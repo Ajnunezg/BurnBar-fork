@@ -19,7 +19,7 @@ There is **no Signal Protocol crypto in production today.** Verified facts:
   3. **Hermes relay HPKE v3** (`HermesRelayCrypto.swift:127 gatewayRelayKeyVersionV3 = 3`, `:132 relayEncryptionV3 = "hpke-auth-p256-hkdfsha256-aes256gcm"`): RFC 9180 HPKE Auth via CryptoKit `HPKE.P256_SHA256_AES_GCM_256`; adds a distinct `enc` field (`HermesRelayKeyWrapV3`, `:74`); `sealKeyV3`/`openKeyV3` (`:415`/`:446`), info `OpenBurnBar-HermesRelay-HPKE-v3|` (`:507`).
   4. **Realtime relay v1** (unauthenticated ephemeral-static ECIES; shared with iroh + Pi paths; byte layout **frozen**).
   5. **OpenBurnBar Double Ratchet v1** (`HermesRatchetCrypto.swift`, algorithm `OpenBurnBar-HermesRatchet-v1-P256-HKDFSHA256-AESGCM`) — a **bespoke** ratchet, NOT libsignal.
-- Server is a **blind store-and-forward**: `functions/src/hermesGateway.ts:requireGatewayRelayEnvelope` (`:648`) validates **shape only**; supported versions `{1,2,3}` (`:84`), production-writable `{2,3}` (`:77`). `resolveGatewayWriteBody` (`callables/hermesGateway.ts:364`) rejects plaintext (`ciphertext_required`, `:388`) and rejects both-envelopes-present (`ambiguous_ciphertext`, `:374`).
+- Server is a **blind store-and-forward**: `packages/functions-shared/src/hermesGateway.ts:requireGatewayRelayEnvelope` (`:648`) validates **shape only**; supported versions `{1,2,3}` (`:84`), production-writable `{2,3}` (`:77`). `resolveGatewayWriteBody` (`callables/hermesGateway.ts:364`) rejects plaintext (`ciphertext_required`, `:388`) and rejects both-envelopes-present (`ambiguous_ciphertext`, `:374`).
 - Registry tiers (`packages/data-domains/registry.json`): `conversations_chat` / `session_logs` / `pensieve` / `device_trust_keys` = `end_to_end`; **`connected_devices` = `server_readable` (`:115`)** despite sealed bodies — the scanner-blind gap.
 - libsignal `0.94.4` exposes exactly the surface we need (verified in `dist/`): `PreKeyBundle.new(...)` **requires** `kyber_prekey_id`/`kyber_prekey`/`kyber_prekey_signature` (PQXDH mandatory — `ProtocolTypes.d.ts:33`); `PublicKey#seal(msg, info, associatedData)` / `PrivateKey#open(ct, info, associatedData)` are a libsignal-native **HPKE** primitive (`EcKeys.d.ts:24,43`); `signalEncrypt`/`signalDecrypt`/`signalDecryptPreKey` are the Double Ratchet (`index.d.ts:339-341`, note `signalDecryptPreKey` needs the `KyberPreKeyStore`); `sealedSenderEncrypt`/`sealedSenderMultiRecipientEncrypt`/`sealedSenderDecryptMessage` exist (`index.d.ts:342-354`).
 
@@ -77,7 +77,7 @@ For at-rest we seal the **content key** to **each of the user's own trusted devi
 The gateway is a genuine bidirectional message stream between two live endpoints (phone ↔ agent). Here FS/PCS are exactly what we want and the 1:1 shape fits. So `transport` mode runs the real X3DH/PQXDH + Double Ratchet: the per-message content key is delivered *as a Signal message* (`signalEncrypt` over the 32-byte content key), and the body/manifest stay AES-GCM under that content key with the existing AADs untouched. This **supersedes** the bespoke `OpenBurnBar-HermesRatchet-v1` (which must get a distinct algorithm marker so a real-Signal envelope can never be misread as the bespoke one — see §10).
 
 ### 3.4 Honest caveat on revocation
-Revocation removes a device from **future** wraps and triggers re-wrap, but **the revoked device's private key is never rotated and already-wrapped docs it holds remain openable by it** until those docs are re-wrapped (verified gap: `revokeEscrowDeviceTrust`, `functions/src/callables/computerUseSecurity.ts:248`, has no key-rotation/re-wrap today). `SIGNAL_ENVELOPE_V1` mandates the re-wrap-on-revoke job in §8; until that ships, "revoked = safe" is only true for docs written/re-wrapped *after* revocation. External reviewers must treat this as a known limitation (§13 Q7).
+Revocation removes a device from **future** wraps and triggers re-wrap, but **the revoked device's private key is never rotated and already-wrapped docs it holds remain openable by it** until those docs are re-wrapped (verified gap: `revokeEscrowDeviceTrust`, `functions-sync/src/domains/computer-use/computerUseSecurity.ts`, has no key-rotation/re-wrap today). `SIGNAL_ENVELOPE_V1` mandates the re-wrap-on-revoke job in §8; until that ships, "revoked = safe" is only true for docs written/re-wrapped *after* revocation. External reviewers must treat this as a known limitation (§13 Q7).
 
 ---
 
@@ -93,7 +93,7 @@ signalEnvelopeFormatVersion       = 1
 ```
 
 The version 1..4 ladder mirrors the verified v2→v3 gate exactly:
-- `HERMES_GATEWAY_SUPPORTED_RELAY_KEY_VERSIONS` (`functions/src/hermesGateway.ts:84`) gains `4` so reads tolerate it.
+- `HERMES_GATEWAY_SUPPORTED_RELAY_KEY_VERSIONS` (`packages/functions-shared/src/hermesGateway.ts:84`) gains `4` so reads tolerate it.
 - `HERMES_GATEWAY_PRODUCTION_RELAY_KEY_VERSIONS` (`:77`) does **NOT** gain `4` in the first PR — no client can negotiate/emit it (flag OFF). It is added only when the activation PR flips the capability default.
 - `requireGatewayRelayEnvelope`/`sanitizeGatewayRelayEnvelope` enforce a **strict per-version algorithm-string equality** (verified pattern at `hermesGateway.ts:665-671` / `:767-770`): version 4 + transport ⇒ `relayEncryption == "signal-doubleratchet-pqxdh-v1"`, version 4 + at-rest ⇒ `"signal-hpke-identity-seal-v1"`. Any mismatch fails closed.
 

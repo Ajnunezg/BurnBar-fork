@@ -88,7 +88,7 @@ procedure, and the readiness verdict for the Hermes plugin PR.
 ## 2. Files changed
 
 ### BurnBar repo — server (`functions/`)
-- `functions/src/hermesGateway.ts` — constants (`HERMES_GATEWAY_PROTOCOL_VERSION`,
+- `packages/functions-shared/src/hermesGateway.ts` — constants (`HERMES_GATEWAY_PROTOCOL_VERSION`,
   `PRESENCE_WINDOW_MS`, `PENDING_MODEL_TTL_MS`, `APPROVAL_TTL_MS`); types
   (`HermesGatewayOversightMode`, `HermesGatewayApprovalStatus`,
   `HermesGatewayApprovalDoc`); new client-doc fields (`agentVersion`,
@@ -98,7 +98,7 @@ procedure, and the readiness verdict for the Hermes plugin PR.
   `gatewayApprovalExpiryISO`, `isHermesGatewayApprovalExpired`,
   `isHermesGatewayApprovalActionable`, `isHermesGatewayApprovalDoc`,
   `sanitizeHermesGatewayApprovalSummary`); `publicClientView`/`publicApprovalView`.
-- `functions/src/callables/hermesGateway.ts` — `handleGatewayState` (`/state`);
+- `functions-media/src/domains/hermes/hermesGateway.ts` — `handleGatewayState` (`/state`);
   model validation + `pendingModelId` in `enqueueHermesGatewayEvent`; reconcile +
   `agentVersion` in `handleRuntimeStatus`; `handleArmApproval`/`handleListApprovals`
   (`/approvals`); router wiring; `setHermesGatewayOversightMode`,
@@ -107,7 +107,7 @@ procedure, and the readiness verdict for the Hermes plugin PR.
 - `firestore.rules` — `hermes_gateway_approvals` matcher (owner-read, `write: false`).
 - `tools/schema-sync/emit/generate.mjs` + `typespec/domains/hermes-gateway.tsp` —
   new client fields + `HermesGatewayApprovalDoc` (TS/Swift/Kotlin). Regenerated:
-  `functions/src/types/generated/hermes-gateway.ts`,
+  `packages/functions-shared/src/types/generated/hermes-gateway.ts`,
   `OpenBurnBarCore/Sources/OpenBurnBarFirestoreModels/HermesGatewayModels.swift`,
   `android/app/src/main/java/com/openburnbar/data/models/generated/HermesGatewayModels.kt`.
 - `functions/scripts/test-hermes-gateway.mjs` — behavioral + route/guard assertions
@@ -195,7 +195,7 @@ install the latest BurnBar build on the trusted iOS device.
 
 - **iOS:** model picker + online/offline + rich gateway panel already existed.
   Newly wired (files: `OpenBurnBarMobile/Services/FunctionsRepository.swift`,
-  `OpenBurnBarMobile/Services/ComputerUse/ComputerUseSecurityCallableClient.swift`,
+  `OpenBurnBarMobile/Services/ComputerUse/ComputerUseSecurityCallableClient+Mobile.swift`,
   `OpenBurnBarMobile/Views/Hermes/HermesSettingsView.swift`,
   `OpenBurnBarMobileTests/OpenBurnBarMobileTests.swift`):
   - `HermesGatewayClientRecord` gained `agentVersion`, `pendingModelId`,
@@ -339,7 +339,7 @@ Updated after the gateway E2EE re-architecture landed in the same files and the
 GitHub Actions after PR #264 merge had two real red gates:
 
 - `Website (types + lint + format)`: Prettier drift in website Astro files.
-- `openburnbar-pr`: Prettier drift in `functions/src/callables/privacyBackfill.ts`.
+- `openburnbar-pr`: Prettier drift in `functions/src/domains/compliance/privacyBackfill.ts`.
 
 The final audit fixed those gates and found one additional release-script defect:
 `scripts/security/scan-publishable-tree.sh` copied tracked files into a temporary
