@@ -18,9 +18,9 @@ import {
   parseCollectionGroups,
   parseCountResponse,
   resolveApiBase,
-  validateAgainstSchema,
   validateFirestoreRestoreDrillReceipt,
 } from "./firestore-restore-drill-verify.mjs";
+import { validateAgainstSchema } from "../lib/json-schema-subset.mjs";
 
 const SNAPSHOT = "2026-09-28T11:55:00Z";
 const LIVE_API = resolveApiBase(undefined);
