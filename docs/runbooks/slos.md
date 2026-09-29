@@ -152,9 +152,27 @@ When adding a new critical path, ship **one structured log event** and **one cou
 
 ### Quota Freshness
 
+The server sweep (`refreshAllProviderQuotas`, every 15 minutes) refreshes an account when its
+adaptive TTL (`QuotaRefreshPolicy`, shared with the Mac client) comes due. The TTL is deliberately
+longest when headroom is largest: 30 minutes at `>= 50%` remaining, 15 minutes when remaining is
+unknown, 10 minutes at 20-50%, 3 minutes below 20%, and never past the window's reset. A single
+20-minute target for every account therefore contradicted the policy: accounts with ample headroom
+are meant to be probed every 30 minutes to save provider calls, and a stale reading there cannot
+hide an imminent exhaustion because the TTL tightens as remaining falls. The target is graded by the
+same tiers instead. The sweep takes an account up to 2 minutes before it is due
+(`QUOTA_SWEEP_DUE_GRACE_MS`), so a due time that lands just after a tick is not pushed a whole
+interval later; selection is oldest-snapshot-first across `connected`, `stale`, and `error`.
+
 | SLI | Target | Measurement |
 |-----|--------|-------------|
-| Connected provider account quota snapshot age | p95 `<= 20 min` per provider/account | Structured `quota.snapshot_written` logs from Functions and Mac client `providerQuotaRefresh` telemetry with `quota_event=snapshot_written` |
+| Server-refreshed account snapshot age when replaced, `remaining_tier` `low` / `medium` / `unknown` | p95 `<= 20 min` | `jsonPayload.replaced_age_s` on `quota.snapshot_written` |
+| Server-refreshed account snapshot age when replaced, `remaining_tier` `high` | p95 `<= 35 min` (30-minute TTL plus fetch jitter) | `jsonPayload.replaced_age_s` on `quota.snapshot_written` |
+| Mac client snapshot age | Same tiered targets (the Mac client schedules by the same policy) | Mac `providerQuotaRefresh` telemetry, `quota_event=snapshot_written`, `snapshot_age_bucket`. It carries no tier label, so a high-headroom account's 30-minute interval reads as `20-60m`; it is not graded until it does |
+
+`replaced_age_s` is how old the snapshot a write replaces had grown (now minus the account's prior
+`quotaSnapshotFetchedAt`), which is the most stale that reading ever was. `age_ms_bucket` is the new
+snapshot's fetch-to-write latency; it is almost always `<1m` and says nothing about freshness, so do
+not chart it for this SLO.
 
 **Structured event fields:**
 
@@ -163,24 +181,27 @@ When adding a new critical path, ship **one structured log event** and **one cou
 | `event="quota.snapshot_written"` | Functions `logInfo` | Server snapshot writes only |
 | `provider` | Functions + Mac telemetry | Canonical provider ID; no account labels or credentials |
 | `source` | Functions + Mac telemetry | Low-cardinality source kind (`provider`, `localCLI`, `localSession`, `officialAPI`, etc.) |
-| `age_ms_bucket` | Functions | One of `<1m`, `1-5m`, `5-20m`, `20-60m`, `1-4h`, `>=4h`, `future`, `unknown` |
+| `replaced_age_s` | Functions | Seconds; `null` for a first snapshot or an unparseable prior fetch time |
+| `remaining_tier` | Functions | `high`, `medium`, `low`, or `unknown` — the tier that picked the TTL |
+| `age_ms_bucket` | Functions | Fetch-to-write latency: `<1m`, `1-5m`, `5-20m`, `20-60m`, `1-4h`, `>=4h`, `future`, `unknown` |
 | `snapshot_age_bucket` | Mac telemetry | Same bucket labels as `age_ms_bucket` |
 
-**Log-based metric to chart (Cloud Logging):**
+**Log-based metric to chart (Cloud Logging):** a distribution metric over `jsonPayload.replaced_age_s`
+with `remaining_tier` and `provider` labels. Every function here is 2nd gen, so the entries carry
+`cloud_run_revision`:
 
 ```text
-resource.type="cloud_function"
+resource.type="cloud_run_revision"
 jsonPayload.event="quota.snapshot_written"
-jsonPayload.provider=*
+jsonPayload.replaced_age_s>=0
 ```
 
-Create a distribution/ratio chart grouped by `jsonPayload.provider`, `jsonPayload.source`, and
-`jsonPayload.age_ms_bucket`; treat `20-60m`, `1-4h`, `>=4h`, `future`, and `unknown` as stale for
-the p95 SLO. Mac client telemetry uses the same grouping with `feature=providerQuotaRefresh`,
+This metric is not yet created in the project; until it is, the server SLI is emitted but not
+charted. Mac client telemetry keeps its bucket grouping with `feature=providerQuotaRefresh`,
 `quota_event=snapshot_written`, and `snapshot_age_bucket`.
 
-**Alert threshold:** page when any connected provider's stale bucket share exceeds 5% for 30 minutes
-or when no `quota.snapshot_written` events arrive for an otherwise connected cloud-refreshable provider
+**Alert threshold:** page when a tier's p95 `replaced_age_s` exceeds its target for 30 minutes, or
+when no `quota.snapshot_written` events arrive for an otherwise connected cloud-refreshable provider
 for 30 minutes.
 
 **Escalation:**
@@ -191,7 +212,7 @@ for 30 minutes.
    `quota_snapshots` document age for the affected provider.
 3. If only Mac telemetry is stale, inspect `ProviderQuotaService` local refresh logs and cloud-sync
    upload status before escalating to backend refresh.
-4. Freeze quota-adapter changes for the affected provider until p95 returns below 20 minutes.
+4. Freeze quota-adapter changes for the affected provider until p95 is back within its tier's target.
 
 ### Cold-start mitigation (hot path warm pool, A4)
 
