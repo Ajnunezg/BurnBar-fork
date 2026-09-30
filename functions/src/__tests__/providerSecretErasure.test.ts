@@ -280,6 +280,70 @@ describe("hosted credential replacement", () => {
   });
 });
 
+describe("reconnect racing an all-version erasure", () => {
+  /** Hold the next `versions.list` (the start of a destroy) until the returned release runs. */
+  function pauseNextVersionListing(): { reached: Promise<void>; release: () => void } {
+    const list = fakeSecretManager.projects.secrets.versions.list;
+    let release = () => {};
+    let markReached = () => {};
+    const reached = new Promise<void>((resolve) => (markReached = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    vi.spyOn(fakeSecretManager.projects.secrets.versions, "list").mockImplementationOnce(async (request) => {
+      markReached();
+      await gate;
+      return list(request);
+    });
+    return { reached, release };
+  }
+
+  it("a reconnect during an in-flight deletion is refused and never outlives the erasure", async () => {
+    const [first] = await connectHostedCredential(1);
+    const paused = pauseNextVersionListing();
+    const deletion = applyProviderAccountDelete(UID, ACCOUNT_ID);
+    await paused.reached;
+
+    // The deletion committed its all-version intent and is about to destroy.
+    const refusal = await expectUnavailable(
+      applyHostedQuotaConnect(UID, ACCOUNT_ID, { provider: "codex", credential: CREDENTIAL(2) }),
+    );
+    expect(refusal).toMatchObject({ erasurePending: true, errorCode: "credential_erasure_in_progress" });
+    paused.release();
+    await expect(deletion).resolves.toEqual({ success: true, accountID: ACCOUNT_ID });
+
+    // No version of the deleted account's secret is readable, and the
+    // reference stays queued so the erasure re-runs over anything the refused
+    // reconnect stored after the destroy listed versions.
+    expect(Object.values(fakeSecretManager.versionStates(secretNameOf(first)))).toEqual(["DESTROYED", "DESTROYED"]);
+    expect(requireRef()).toMatchObject({ erasureScope: "all_versions" });
+    const later = new Date(Date.now() + 60 * 60 * 1000);
+    expect(await reconcilePendingProviderSecretErasures(pendingDocs(), { now: () => later })).toEqual([
+      { status: "completed" },
+    ]);
+    expect(env.store.has(REF_PATH)).toBe(false);
+
+    // Once the erasure settles, reconnecting works and keeps the new credential.
+    await applyHostedQuotaConnect(UID, ACCOUNT_ID, { provider: "codex", credential: CREDENTIAL(3) });
+    expect(await retrieveCredential(versionNameOf(requireRef()))).toBe(CREDENTIAL(3));
+  });
+
+  it("the reconciler never acts on a queue snapshot that a reconnect has since settled", async () => {
+    const [first] = await connectHostedCredential(1);
+    fakeSecretManager.failingDestroys.add(first);
+    await expectUnavailable(applyProviderAccountDelete(UID, ACCOUNT_ID));
+    const staleSnapshot = pendingDocs();
+
+    fakeSecretManager.failingDestroys.clear();
+    await applyHostedQuotaConnect(UID, ACCOUNT_ID, { provider: "codex", credential: CREDENTIAL(2) });
+    const live = versionNameOf(requireRef());
+
+    const later = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    expect(await reconcilePendingProviderSecretErasures(staleSnapshot, { now: () => later })).toEqual([
+      { status: "skipped" },
+    ]);
+    expect(await retrieveCredential(live)).toBe(CREDENTIAL(2));
+  });
+});
+
 describe("provider account deletion", () => {
   it("destroys every version of a replaced credential and drops the reference", async () => {
     const names = await seedLegacyVersions(ACCOUNT_ID, "codex", 3);

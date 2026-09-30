@@ -17,12 +17,25 @@
  *   erasureLastErrorCode  sanitized code of the latest failure
  *   erasureRetryAfter     ISO queue key: `reconcileAccountErasures` retries every
  *                         reference whose retryAfter has passed, oldest first
+ *   erasureLeaseUntil     ISO expiry of the attempt that currently owns the
+ *                         reference; unique per claim, so it doubles as that
+ *                         attempt's token. Absent while no attempt is running.
  *
  * The intent is committed BEFORE any Secret Manager call, so a crash at any
  * point leaves a queue entry. The reference is deleted (or its erasure fields
  * cleared) only after Secret Manager confirmed the destroy AND only if nothing
- * re-pointed the reference meanwhile. A failure never reports success: the
- * reference stays, the failure is recorded, and callers surface `unavailable`.
+ * re-pointed or re-leased the reference meanwhile. A failure never reports
+ * success: the reference stays, the failure is recorded, and callers surface
+ * `unavailable`.
+ *
+ * An `all_versions` destroy wipes every version of the account's deterministic
+ * secret, including one stored after the attempt began. So a reconnect never
+ * adopts a new version while an `all_versions` attempt holds the lease: it
+ * re-leases the reference (the running attempt can then no longer settle it,
+ * and the reconciler re-runs the erasure over whatever the reconnect stored)
+ * and fails `unavailable`. The reconciler claims the lease in a transaction
+ * from the reference's CURRENT state before any destroy, never from its query
+ * snapshot.
  */
 
 import { createHash } from "node:crypto";
@@ -73,6 +86,7 @@ const ERASURE_FIELDS = [
   "erasureLastAttemptAt",
   "erasureLastErrorCode",
   "erasureRetryAfter",
+  "erasureLeaseUntil",
 ] as const;
 
 /** Exponential backoff for the Nth consecutive failure (15m, 30m, 1h … capped at 6h). */
@@ -87,6 +101,18 @@ function stringField(value: unknown): string | undefined {
 
 function attemptCountOf(value: unknown): number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+
+function leaseActive(leaseUntil: unknown, now: Date): boolean {
+  const expiry = typeof leaseUntil === "string" ? Date.parse(leaseUntil) : Number.NaN;
+  return Number.isFinite(expiry) && expiry > now.getTime();
+}
+
+/** A fresh lease expiry, strictly later than the previous one so it is a unique claim token. */
+function nextLease(previous: unknown, now: Date): string {
+  const previousExpiry = typeof previous === "string" ? Date.parse(previous) : Number.NaN;
+  const floor = now.getTime() + PROVIDER_SECRET_ERASURE_ATTEMPT_LEASE_MS;
+  return new Date(Number.isFinite(previousExpiry) ? Math.max(floor, previousExpiry + 1) : floor).toISOString();
 }
 
 function correlationHash(value: string): string {
@@ -118,22 +144,32 @@ interface ProviderSecretErasureManifest {
   erasureLastAttemptAt?: string;
   erasureLastErrorCode?: string;
   erasureRetryAfter: string;
+  erasureLeaseUntil?: string;
+}
+
+/** Claim the reference for one attempt: the queue skips it until the lease lapses. */
+function leaseFields(
+  snap: { get(field: string): unknown },
+  now: Date,
+): { erasureLeaseUntil: string; erasureRetryAfter: string } {
+  const erasureLeaseUntil = nextLease(snap.get("erasureLeaseUntil"), now);
+  return { erasureLeaseUntil, erasureRetryAfter: erasureLeaseUntil };
 }
 
 function pendingErasureFields(
   scope: ProviderSecretErasureScope,
   reason: ProviderSecretErasureReason,
-  existingRequestedAt: unknown,
+  snap: { get(field: string): unknown },
   now: Date,
-): ProviderSecretErasureManifest & { updatedAt: string } {
+): ProviderSecretErasureManifest & { erasureLeaseUntil: string; updatedAt: string } {
   const nowISO = now.toISOString();
   return {
     erasureScope: scope,
     erasureReason: reason,
     // Keep the FIRST request time so operators can see how long a credential
     // has outlived its owner's deletion request.
-    erasureRequestedAt: stringField(existingRequestedAt) ?? nowISO,
-    erasureRetryAfter: new Date(now.getTime() + PROVIDER_SECRET_ERASURE_ATTEMPT_LEASE_MS).toISOString(),
+    erasureRequestedAt: stringField(snap.get("erasureRequestedAt")) ?? nowISO,
+    ...leaseFields(snap, now),
     updatedAt: nowISO,
   };
 }
@@ -152,14 +188,17 @@ interface ErasureAttempt {
   /** The raw stored scope value, which guards the settle transactions. */
   storedScope: unknown;
   secretVersionName: string | undefined;
+  /** The lease this attempt claimed; a different value means another claim superseded it. */
+  leaseUntil: string;
 }
 
-/** The reference still describes the erasure this attempt performed. */
+/** The reference still describes the erasure this attempt performed, under this attempt's lease. */
 function unchangedSince(snap: { exists: boolean; get(field: string): unknown }, attempt: ErasureAttempt): boolean {
   return (
     snap.exists &&
     snap.get("erasureScope") === attempt.storedScope &&
-    stringField(snap.get("secretVersionName")) === attempt.secretVersionName
+    stringField(snap.get("secretVersionName")) === attempt.secretVersionName &&
+    snap.get("erasureLeaseUntil") === attempt.leaseUntil
   );
 }
 
@@ -194,6 +233,8 @@ async function recordErasureFailure(
         erasureLastAttemptAt: now.toISOString(),
         erasureLastErrorCode: errorCode,
         erasureRetryAfter: new Date(now.getTime() + providerSecretErasureRetryDelayMs(attemptCount)).toISOString(),
+        // Released: nothing is in flight while the entry backs off.
+        erasureLeaseUntil: FieldValue.delete(),
       },
       { merge: true },
     );
@@ -252,30 +293,28 @@ export async function eraseProviderAccountSecret(params: {
     const snap = await tx.get(ref);
     params.alsoInIntentTransaction?.(tx);
     if (!snap.exists) return undefined;
-    tx.set(
-      ref,
-      pendingErasureFields("all_versions", params.reason, snap.get("erasureRequestedAt"), now),
-      { merge: true },
-    );
-    return { secretVersionName: stringField(snap.get("secretVersionName")) };
+    const fields = pendingErasureFields("all_versions", params.reason, snap, now);
+    tx.set(ref, fields, { merge: true });
+    return {
+      scope: "all_versions",
+      storedScope: "all_versions",
+      secretVersionName: stringField(snap.get("secretVersionName")),
+      leaseUntil: fields.erasureLeaseUntil,
+    } satisfies ErasureAttempt;
   });
   if (!intent) return { complete: true };
-  return attemptErasure(
-    ref,
-    { scope: "all_versions", storedScope: "all_versions", secretVersionName: intent.secretVersionName },
-    params,
-    now,
-  );
+  return attemptErasure(ref, intent, params, now);
 }
 
 /**
  * Point the account's reference at a newly stored credential version and
  * destroy every older version. The reference only moves forward, so a
  * concurrent replacement that stored a newer version keeps it. A pending
- * deletion is converted to superseded cleanup, which never destroys the new
- * credential. Cleanup failure does not fail the connect (the new credential
- * is stored and valid) but leaves a durable pending marker the reconciler
- * retries.
+ * deletion that is backing off is converted to superseded cleanup, which never
+ * destroys the new credential; one whose destroy is in flight refuses the
+ * reconnect (see the file header). Cleanup failure does not fail the connect
+ * (the new credential is stored and valid) but leaves a durable pending marker
+ * the reconciler retries.
  */
 export async function adoptStoredCredentialVersion(params: {
   uid: string;
@@ -288,8 +327,14 @@ export async function adoptStoredCredentialVersion(params: {
 }): Promise<ProviderSecretErasureOutcome> {
   const now = params.now ?? new Date();
   const ref = db.doc(providerAccountSecretRefPath(params.uid, params.accountID));
-  const liveVersionName = await db.runTransaction(async (tx) => {
+  const adoption = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
+    if (snap.exists && snap.get("erasureScope") === "all_versions" && leaseActive(snap.get("erasureLeaseUntil"), now)) {
+      // Re-lease so the running destroy cannot settle and drop the reference:
+      // the erasure re-runs once the lease lapses and covers this version too.
+      tx.set(ref, { ...leaseFields(snap, now), updatedAt: now.toISOString() }, { merge: true });
+      return undefined;
+    }
     const current = snap.exists ? stringField(snap.get("secretVersionName")) : undefined;
     const currentParsed = current ? parseSecretVersionName(current) : undefined;
     const incomingParsed = parseSecretVersionName(params.secretVersionName);
@@ -309,19 +354,25 @@ export async function adoptStoredCredentialVersion(params: {
           createdAt: params.createdAt,
           updatedAt: params.updatedAt,
         };
-    tx.set(
-      ref,
-      {
-        ...refDoc,
-        ...pendingErasureFields("superseded_versions", "credential_replaced", snap.get("erasureRequestedAt"), now),
-      },
-      { merge: true },
-    );
-    return keepCurrent ? current : params.secretVersionName;
+    const fields = pendingErasureFields("superseded_versions", "credential_replaced", snap, now);
+    tx.set(ref, { ...refDoc, ...fields }, { merge: true });
+    return {
+      scope: "superseded_versions",
+      storedScope: "superseded_versions",
+      secretVersionName: keepCurrent ? current : params.secretVersionName,
+      leaseUntil: fields.erasureLeaseUntil,
+    } satisfies ErasureAttempt;
   });
+  if (!adoption) {
+    throw new HttpsError(
+      "unavailable",
+      "This provider account is still being disconnected. Try connecting it again in a few minutes.",
+      { accountID: params.accountID, erasurePending: true, errorCode: "credential_erasure_in_progress" },
+    );
+  }
   return attemptErasure(
     ref,
-    { scope: "superseded_versions", storedScope: "superseded_versions", secretVersionName: liveVersionName },
+    adoption,
     { uid: params.uid, accountID: params.accountID, reason: "credential_replaced" },
     now,
   );
@@ -347,13 +398,36 @@ interface PendingProviderSecretErasureDoc {
 }
 
 interface ProviderSecretErasureReconcileResult {
-  status: "completed" | "failed";
+  /** `skipped`: settled, re-pointed, or claimed by another attempt since the query ran. */
+  status: "completed" | "failed" | "skipped";
   errorCode?: string;
 }
 
 /**
+ * Claim a queued reference from its CURRENT state. The query snapshot may predate
+ * a reconnect that converted or cleared the erasure, so acting on it could
+ * destroy the credential that reconnect just adopted.
+ */
+async function claimQueuedErasure(ref: DocumentReference, now: Date): Promise<ErasureAttempt | undefined> {
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const storedScope = snap.exists ? snap.get("erasureScope") : undefined;
+    if (storedScope === undefined || leaseActive(snap.get("erasureLeaseUntil"), now)) return undefined;
+    const lease = leaseFields(snap, now);
+    tx.set(ref, lease, { merge: true });
+    return {
+      // An unknown scope never escalates to destroying the live credential.
+      scope: storedScope === "all_versions" ? "all_versions" : "superseded_versions",
+      storedScope,
+      secretVersionName: stringField(snap.get("secretVersionName")),
+      leaseUntil: lease.erasureLeaseUntil,
+    };
+  });
+}
+
+/**
  * Retry every pending reference the reconciler selected, sequentially (Secret
- * Manager quota), each from its CURRENT scope and live version.
+ * Manager quota), each claimed from its CURRENT scope and live version.
  */
 export async function reconcilePendingProviderSecretErasures(
   documents: readonly PendingProviderSecretErasureDoc[],
@@ -361,21 +435,21 @@ export async function reconcilePendingProviderSecretErasures(
 ): Promise<ProviderSecretErasureReconcileResult[]> {
   const results: ProviderSecretErasureReconcileResult[] = [];
   for (const document of documents) {
-    const storedScope = document.get("erasureScope");
+    const now = dependencies.now();
+    const attempt = await claimQueuedErasure(document.ref, now);
+    if (!attempt) {
+      results.push({ status: "skipped" });
+      continue;
+    }
     const outcome = await attemptErasure(
       document.ref,
-      {
-        // An unknown scope never escalates to destroying the live credential.
-        scope: storedScope === "all_versions" ? "all_versions" : "superseded_versions",
-        storedScope,
-        secretVersionName: stringField(document.get("secretVersionName")),
-      },
+      attempt,
       {
         uid: stringField(document.get("uid")),
         accountID: stringField(document.get("accountID")),
         reason: stringField(document.get("erasureReason")) ?? "unknown",
       },
-      dependencies.now(),
+      now,
     );
     results.push(outcome.complete ? { status: "completed" } : { status: "failed", errorCode: outcome.errorCode });
   }

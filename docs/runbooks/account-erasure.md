@@ -58,6 +58,12 @@ The same custody contract applies below account level
 - `reconcileAccountErasures` also drains references whose `erasureRetryAfter` has
   passed, most overdue first, up to 20 per run. Each failure backs off exponentially
   (15m, 30m, 1h … capped at 6h) so one poison secret cannot starve the queue.
+- **One attempt at a time.** Each attempt claims `erasureLeaseUntil` (10 minutes) in a
+  transaction before calling Secret Manager; the reconciler claims from the
+  reference's current state, never its query snapshot. An `all_versions` destroy
+  wipes every version of the account's secret, so a reconnect during one is refused
+  with `unavailable` (`errorCode: "credential_erasure_in_progress"`) and re-leases the
+  reference; the erasure then re-runs and also covers what that reconnect stored.
 
 Every failed attempt logs `provider_secret_erasure_failed` (`user_id_hash`,
 `account_id_hash`, `reason`, `scope`, `error_code`, `attempt_count`; never a secret
