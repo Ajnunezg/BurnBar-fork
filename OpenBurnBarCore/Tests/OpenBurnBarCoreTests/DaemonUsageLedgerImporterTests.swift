@@ -10,14 +10,12 @@ import OpenBurnBarKernel
 /// importer reads the ledger once, by watermark, keyed on the idempotency key,
 /// and sums events per row.
 final class DaemonUsageLedgerImporterTests: XCTestCase {
-    private var root: URL!
-    private var ledgerURL: URL!
+    private let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("obb-ledger-importer-\(UUID().uuidString)", isDirectory: true)
+    private var ledgerURL: URL { root.appendingPathComponent("usage-events.jsonl") }
 
     override func setUpWithError() throws {
-        root = FileManager.default.temporaryDirectory
-            .appendingPathComponent("obb-ledger-importer-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        ledgerURL = root.appendingPathComponent("usage-events.jsonl")
     }
 
     override func tearDownWithError() throws {

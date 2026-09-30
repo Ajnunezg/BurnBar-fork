@@ -15,7 +15,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import http from "node:http";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -495,12 +495,13 @@ export function proxyPidDirectory(): string {
   if (runtimeDir) {
     return securePidDirectory(join(runtimeDir, "openburnbar", "proxy"));
   }
+  // Same home as the token file (oauth.ts). No shared-temp fallback: another
+  // local user could pre-create or race a path there.
   const home = homedir();
-  if (home) {
-    return securePidDirectory(join(home, ".openburnbar", "proxy"));
+  if (!home) {
+    throw new Error("error: no home directory; refusing to store proxy ownership state in the shared temp directory");
   }
-  const uid = typeof process.getuid === "function" ? process.getuid() : "user";
-  return securePidDirectory(join(tmpdir(), `openburnbar-${uid}-proxy`));
+  return securePidDirectory(join(home, ".openburnbar", "proxy"));
 }
 
 export function proxyPidFilePath(port: number): string {

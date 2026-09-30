@@ -49,7 +49,7 @@ test("send posts one labelled drill page and reports only a fingerprint", async 
     assert.equal(received.length, 1);
     assert.match(received[0].text, /ops paging DRILL drill-0123456789ab/u);
     assert.match(received[0].text, /not an incident/u);
-    assert.ok(received[0].text.includes(RUN_URL));
+    assert.ok(received[0].text.split("\n").includes(`Run: ${RUN_URL}`));
   });
 });
 

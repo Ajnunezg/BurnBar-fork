@@ -11,15 +11,11 @@ import OpenBurnBarCore
 /// RPC and file paths keyed one event two ways).
 @MainActor
 final class DaemonLedgerUsageImportTests: XCTestCase {
-    private var rootURL: URL!
-    private var paths: OpenBurnBarDaemonRuntimePaths!
-
-    override func setUpWithError() throws {
-        rootURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("DaemonLedgerUsageImportTests-\(UUID().uuidString)", isDirectory: true)
-        let daemonDirectory = rootURL.appendingPathComponent("daemon", isDirectory: true)
-        try FileManager.default.createDirectory(at: daemonDirectory, withIntermediateDirectories: true)
-        paths = OpenBurnBarDaemonRuntimePaths(
+    private let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DaemonLedgerUsageImportTests-\(UUID().uuidString)", isDirectory: true)
+    private var daemonDirectory: URL { rootURL.appendingPathComponent("daemon", isDirectory: true) }
+    private var paths: OpenBurnBarDaemonRuntimePaths {
+        OpenBurnBarDaemonRuntimePaths(
             supportDirectory: rootURL,
             daemonDirectory: daemonDirectory,
             frameworksDirectory: rootURL.appendingPathComponent("Frameworks", isDirectory: true),
@@ -28,6 +24,10 @@ final class DaemonLedgerUsageImportTests: XCTestCase {
             logURL: daemonDirectory.appendingPathComponent("openburnbar-daemon.log", isDirectory: false),
             launchAgentPlistURL: rootURL.appendingPathComponent("com.openburnbar.daemon.plist", isDirectory: false)
         )
+    }
+
+    override func setUpWithError() throws {
+        try FileManager.default.createDirectory(at: daemonDirectory, withIntermediateDirectories: true)
     }
 
     override func tearDownWithError() throws {
