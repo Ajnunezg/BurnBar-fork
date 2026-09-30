@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 // MARK: - Text Expansion Models
 
@@ -142,35 +143,56 @@ public enum TextExpansionCloudSyncPreference {
 /// a Settings toggle bound with `@AppStorage`. A store that holds a realtime
 /// listener re-reads the preference here, so switching sync off stops cloud
 /// traffic for the store's whole lifetime, not only at the next launch.
-public final class TextExpansionCloudSyncConsentObserver: @unchecked Sendable {
-    private let defaults: UserDefaults
-    private let lock = NSLock()
-    private var lastStoredChoice: Bool?
-    private var token: NSObjectProtocol?
+public final class TextExpansionCloudSyncConsentObserver: Sendable {
+    private enum StoredChoice: Equatable, Sendable {
+        case unset
+        case value(Bool)
+    }
+
+    private struct State {
+        let defaults: UserDefaults
+        var lastStoredChoice: StoredChoice
+        var token: NSObjectProtocol?
+    }
+
+    // The non-Sendable Foundation token and all mutable observation state stay
+    // inside one Sendable lock; callbacks never access them without the lock.
+    private let state: OSAllocatedUnfairLock<State>
 
     public init(defaults: UserDefaults, onChange: @escaping @Sendable () -> Void) {
-        self.defaults = defaults
-        lastStoredChoice = defaults.object(forKey: TextExpansionCloudSyncPreference.key) as? Bool
-        token = NotificationCenter.default.addObserver(
+        state = OSAllocatedUnfairLock(uncheckedState: State(
+            defaults: defaults,
+            lastStoredChoice: Self.storedChoice(in: defaults)
+        ))
+        let token = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: defaults,
             queue: nil
         ) { [weak self] _ in
             if self?.storedChoiceChanged() == true { onChange() }
         }
+        state.withLockUnchecked { $0.token = token }
     }
 
     deinit {
+        let token = state.withLockUnchecked { $0.token }
         if let token { NotificationCenter.default.removeObserver(token) }
     }
 
+    private static func storedChoice(in defaults: UserDefaults) -> StoredChoice {
+        guard let value = defaults.object(forKey: TextExpansionCloudSyncPreference.key) as? Bool else {
+            return .unset
+        }
+        return .value(value)
+    }
+
     private func storedChoiceChanged() -> Bool {
-        let choice = defaults.object(forKey: TextExpansionCloudSyncPreference.key) as? Bool
-        lock.lock()
-        defer { lock.unlock() }
-        guard choice != lastStoredChoice else { return false }
-        lastStoredChoice = choice
-        return true
+        state.withLockUnchecked { state in
+            let choice = Self.storedChoice(in: state.defaults)
+            guard choice != state.lastStoredChoice else { return false }
+            state.lastStoredChoice = choice
+            return true
+        }
     }
 }
 

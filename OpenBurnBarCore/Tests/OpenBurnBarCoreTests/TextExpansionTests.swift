@@ -1,4 +1,5 @@
 import XCTest
+import os
 @testable import OpenBurnBarCore
 @testable import OpenBurnBarTextExpansion
 
@@ -360,6 +361,22 @@ final class TextExpansionTests: XCTestCase {
         withExtendedLifetime(observer) {}
     }
 
+    func testConsentObserverDistinguishesUnsetAndStopsObservingAfterRelease() {
+        let defaults = isolatedDefaults()
+        defaults.set(false, forKey: TextExpansionCloudSyncPreference.key)
+        let changes = LockedCounter()
+        do {
+            let observer = TextExpansionCloudSyncConsentObserver(defaults: defaults) { changes.increment() }
+            defaults.removeObject(forKey: TextExpansionCloudSyncPreference.key)
+            XCTAssertEqual(changes.value, 1, "removing a stored opt-out is a distinct consent choice")
+            defaults.removeObject(forKey: TextExpansionCloudSyncPreference.key)
+            XCTAssertEqual(changes.value, 1, "repeated unset notifications must not duplicate changes")
+            withExtendedLifetime(observer) {}
+        }
+        defaults.set(true, forKey: TextExpansionCloudSyncPreference.key)
+        XCTAssertEqual(changes.value, 1, "a released observer must stop notifying its store")
+    }
+
     private func snippet(source: String?) -> TextExpansionSnippet {
         TextExpansionSnippet(title: "Greeting", trigger: "hello", body: "Hi there", sourceDeviceID: source)
     }
@@ -371,19 +388,12 @@ final class TextExpansionTests: XCTestCase {
     }
 }
 
-private final class LockedCounter: @unchecked Sendable {
-    private let lock = NSLock()
-    private var count = 0
+private final class LockedCounter: Sendable {
+    private let count = OSAllocatedUnfairLock(initialState: 0)
 
-    var value: Int {
-        lock.lock()
-        defer { lock.unlock() }
-        return count
-    }
+    var value: Int { count.withLock { $0 } }
 
     func increment() {
-        lock.lock()
-        count += 1
-        lock.unlock()
+        count.withLock { $0 += 1 }
     }
 }
