@@ -34,7 +34,9 @@ We do not promise formal SLA response times. Reports are handled on a best-effor
 - **Daemon auth tokens**: Socket and gateway auth tokens are passed to the daemon via launchd `EnvironmentVariables`, not CLI arguments, to prevent exposure via process listings (`ps aux`). The launchd plist is written with `0o600` permissions.
 - **Encryption key recovery**: The SQLCipher key is stored only in the macOS Keychain with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`. There is no automatic plaintext recovery file. If the Keychain entry is lost (for example during macOS migration, Keychain reset, or device loss), the encrypted database is unrecoverable unless the user previously exported an explicit passphrase-protected recovery bundle. Recovery bundles are created with `DatabaseEncryptionService.exportRecoveryBundle(password:)`, encrypted with PBKDF2-HMAC-SHA256 plus AES-GCM, and restored with `DatabaseEncryptionService.importRecoveryBundle(data:password:)`.
 - **Local data**: Default storage is local SQLite. Cloud sync (Firebase) is off by default and stays off until enabled in Settings → Devices & Sync; the choice persists on-device.
+- **What the switch covers on the Mac**: every background uploader and cloud listener checks it, not only the sync domains: presence heartbeats, remote-control listeners (missions, harness imports, Smart Display, Cast, notification replies) and capability-grant receipts, the Hermes and Pi relay hosts, Cloud Vault rotation pickup, Computer Use metering headers, domain-core shadow evidence, standing orders, and the Insights hosted fallback. Turning it off tears the relay hosts and reply listeners down at once (the switch notifies observers) and the polling listeners on their next attach tick (3 s, or 30 s for Smart Display in the background), rather than waiting for a cadence that no longer fires. Explicit user actions (device approve/revoke, credential transfer, team administration, billing, bug reports, an explicit BurnBar Hosted choice) still reach the cloud because the control names what it sends.
 - **Cloud sync scope**: When cloud sync is enabled, usage rows, in-app OpenBurnBar chat threads, and owner-scoped shared-artifact heads/revisions (`workspaces/workspace-{uid}/teams/team-default/artifacts/...`) upload to Firebase as **plaintext metadata** for cross-device resume. Provider credentials and vault contents are never in that stream: credentials transfer only between trusted devices sealed end-to-end (device trust + provider readback), and the vault key never leaves trusted devices. Conversation metadata and full session-log backup remain separately gated by their own settings.
+- **Text-expansion snippets**: Snippet sync is a second opt-in. On the Mac it runs only while both Cloud sync and Settings → Text Expansion → *Sync snippets across devices* are on, and the snippet switch is off for new installs. The iPhone, iPad, and Android apps have no separate Cloud sync switch (signing in connects them), so their snippet switch alone gates uploads: off for new installs, kept on only for an upgraded device that was already syncing snippets. Snippet titles, triggers, bodies, and scopes are sealed with the Cloud Vault key before upload; Firestore also receives a keyed trigger hash plus timestamps and revision metadata.
 - **OAuth flows**: Firebase Auth handles Google and Apple sign-in. Verify redirect URIs match `com.openburnbar.app`.
 - **Extension permissions**: The OpenBurnBar extension requests minimal capabilities. Review workspace trust settings in Cursor/VS Code.
 - **Workspace tool boundaries**: Editor workspace tools are constrained to the opened workspace roots. In trusted workspaces, `apply_patch` and `run_terminal` still require explicit approval before execution.
@@ -73,6 +75,14 @@ as such (each has a trigger that would revisit it):
   `avatars/{uid}/profile.jpg` require `request.auth.uid == userId`
   ([storage.rules](storage.rules)). The retired public-read posture is
   [AR-002](docs/governance/RISK_REGISTER.md).
+- **The Firebase web client config is committed.** The API key, app id and
+  reCAPTCHA Enterprise *site* key in
+  [config/firebase-web-public.json](config/firebase-web-public.json) are public
+  client identifiers that ship in every browser bundle; App Check,
+  Firestore/Storage rules and the key's API restrictions enforce access, not
+  secrecy. That file is the only copy (the one place to rotate them and the only
+  path the gitleaks allowlist covers), and `PUBLIC_*` / `NEXT_PUBLIC_*` env
+  overrides it for staging. Revisit if any of these values must become secret.
 - **Solo-operator process / bus factor 1**: merge/control compensations are
   codified in [docs/SOLO_OPERATOR_POLICY.md](docs/SOLO_OPERATOR_POLICY.md)
   and accepted as [AR-008](docs/governance/RISK_REGISTER.md). Code cannot

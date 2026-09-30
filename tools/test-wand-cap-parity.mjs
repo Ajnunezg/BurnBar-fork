@@ -42,7 +42,7 @@ function assertCaps(label, actual) {
   assert.deepEqual(actual, expected, `${label} Wand cap ladder drifted from packages/entitlements`);
 }
 
-const swift = readRepo("OpenBurnBarCore/Sources/OpenBurnBarKernel/Membership/GatedFeature.swift");
+const swift = readRepo("OpenBurnBarCore/Sources/OpenBurnBarHermesModels/GatedFeature.swift");
 assertCaps("Swift WandFanOut.maxParallel", {
   free: numberFrom(swift, /case \.none:\s*return\s+(\d+)/, "Swift free cap"),
   cloud: numberFrom(swift, /case \.cloud:\s*return\s+(\d+)/, "Swift cloud cap"),
@@ -66,7 +66,7 @@ assertCaps("website pricing allowance", {
   ultra: numberFrom(website, /id:\s*"ultra"[\s\S]*?wandParallelMax:\s*(\d+)/, "website ultra cap"),
 });
 
-const functionsUsage = readRepo("functions/src/callables/dataDomainUsage.ts");
+const functionsUsage = readRepo("functions-sync/src/domains/usage/dataDomainUsage.ts");
 assert.match(
   functionsUsage,
   /import\s+\{\s*WAND_PARALLEL_CAPS\s*\}\s+from\s+"@openburnbar\/entitlements";/,

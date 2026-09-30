@@ -7,7 +7,12 @@
       "name": "rollback-retention",
       "action": "KEEP",
       "keepCount": 3
+    },
+    {
+      "name": "rollback-retention-7d",
+      "action": "KEEP",
+      "newerThanSeconds": 604800
     }
   ],
-  "notes": "Source of truth for scripts/ops/check-artifact-retention-drift.mjs (live drift). The Firebase-default firebase-functions-cleanup policy (DELETE olderThan 24h) prunes every function image daily; without a KEEP mostRecentVersions policy the revision-pin rollback path rots within a day (Wave 1.5 drill 2026-09-23: both projects measured 0 servable previous revisions). keepCount is a floor: live may retain more, never fewer."
+  "notes": "Source of truth for scripts/ops/check-artifact-retention-drift.mjs (live drift) and scripts/ops/apply-artifact-retention.mjs (plan/apply). The Firebase-default firebase-functions-cleanup policy (DELETE olderThan 24h) prunes every function image daily; a KEEP policy wins over a DELETE for the same image, so these two KEEP floors are what keep revision-pin rollback servable (Wave 1.5 drill 2026-09-23: both projects measured 0 servable previous revisions). keepCount keeps the newest versions of each function image (package), which protects N-1 when deploys are more than a week apart; newerThanSeconds keeps every version uploaded in the last 7 days. Both are floors: live may retain more (a higher keepCount, a longer window), never fewer, and neither may be scoped to a subset of images."
 }

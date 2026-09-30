@@ -87,9 +87,16 @@ enum LocalUsageParserSupport {
         }.sorted { $0.path < $1.path }
     }
 
-    static func jsonObjects(at file: URL) -> [LocalUsageJSONObject] {
+    /// Whole-document JSON (`[...]` / `{...}`) or JSONL. `containerKeys`
+    /// flattens a file that parses as one JSON document and nests its turns
+    /// (`{"messages": [...]}`); multi-line JSONL is split per line as before.
+    static func jsonObjects(
+        at file: URL,
+        flatteningContainerKeys containerKeys: [String] = []
+    ) -> [LocalUsageJSONObject] {
         guard let data = try? Data(contentsOf: file) else { return [] }
         if let object = try? JSONSerialization.jsonObject(with: data) {
+            if !containerKeys.isEmpty { return flattened(object, containerKeys: containerKeys) }
             if let array = object as? [LocalUsageJSONObject] { return array }
             if let dictionary = object as? LocalUsageJSONObject { return [dictionary] }
         }
@@ -98,6 +105,18 @@ enum LocalUsageParserSupport {
             guard let lineData = String(line).data(using: .utf8) else { return nil }
             return try? JSONSerialization.jsonObject(with: lineData) as? LocalUsageJSONObject
         }
+    }
+
+    private static func flattened(_ value: Any, containerKeys: [String]) -> [LocalUsageJSONObject] {
+        if let array = value as? [Any] {
+            return array.flatMap { flattened($0, containerKeys: containerKeys) }
+        }
+        guard let object = value as? LocalUsageJSONObject else { return [] }
+        let nested: [LocalUsageJSONObject] = containerKeys.flatMap { key -> [LocalUsageJSONObject] in
+            guard let child = object[key] else { return [] }
+            return flattened(child, containerKeys: containerKeys)
+        }
+        return nested.isEmpty ? [object] : nested
     }
 
     static func jsonLines(at file: URL) -> LocalUsageJSONLineSequence {
@@ -166,6 +185,7 @@ enum LocalUsageParserSupport {
         cacheRead: Int = 0,
         reasoning: Int = 0,
         cost: Double,
+        pricingSource: UsagePricingSource,
         start: Date,
         end: Date,
         method: UsageProvenanceMethod,
@@ -184,6 +204,7 @@ enum LocalUsageParserSupport {
             cacheReadTokens: cacheRead,
             reasoningTokens: reasoning,
             costUSD: cost,
+            pricingSource: pricingSource,
             startTime: start,
             endTime: end,
             provenanceMethod: method,
@@ -200,7 +221,8 @@ enum LocalUsageParserSupport {
         start: Date?,
         end: Date?,
         fileModifiedAt: Date?,
-        workingDirectory: String? = nil
+        workingDirectory: String? = nil,
+        title: String? = nil
     ) -> ConversationRecord {
         let userTurns = turns.filter { $0.role == "user" || $0.role == "human" }
         let assistantTurns = turns.filter { $0.role == "assistant" || $0.role == "agent" || $0.role == "model" }
@@ -224,7 +246,9 @@ enum LocalUsageParserSupport {
             keyFiles: [],
             keyCommands: [],
             keyTools: [],
-            inferredTaskTitle: String((firstUser.flatMap { $0.isEmpty ? nil : $0 } ?? project).prefix(120)),
+            // A provider-recorded session title names the thread; the first
+            // prompt is only the fallback.
+            inferredTaskTitle: String((title ?? firstUser.flatMap { $0.isEmpty ? nil : $0 } ?? project).prefix(120)),
             lastAssistantMessage: String((assistantTurns.last?.text ?? "").prefix(500)),
             fullText: fullText,
             indexedAt: Date(),
@@ -429,8 +453,14 @@ public final class AiderParser: LogParser, Sendable {
             let model = TokenExtractionUtility.normalizeModelName(session.model)
             let start = session.start ?? LocalUsageParserSupport.modificationDate(files.first ?? root) ?? Date()
             let end = session.end ?? start
-            let cost = session.cost > 0 ? session.cost : (try? ModelPricing.lookup(model: model).cost(inputTokens: session.input, outputTokens: session.output)) ?? 0
-            return LocalUsageParserSupport.usage(provider: .aider, sessionID: "aider-\(index)-\(Int(start.timeIntervalSince1970))", project: "Aider", model: model, input: session.input, output: session.output, cost: cost, start: start, end: end, method: .providerLog, confidence: .exact)
+            let pricing = ModelPricing.lookup(model: model)
+            let cost = session.cost > 0 ? session.cost : (try? pricing.cost(inputTokens: session.input, outputTokens: session.output)) ?? 0
+            return LocalUsageParserSupport.usage(
+                provider: .aider, sessionID: "aider-\(index)-\(Int(start.timeIntervalSince1970))", project: "Aider",
+                model: model, input: session.input, output: session.output, cost: cost,
+                pricingSource: session.cost > 0 ? .reported : pricing.source,
+                start: start, end: end, method: .providerLog, confidence: .exact
+            )
         }
         if let signature {
             parseCache.fileEntries = [cacheKey: CachedUsageBundleEntry(signature: signature, usages: usages)]
@@ -510,8 +540,14 @@ public final class CursorParser: LogParser, Sendable {
             let end = max(start, TimestampNormalizationUtility.date(fromEpoch: row.double("last_seen"), fallback: start))
             let input = count * 500
             let output = count * 150
-            let cost = (try? ModelPricing.lookup(model: model).cost(inputTokens: input, outputTokens: output)) ?? 0
-            return LocalUsageParserSupport.usage(provider: .cursor, sessionID: session, project: "Cursor", model: model, input: input, output: output, cost: cost, start: start, end: end, method: .heuristicEstimate, confidence: .lowConfidenceEstimate, estimatorVersion: "cursor-hash-count-v1")
+            let pricing = ModelPricing.lookup(model: model)
+            let cost = (try? pricing.cost(inputTokens: input, outputTokens: output)) ?? 0
+            return LocalUsageParserSupport.usage(
+                provider: .cursor, sessionID: session, project: "Cursor", model: model,
+                input: input, output: output, cost: cost, pricingSource: pricing.source,
+                start: start, end: end, method: .heuristicEstimate,
+                confidence: .lowConfidenceEstimate, estimatorVersion: "cursor-hash-count-v1"
+            )
         }
         if let signature {
             parseCache.fileEntries = [cacheKey: CachedUsageBundleEntry(signature: signature, usages: usages)]
@@ -691,7 +727,9 @@ public final class OpenCodeParser: LogParser, Sendable {
             let start = meta?.created ?? TimestampNormalizationUtility.date(fromEpoch: ordered.first?.time)
             let end = meta?.updated ?? TimestampNormalizationUtility.date(fromEpoch: ordered.last?.time, fallback: start)
             let costFromRows = ordered.compactMap(\.cost).reduce(0, +)
-            let cost = costFromRows > 0 ? costFromRows : ((try? ModelPricing.lookup(model: model).cost(inputTokens: input, outputTokens: output, cacheCreationTokens: cacheCreation, cacheReadTokens: cacheRead)) ?? 0)
+            let pricing = ModelPricing.lookup(model: model)
+            let cost = costFromRows > 0 ? costFromRows : ((try? pricing.cost(inputTokens: input, outputTokens: output, cacheCreationTokens: cacheCreation, cacheReadTokens: cacheRead)) ?? 0)
+            let pricingSource: UsagePricingSource = costFromRows > 0 ? .reported : pricing.source
             let project = meta?.directory.map { URL(fileURLWithPath: $0).lastPathComponent } ?? session
             let estimatorVersion = method == .heuristicEstimate
                 ? TokenExtractionUtility.currentEstimatorVersion
@@ -706,6 +744,7 @@ public final class OpenCodeParser: LogParser, Sendable {
                 cacheCreation: cacheCreation,
                 cacheRead: cacheRead,
                 cost: cost,
+                pricingSource: pricingSource,
                 start: start,
                 end: end,
                 method: method,
@@ -723,7 +762,8 @@ public final class OpenCodeParser: LogParser, Sendable {
                     start: start,
                     end: end,
                     fileModifiedAt: end,
-                    workingDirectory: meta?.directory
+                    workingDirectory: meta?.directory,
+                    title: meta?.title
                 ))
             }
         }
@@ -979,7 +1019,8 @@ public final class PiAgentParser: LogParser, Sendable {
             input = estimate.input; output = estimate.output; method = .heuristicEstimate; confidence = .lowConfidenceEstimate
         }
         let startTime = start ?? mtime, endTime = end ?? startTime
-        let cost = (try? ModelPricing.lookup(model: model).cost(inputTokens: input, outputTokens: output, cacheCreationTokens: cacheCreation, cacheReadTokens: cacheRead)) ?? 0
+        let pricing = ModelPricing.lookup(model: model)
+        let cost = (try? pricing.cost(inputTokens: input, outputTokens: output, cacheCreationTokens: cacheCreation, cacheReadTokens: cacheRead)) ?? 0
         let project = cwd.map { URL(fileURLWithPath: $0).lastPathComponent } ?? sessionID
         let estimatorVersion = method == .heuristicEstimate
             ? TokenExtractionUtility.currentEstimatorVersion
@@ -994,6 +1035,7 @@ public final class PiAgentParser: LogParser, Sendable {
             cacheCreation: cacheCreation,
             cacheRead: cacheRead,
             cost: cost,
+            pricingSource: pricing.source,
             start: startTime,
             end: endTime,
             method: method,
@@ -1233,7 +1275,13 @@ public final class OpenClawParser: LogParser, Sendable {
                 continue
             }
             sessionScanCount.withLock { $0 += 1 }
-            let objects = LocalUsageParserSupport.jsonObjects(at: file)
+            // Single-document sessions nest their turns (`{"messages": [...]}`);
+            // unflattened, the wrapper has no role/content and the session's
+            // usage is silently dropped.
+            let objects = LocalUsageParserSupport.jsonObjects(
+                at: file,
+                flatteningContainerKeys: ["messages", "turns", "events", "conversation", "history", "items"]
+            )
             guard !objects.isEmpty else { continue }
             var input = 0, output = 0, cacheRead = 0; var model = "openclaw"; var start: Date?, end: Date?; var turns: [LocalUsageParserSupport.Turn] = []
             for object in objects {
@@ -1279,7 +1327,8 @@ public final class OpenClawParser: LogParser, Sendable {
                 method = .heuristicEstimate
                 confidence = .lowConfidenceEstimate
             }
-            let cost = (try? ModelPricing.lookup(model: model).cost(
+            let pricing = ModelPricing.lookup(model: model)
+            let cost = (try? pricing.cost(
                 inputTokens: input,
                 outputTokens: output,
                 cacheReadTokens: cacheRead
@@ -1297,6 +1346,7 @@ public final class OpenClawParser: LogParser, Sendable {
                 output: output,
                 cacheRead: cacheRead,
                 cost: cost,
+                pricingSource: pricing.source,
                 start: startTime,
                 end: endTime,
                 method: method,
@@ -1401,9 +1451,10 @@ public final class OllamaParser: LogParser, Sendable {
             }
             guard input > 0 || output > 0 else { continue }
             let mtime = LocalUsageParserSupport.modificationDate(file) ?? Date(); let startTime = start ?? mtime; let endTime = end ?? startTime
-            let cost = (try? ModelPricing.lookup(model: model).cost(inputTokens: input, outputTokens: output)) ?? 0
+            let pricing = ModelPricing.lookup(model: model)
+            let cost = (try? pricing.cost(inputTokens: input, outputTokens: output)) ?? 0
             let session = "ollama-\(file.deletingPathExtension().lastPathComponent)"
-            if let usage = LocalUsageParserSupport.usage(provider: .ollama, sessionID: session, project: "Ollama", model: model, input: input, output: output, cost: cost, start: startTime, end: endTime, method: .providerLog, confidence: .exact) {
+            if let usage = LocalUsageParserSupport.usage(provider: .ollama, sessionID: session, project: "Ollama", model: model, input: input, output: output, cost: cost, pricingSource: pricing.source, start: startTime, end: endTime, method: .providerLog, confidence: .exact) {
                 usages.append(usage)
                 if let signature {
                     parseCache.fileEntries[cacheKey] = CachedUsageBundleEntry(signature: signature, usages: [usage])

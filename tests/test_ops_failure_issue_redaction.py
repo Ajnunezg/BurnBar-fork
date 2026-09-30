@@ -25,7 +25,7 @@ def run_action_script(*, existing_issue: bool, paging_webhook: str | None = None
           .map((line) => line.startsWith('          ') ? line.slice(10) : line)
           .join('\\n');
 
-        const calls = {{ created: null, comments: [], labels: [], pagePayloads: [] }};
+        const calls = {{ created: null, comments: [], labels: [], pagePayloads: [], failed: [] }};
         const github = {{
           paginate: async () => {json.dumps([{"number": 42, "labels": [{"name": "failures:2"}]}] if existing_issue else [])},
           rest: {{
@@ -58,7 +58,8 @@ def run_action_script(*, existing_issue: bool, paging_webhook: str | None = None
           workflow: 'Nightly failure for ops@example.test',
         }};
         const core = {{
-          setFailed(message) {{ throw new Error(message); }},
+          // Like @actions/core: record the failure, do not abort the script.
+          setFailed(message) {{ calls.failed.push(message); }},
           notice() {{}},
           info() {{}},
           warning() {{}},
@@ -146,6 +147,8 @@ def test_ops_failure_issue_creation_redacts_inputs() -> None:
     calls = run_action_script(existing_issue=False)
 
     assert calls["created"]["title"].startswith("Ops failed for [REDACTED-EMAIL] with Bearer [REDACTED]")
+    # P0 with no paging webhook: the job fails, and the failure text is redacted too.
+    assert len(calls["failed"]) == 1 and "paging not delivered (webhook-unset)" in calls["failed"][0]
     assert_public_issue_payload_is_redacted(calls)
 
 

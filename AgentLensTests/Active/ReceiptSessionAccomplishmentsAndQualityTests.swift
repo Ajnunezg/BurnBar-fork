@@ -269,7 +269,9 @@ final class ReceiptSessionAccomplishmentsAndQualityTests: XCTestCase {
                 provider: .factory,
                 sessionId: "factory-old",
                 projectName: "BurnBar",
-                model: "droid",
+                // (provider, sessionId, model, device, account) is the upsert
+                // key: four rows with one model collapse into a single row.
+                model: "droid-\(index)",
                 inputTokens: 10,
                 outputTokens: 4,
                 costUSD: 0.01,
@@ -867,10 +869,13 @@ final class ReceiptSessionAccomplishmentsAndQualityTests: XCTestCase {
             }
         )
         monitor.quietPeriodSeconds = 60
-        await monitor.checkClosedSessions(now: now)
+        // Last activity is fileModifiedAt (now - 30): the slip mints once the
+        // 60s quiet period has elapsed, as in the sibling close tests.
+        await monitor.checkClosedSessions(now: now.addingTimeInterval(35))
 
         XCTAssertNil(printedReceipt, "A relaunched CLI must not get a flyout from a stale snapshot")
         XCTAssertEqual(monitor.activeSessions.count, 1)
+        XCTAssertEqual(probe.remainingSnapshotCount, 0, "The pre-announce re-snapshot must have run")
         let saved = try await dataStore.fetchReceiptForSession(sessionId: "factory-reopen-1")
         XCTAssertNotNil(saved, "The slip still prints; only announce waits")
     }
@@ -1808,6 +1813,10 @@ private final class SequenceSnapshotReceiptCLIRuntimeProbe: ReceiptCLIRuntimePro
 
     init(snapshots: [Bool]) {
         self.snapshots = OSAllocatedUnfairLock(initialState: snapshots)
+    }
+
+    var remainingSnapshotCount: Int {
+        snapshots.withLock { $0.count }
     }
 
     func isSessionRuntimeOpen(provider _: AgentProvider, projectPath _: String?) async -> Bool {

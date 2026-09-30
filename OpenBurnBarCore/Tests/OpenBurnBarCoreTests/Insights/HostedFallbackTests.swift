@@ -602,6 +602,38 @@ final class HostedFallbackTests: XCTestCase {
                        "Direct local-rules selection isn't a fallback.")
     }
 
+    func testHostedFallbackDisallowedLandsOnLocalRules() async throws {
+        let catalog = InsightModelCatalog()
+        let userTag = makeUserModelTag()
+        struct UserGatewayError: Error {}
+        await catalog.register(StubGateway(
+            providerKey: userTag.providerKey,
+            displayName: userTag.displayName,
+            modelID: userTag.modelID,
+            egressTier: .userKey,
+            executiveSummary: "(unreachable)",
+            throwingError: UserGatewayError()
+        ))
+        await catalog.register(makeHostedStub())
+        let engine = OrchestratedInsightAnalysisEngine(
+            platform: .macOS,
+            fallback: RuleBasedInsightAnalysisEngine(platform: .macOS),
+            catalog: catalog,
+            configuration: .init(allowsHostedFallback: false)
+        )
+        let request = try makeRequest(prompt: "Where did the spend go?", selected: userTag)
+
+        let blocked = try await engine.analyze(request)
+        let answer = try XCTUnwrap(blocked.briefingAnswer)
+        XCTAssertEqual(answer.source, .localRules,
+                       "With Cloud sync off a failed user route degrades locally instead of re-routing to BurnBar Hosted.")
+
+        // Control: the same failure is picked up by hosted once allowed.
+        await engine.updateConfiguration(.init(allowsHostedFallback: true))
+        let allowed = try await engine.analyze(request)
+        XCTAssertEqual(try XCTUnwrap(allowed.briefingAnswer).source, .hostedFallback)
+    }
+
     func testLocalOnlySelectionNeverPromotesToHostedFallback() async throws {
         let catalog = InsightModelCatalog()
         await catalog.register(makeHostedStub())

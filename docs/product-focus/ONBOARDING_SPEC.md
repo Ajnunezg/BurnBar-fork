@@ -486,7 +486,7 @@ Four new cases in `OpenBurnBarCore/Sources/OpenBurnBarAnalytics/AnalyticsEvent.s
 
 | Path | Purpose |
 |---|---|
-| `OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/TightestQuotaWindow.swift` | Pure, cross-platform derivation: `TightestQuotaWindow.tightest(across: [ProviderQuotaSnapshot], asOf: Date) -> TightestQuotaWindow?`. Reuses the existing `displayableQuotaBuckets(relativeTo:)` / `remainingPercent` / `resetsAt` primitives from `ProviderQuotaDisplayExtensions.swift` — min remaining %, tie-break earliest `resetsAt`. Feeds the menu bar, the hero card, the iOS Live Activity and the widget snapshot from **one** implementation. |
+| `OpenBurnBarCore/Sources/OpenBurnBarUsageModels/TightestQuotaWindow.swift` | Pure, cross-platform derivation: `TightestQuotaWindow.tightest(across: [ProviderQuotaSnapshot], asOf: Date) -> TightestQuotaWindow?`. Reuses the existing `displayableQuotaBuckets(relativeTo:)` / `remainingPercent` / `resetsAt` primitives from `ProviderQuotaDisplayExtensions.swift` — min remaining %, tie-break earliest `resetsAt`. Feeds the menu bar, the hero card, the iOS Live Activity and the widget snapshot from **one** implementation. |
 | `AgentLens/Views/Onboarding/FirstRun/FirstRunRevealModel.swift` | `@MainActor @Observable` state machine: `.scanning(fraction:) → .landed(TightestQuotaWindow, [ProviderQuotaSnapshot]) \| .empty(searchedPaths:) \| .blocked([BlockedRoot])`. Injected dependencies, zero SwiftUI — mirrors the `HermesSetupWizardController` pattern so it is unit-testable without a snapshot harness. Owns the 8.0 s degrade timer and the aha predicate. |
 | `AgentLens/Views/Onboarding/FirstRun/FirstRunReveal.swift` | S1a / S1b / S1-B popover root. |
 | `AgentLens/Views/Onboarding/FirstRun/FirstRunTightestWindowCard.swift` | The hero ring + count-up + `posterSettle` beat. Reused verbatim in S2. |
@@ -520,7 +520,7 @@ Four new cases in `OpenBurnBarCore/Sources/OpenBurnBarAnalytics/AnalyticsEvent.s
 | `AgentLens/Views/Quota/QuotaEmptyState.swift` | Replace "Connect a provider in Settings → Connections" with the shared "nothing has burned a token yet — I looked in N places" copy + `Where did you look?`. |
 | `AgentLens/Views/Onboarding/OnboardingWizardView.swift` | Demote to **Advanced setup**, reachable only from Settings → Advanced. Drop the `.tour` and `.chatEngine` steps entirely. Keep `.providers`/`.connect`/`.scan` for power users who want explicit control. |
 | `AgentLens/Views/Settings/GeneralSettingsView.swift` | Pass the real `aggregator` at ~line 227 — the re-entry path currently passes `nil`, so `OnboardingScanView` hangs on "Scanning…" forever. |
-| `AgentLens/PetCompanion/Onboarding/PetOnboardingWindowPresenter.swift` | Gate `openIfNeeded` on `PetCompanionFeature.isEnabled` (the gate `showCompanion()` already uses), not on the bare `pet.firstRunCompleted` default. |
+| `AgentLens/Lab/PetCompanion/Onboarding/PetOnboardingWindowPresenter.swift` | Gate `openIfNeeded` on `PetCompanionFeature.isEnabled` (the gate `showCompanion()` already uses), not on the bare `pet.firstRunCompleted` default. |
 | `OpenBurnBarCore/Sources/OpenBurnBarAnalytics/AnalyticsEvent.swift` | Add the four `firstrun.*` cases + their `AnalyticsCategory` mappings. |
 | `AgentLens/Views/Onboarding/AnalyticsConsentPromptView.swift` | Re-target from launch modal to a day-three inline Settings card. |
 | `AgentLens/Views/Onboarding/Switcher/SwitcherOnboardingWizardView.swift` | Delete the standalone wizard + `hasSwitcherOnboarded`; its content becomes `FirstRunSecondAccountStrip`. |

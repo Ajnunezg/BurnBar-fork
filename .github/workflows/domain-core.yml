@@ -102,7 +102,9 @@ jobs:
           bash scripts/ci/post-deploy-health-gate.test.sh
 
       - name: Verify shadow evidence retention declaration
-        run: bash scripts/ci/check-firestore-ttl-declared.sh
+        run: |
+          bash scripts/ci/check-firestore-ttl-declared.test.sh
+          bash scripts/ci/check-firestore-ttl-declared.sh
 
       - name: Check out trusted default-branch evaluator
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

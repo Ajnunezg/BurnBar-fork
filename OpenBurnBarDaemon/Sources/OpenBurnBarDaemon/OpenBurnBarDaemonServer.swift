@@ -168,6 +168,7 @@ public actor BurnBarDaemonServer {
     private var heartbeatTask: Task<Void, Never>?
     private var oauthRefreshTask: Task<Void, Never>?
     private var localUsageIngestionTask: Task<Void, Never>?
+    private var usageLedgerReplayTask: Task<Void, Never>?
     private var aiInboxStartedLoop = false
     public init(
         configuration: BurnBarDaemonConfiguration = BurnBarDaemonConfiguration(),
@@ -1103,6 +1104,18 @@ public actor BurnBarDaemonServer {
             configStore: configStore,
             logger: logger
         )
+        // Spend whose ledger append failed waits in the recorder's retry
+        // spool; replay it even when no new request arrives to trigger it.
+        usageLedgerReplayTask = Task.detached(priority: .background) { [usageRecorder] in
+            while !Task.isCancelled {
+                await usageRecorder.replayDeferred()
+                do {
+                    try await Task.sleep(for: .seconds(60))
+                } catch {
+                    break
+                }
+            }
+        }
         if let localUsageIngestionService {
             localUsageIngestionTask = Task.detached(priority: .background) { [logger] in
                 while !Task.isCancelled {
@@ -1113,7 +1126,8 @@ public actor BurnBarDaemonServer {
                             metadata: [
                                 "parsed_rows": "\(report.parsedRows)",
                                 "inserted_deltas": "\(report.insertedDeltas)",
-                                "unchanged_rows": "\(report.unchangedRows)"
+                                "unchanged_rows": "\(report.unchangedRows)",
+                                "deferred_files": "\(report.deferredFiles)"
                             ]
                         )
                     } else {
@@ -1307,6 +1321,8 @@ public actor BurnBarDaemonServer {
         oauthRefreshTask = nil
         localUsageIngestionTask?.cancel()
         localUsageIngestionTask = nil
+        usageLedgerReplayTask?.cancel()
+        usageLedgerReplayTask = nil
         if aiInboxStartedLoop, let aiInboxStorage {
             await aiInboxStorage.stop()
             aiInboxStartedLoop = false

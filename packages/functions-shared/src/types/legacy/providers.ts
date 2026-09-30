@@ -143,6 +143,8 @@ export interface RuntimeConnectionPreferenceDoc {
 // Firestore: provider_account_secret_refs/{uid}_{accountID} (server-private)
 // ---------------------------------------------------------------------------
 
+// A pending version-complete erasure adds its durable retry manifest
+// (`ProviderSecretErasureManifest`, module-private in providerSecretErasure.ts).
 export interface ProviderAccountSecretRefDoc {
   uid: string;
   providerID: ProviderID;

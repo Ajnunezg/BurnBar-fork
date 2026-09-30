@@ -3,7 +3,6 @@ package com.openburnbar.ui.insights
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.FirebaseException
 import com.openburnbar.data.assistants.CLIAgentMissionDispatcher
 import com.openburnbar.data.assistants.CLIAgentMissionSnapshot
 import com.openburnbar.data.insights.InsightAnalysisRequest
@@ -28,6 +27,8 @@ import com.openburnbar.data.insights.verdict.RuleBasedVerdictEngine
 import com.openburnbar.data.insights.verdict.VerdictWindow
 import com.openburnbar.data.repos.InsightAnalysisAuditLogRepository
 import com.openburnbar.data.repos.InsightAnalysisCacheRepository
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,19 +46,21 @@ class InsightsViewModel(
      * constructor below preserves the no-arg shape `viewModel()` uses.
      */
     private val hermesGateway: AndroidHermesInsightAnalysisGateway? = null,
+    credentialStore: AndroidInsightCredentialStore = AndroidInsightCredentialStore(application),
 ) : AndroidViewModel(application) {
     constructor(application: Application) : this(application, FirestoreInsightDataSource(), null)
 
     private val auditLog = InsightAnalysisAuditLogRepository(application)
     private val cache = InsightAnalysisCacheRepository(application)
-    private val credentialStore = AndroidInsightCredentialStore(application)
     private val gateways =
         AndroidInsightGatewayRegistry.defaultGateways(
             credentialStore,
             hermesProvider = { hermesGateway },
         ).associateBy { it.providerKey }
     private val preferences = application.getSharedPreferences("insights_model_preferences", Application.MODE_PRIVATE)
-    private val missionDispatcher = CLIAgentMissionDispatcher()
+
+    // Firebase-bound: created on the first mission action, not with the screen.
+    private val missionDispatcher by lazy { CLIAgentMissionDispatcher() }
 
     private val _canvas = MutableStateFlow<InsightCanvas?>(null)
     val canvas = _canvas.asStateFlow()
@@ -157,45 +160,46 @@ class InsightsViewModel(
             InsightAnalysisRequest.Instruction.UPDATE_CANVAS,
             -> selected
         }
+
+        /**
+         * The message the error state shows for a failed run. A connectivity
+         * failure gets actionable copy; anything else keeps its own message.
+         */
+        internal fun insightFailureMessage(failure: Throwable): String = when (failure) {
+            is IOException -> "Insights couldn't reach the analysis service. Check your connection and try again."
+            else -> failure.message?.takeIf { it.isNotBlank() } ?: "Insights analysis failed. Try again."
+        }
     }
 
     fun load() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                runAnalysis("Generate the default Android Insights intelligence brief.")
-                _error.value = null
-            } catch (e: FirebaseException) {
-                _error.value = e.message
-            } finally {
-                _isLoading.value = false
-            }
-        }
+        launchAnalysis("Generate the default Android Insights intelligence brief.")
     }
 
     fun refresh() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                runAnalysis("Refresh the Android Insights intelligence brief.")
-                _error.value = null
-            } catch (e: BurnBarProSubscriptionRequiredException) {
-                _error.value = e.message
-            } finally {
-                _isLoading.value = false
-            }
-        }
+        launchAnalysis("Refresh the Android Insights intelligence brief.")
     }
 
     fun ask(prompt: String) {
         if (prompt.isBlank()) return
+        launchAnalysis(prompt.trim(), InsightAnalysisRequest.Instruction.ANSWER_FOLLOW_UP)
+    }
+
+    /**
+     * Every failure — network, HTTP status, Firebase, paywall, local-only
+     * refusal — settles into the error state. An exception escaping
+     * viewModelScope would crash the app. Cancellation and JVM errors still
+     * propagate.
+     */
+    private fun launchAnalysis(prompt: String, instruction: InsightAnalysisRequest.Instruction = InsightAnalysisRequest.Instruction.DEFAULT_BRIEF) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                runAnalysis(prompt.trim(), InsightAnalysisRequest.Instruction.ANSWER_FOLLOW_UP)
-                _error.value = null
-            } catch (e: BurnBarProSubscriptionRequiredException) {
-                _error.value = e.message
+                runCatching { runAnalysis(prompt, instruction) }
+                    .onSuccess { _error.value = null }
+                    .onFailure { failure ->
+                        if (failure is CancellationException || failure is Error) throw failure
+                        _error.value = insightFailureMessage(failure)
+                    }
             } finally {
                 _isLoading.value = false
             }

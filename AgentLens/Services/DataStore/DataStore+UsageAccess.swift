@@ -1,4 +1,5 @@
 import Foundation
+import OpenBurnBarInsights
 import OpenBurnBarKernel
 import OpenBurnBarLogParsers
 import OpenBurnBarUI
@@ -42,6 +43,13 @@ extension DataStore {
         try await actor.usageStore.insert(newUsages)
     }
 
+    func replaceDaemonLedgerUsage(
+        _ usages: [TokenUsage],
+        superseding superseded: [DaemonUsageLedgerImporter.SupersededRow]
+    ) async throws {
+        try await actor.usageStore.replaceDaemonLedgerUsage(usages, superseding: superseded)
+    }
+
     func insertChunked(_ newUsages: [TokenUsage], chunkSize: Int = 100) async throws {
         try await actor.usageStore.insertChunked(newUsages, chunkSize: chunkSize)
     }
@@ -77,6 +85,10 @@ extension DataStore {
 
     func fetchChartFactRows(in dateRange: ClosedRange<Date>?) async throws -> [ChartFactRow] {
         try await actor.usageStore.fetchChartFactRows(in: dateRange)
+    }
+
+    func fetchChartAggregates(recentRange: ClosedRange<Date>) async throws -> ChartAggregates {
+        try await actor.usageStore.fetchChartAggregates(recentRange: recentRange)
     }
 
     func fetchDashboardUsageSnapshot(loadedUsageLimit: Int) async throws -> DashboardUsageSnapshot {

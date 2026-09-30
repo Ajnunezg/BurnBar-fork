@@ -1,6 +1,6 @@
 {
   "workstream": "W0-5 (alert plane runs without a human)",
-  "purpose": "Viewer-only service account for the alert-plane drift verification lanes: `ops-plane-verify.yml` job `alert-plane-drift` and `ops-confidence.yml` job `deploy-freshness`. It reads live GCP alert policies, billing budgets, log sinks, and IAM posture and compares them against the committed source of truth. It can never mutate production: every role below is a viewer role.",
+  "purpose": "Viewer-only service account for the alert-plane drift verification lanes: `ops-plane-verify.yml` job `alert-plane-drift` and `ops-confidence.yml` job `deploy-freshness`. It reads live GCP alert policies, billing budgets, log sinks, IAM posture, and the gcf-artifacts cleanup policies that keep rollback images, and compares them against the committed source of truth. It can never mutate production: every role below is a viewer role.",
   "serviceAccountEmail": "ops-verifier@burnbar.iam.gserviceaccount.com",
   "roles": [
     "roles/monitoring.viewer",
@@ -8,11 +8,12 @@
     "roles/logging.viewer",
     "roles/iam.securityReviewer",
     "roles/cloudfunctions.viewer",
-    "roles/run.viewer"
+    "roles/run.viewer",
+    "roles/artifactregistry.reader"
   ],
   "roleConstraints": {
     "noWriterRoles": true,
-    "rationale": "The lanes this identity serves are drift DETECTORS. A writer role here would let a CI compromise mutate the alert plane it is supposed to guard (and would contradict the fail-closed drift contract: the file wins, live is the bug). cloudfunctions.viewer and run.viewer exist only so deploy-freshness can list Cloud Functions and get Cloud Run services (scripts/ci/check-deploy-freshness.mjs); both are read-only."
+    "rationale": "The lanes this identity serves are drift DETECTORS. A writer role here would let a CI compromise mutate the alert plane it is supposed to guard (and would contradict the fail-closed drift contract: the file wins, live is the bug). cloudfunctions.viewer and run.viewer exist only so deploy-freshness can list Cloud Functions and get Cloud Run services (scripts/ci/check-deploy-freshness.mjs); both are read-only. artifactregistry.reader exists only so alert-plane-drift can describe the gcf-artifacts cleanup policies (scripts/ops/check-artifact-retention-drift.mjs); it is read-only and bound on the us-central1/gcf-artifacts repository in each project the retention contract names (burnbar and burnbar-staging), not project-wide."
   },
   "workloadIdentityFederation": {
     "binding": "principalSet://iam.googleapis.com/projects/<gcp-project-number>/locations/global/workloadIdentityPools/github-oidc/attribute.repository/Imagine-That-Ai/BurnBar",
@@ -30,6 +31,7 @@
     "gcloud": [
       "gcloud iam service-accounts create ops-verifier --project=burnbar --display-name='Ops plane verifier (viewer-only)'",
       "for ROLE in roles/monitoring.viewer roles/billing.viewer roles/logging.viewer roles/iam.securityReviewer roles/cloudfunctions.viewer roles/run.viewer; do gcloud projects add-iam-policy-binding burnbar --member='serviceAccount:ops-verifier@burnbar.iam.gserviceaccount.com' --role=\"$ROLE\"; done",
+      "for PROJECT in burnbar burnbar-staging; do gcloud artifacts repositories add-iam-policy-binding gcf-artifacts --project=\"$PROJECT\" --location=us-central1 --member='serviceAccount:ops-verifier@burnbar.iam.gserviceaccount.com' --role='roles/artifactregistry.reader'; done",
       "gcloud iam workload-identity-pools describe github-oidc --project=burnbar --location=global >/dev/null 2>&1 || gcloud iam workload-identity-pools create github-oidc --project=burnbar --location=global --display-name='GitHub OIDC'",
       "gcloud iam workload-identity-pools providers create-oidc github-oidc --project=burnbar --location=global --workload-identity-pool=github-oidc --issuer-uri='https://token.actions.githubusercontent.com' --attribute-mapping='google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref,attribute.job_workflow_ref=assertion.job_workflow_ref' --attribute-condition=\"assertion.repository=='Imagine-That-Ai/BurnBar' && assertion.ref=='refs/heads/main' && (assertion.job_workflow_ref=='Imagine-That-Ai/BurnBar/.github/workflows/ops-plane-verify.yml@refs/heads/main' || assertion.job_workflow_ref=='Imagine-That-Ai/BurnBar/.github/workflows/ops-confidence.yml@refs/heads/main')\"",
       "PROJECT_NUMBER=$(gcloud projects describe burnbar --format='value(projectNumber)')",

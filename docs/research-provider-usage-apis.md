@@ -71,7 +71,7 @@
 - GitHub's own `gh copilot` CLI extension (`github/gh-copilot`) provides `gh copilot usage` but delegates to the same REST endpoints. It formats output for the CLI, doesn't persist data locally.
 
 ### Copilot session log parsing (local)
-- BurnBar logs Copilot sessions from `~/.copilot/session-state/*.jsonl` (set in `AgentLens/Models/AgentProvider.swift:logDirectory`).
+- BurnBar logs Copilot sessions from `~/.copilot/session-state/*.jsonl` (set in `AgentLens/Models/ProviderUsageSummaries.swift:logDirectory`).
 - Currently marked `dataConfidence: .estimated` with `supportLevel: .partial`.
 - The local JSONL files contain chat transcripts but **do NOT contain token counts** from the Copilot backend. The backend never surfaces per-request token data.
 

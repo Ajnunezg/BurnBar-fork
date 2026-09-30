@@ -6,7 +6,7 @@ import OpenBurnBarSQLiteReader
 
 public final class ModelFilterParser: LogParser, Sendable {
     public let provider: AgentProvider
-    private let modelPattern: String
+    private let modelPatterns: [String]
     private let sessionsOverride: URL?
     private let fileManager: FileManager
     private let cacheStore: ParserDiskCacheStore<CachedUsageBundleEntry<CompositeFileSignature<FileSignature>>>
@@ -20,7 +20,12 @@ public final class ModelFilterParser: LogParser, Sendable {
         fileManager: FileManager = .default,
         appPaths: OpenBurnBarAppPaths = .live()
     ) {
-        self.modelPattern = modelPattern.lowercased()
+        // ParserRegistry passes alternatives ("zai,glm,zhipu,chatglm");
+        // a session matches when its model contains any one of them.
+        self.modelPatterns = modelPattern.lowercased()
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
         self.provider = provider
         self.sessionsOverride = sessionsOverride
         self.fileManager = fileManager
@@ -31,7 +36,9 @@ public final class ModelFilterParser: LogParser, Sendable {
                 fileName: ".obb-\(provider.persistedToken)-parser-cache.plist"
             ),
             fileManager: fileManager,
-            schemaVersion: 1,
+            // v2: v1 cached every session as an empty non-match whenever
+            // the pattern was a comma-separated list.
+            schemaVersion: 2,
             logLabel: "ModelFilterParser"
         )
     }
@@ -76,11 +83,31 @@ public final class ModelFilterParser: LogParser, Sendable {
                 continue
             }
             sessionScanCount.withLock { $0 += 1 }
-            let objects = LocalUsageParserSupport.jsonLines(at: file); var input = 0, output = 0, cacheCreation = 0, cacheRead = 0, userChars = 0, assistantChars = 0; var model: String?; var start: Date?, end: Date?; var turns: [LocalUsageParserSupport.Turn] = []
-            for sidecar in [stem.appendingPathExtension("settings.json"), stem.appendingPathExtension("metadata.json")] {
-                guard let sidecarData = try? Data(contentsOf: sidecar),
-                      let sidecarObject = try? JSONSerialization.jsonObject(with: sidecarData) as? LocalUsageJSONObject
-                else { continue }
+            // Open every admitted input before parsing. One that exists but
+            // cannot be read defers the whole session: no usage, no
+            // transcript, no cache entry, and the admission rolls back so
+            // the next pass retries instead of trusting a partial parse.
+            var sidecarObjects: [LocalUsageJSONObject] = []
+            let transcript: FileHandle
+            do {
+                for sidecar in gateFiles.dropFirst() {
+                    if let object = try LocalUsageParserSupport.jsonObjectOrThrow(at: sidecar) {
+                        sidecarObjects.append(object)
+                    }
+                }
+                transcript = try FileHandle(forReadingFrom: file)
+            } catch {
+                gate.recordContentReadFailure(for: gateFiles)
+                continue
+            }
+            defer { try? transcript.close() }
+            let objects = transcript.readAllUTF8Lines().lazy.compactMap { line in
+                parserAutoReleasePool { () -> LocalUsageJSONObject? in
+                    try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? LocalUsageJSONObject
+                }
+            }
+            var input = 0, output = 0, cacheCreation = 0, cacheRead = 0, userChars = 0, assistantChars = 0; var model: String?; var start: Date?, end: Date?; var turns: [LocalUsageParserSupport.Turn] = []
+            for sidecarObject in sidecarObjects {
                 model = model ?? LocalUsageParserSupport.model(in: sidecarObject)
                 if let usage = LocalUsageParserSupport.dictionary(sidecarObject["tokenUsage"] ?? sidecarObject["usage"]) {
                     let tokens = TokenExtractionUtility.extractUsageTokens(usage)
@@ -118,7 +145,8 @@ public final class ModelFilterParser: LogParser, Sendable {
                     cacheMutated = true
                 }
             }
-            guard let resolvedModel = model, resolvedModel.lowercased().contains(modelPattern) else {
+            guard let resolvedModel = model,
+                  modelPatterns.contains(where: { resolvedModel.lowercased().contains($0) }) else {
                 persist([])
                 continue
             }
@@ -145,7 +173,8 @@ public final class ModelFilterParser: LogParser, Sendable {
             let startTime = start ?? mtime
             let endTime = end ?? startTime
             let project = file.deletingLastPathComponent().lastPathComponent
-            let cost = (try? ModelPricing.lookup(model: resolvedModel).cost(
+            let pricing = ModelPricing.lookup(model: resolvedModel)
+            let cost = (try? pricing.cost(
                 inputTokens: input,
                 outputTokens: output,
                 cacheCreationTokens: cacheCreation,
@@ -165,6 +194,7 @@ public final class ModelFilterParser: LogParser, Sendable {
                 cacheCreation: cacheCreation,
                 cacheRead: cacheRead,
                 cost: cost,
+                pricingSource: pricing.source,
                 start: startTime,
                 end: endTime,
                 method: method,

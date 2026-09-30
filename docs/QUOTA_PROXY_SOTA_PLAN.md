@@ -30,11 +30,11 @@ stale-first ordered selection over `provider_accounts` with statuses
 `connected|stale|error` and storage scopes `cloud_refreshable|server_private`, refreshed
 5-wide, plus a legacy `provider_connections` fallback pass and a cursor-resumable
 `lastRefreshAt` backfill. Per-account refresh is `refreshUserProviderAccountQuota`
-(`functions/src/quota.ts`), dispatching to HTTP adapters in `functions/src/providers/`
+(`packages/functions-shared/src/quota.ts`), dispatching to HTTP adapters in `functions/src/providers/`
 (openai, minimax, zai, kimi, factory, cursor, xai, mimo) or — for
 `storageScope === "server_private"` and provider in `HOSTED_RUNNER_PROVIDERS` — to the
 hosted quota runner with entitlement + daily/monthly budget gates
-(`consumeHostedRefreshBudget`, `functions/src/quota.ts` ~line 388).
+(`consumeHostedRefreshBudget`, `packages/functions-shared/src/quota.ts` ~line 388).
 
 **Client quota refresh** — `ProviderQuotaService` (`AgentLens/Services/ProviderQuota/`)
 runs a flat 15-minute loop (`interval: Duration = .seconds(15 * 60)`, ~line 627) with a
@@ -67,7 +67,7 @@ the corrected reality:
 
 | # | Mission claim | Verified reality |
 |---|---|---|
-| C1 | "Claude quota comes ONLY from the hosted runner" | `HOSTED_RUNNER_PROVIDERS = new Set<Provider>(["codex"])` (`functions/src/quota.ts` line 54). The runner **does** implement `claude-code` hosted-credential mode (`quota-runner/src/server.mjs` lines 81–86, `quota-runner/src/providers/claude.mjs`), but Cloud Functions **never dispatch Claude to it**. `HOSTED_QUOTA_PROVIDERS = ["codex"]` too (`functions/src/callables/shared/accounts.ts` line 32). Claude is in `LOCAL_ONLY_PROVIDERS` (`functions/src/types/legacy/providers.ts` line 48). Self-hosted Claude connect writes `storageScope: "local_only"` (`applySelfHostedQuotaConnect`, `functions/src/callables/providerAccountWrites.ts` line 123) — a scope the sweep **never selects** (`REFRESHABLE_SCOPES = ["cloud_refreshable", "server_private"]`, `quotaRefreshSweep.ts` line 126). **Server-side Claude refresh is structurally absent.** |
+| C1 | "Claude quota comes ONLY from the hosted runner" | `HOSTED_RUNNER_PROVIDERS = new Set<Provider>(["codex"])` (`packages/functions-shared/src/quota.ts` line 54). The runner **does** implement `claude-code` hosted-credential mode (`quota-runner/src/server.mjs` lines 81–86, `quota-runner/src/providers/claude.mjs`), but Cloud Functions **never dispatch Claude to it**. `HOSTED_QUOTA_PROVIDERS = ["codex"]` too (`packages/functions-shared/src/shared/accounts.ts` line 32). Claude is in `LOCAL_ONLY_PROVIDERS` (`packages/functions-shared/src/types/legacy/providers.ts` line 48). Self-hosted Claude connect writes `storageScope: "local_only"` (`applySelfHostedQuotaConnect`, `functions-identity/src/callables/providerAccountWrites.ts` line 123) — a scope the sweep **never selects** (`REFRESHABLE_SCOPES = ["cloud_refreshable", "server_private"]`, `quotaRefreshSweep.ts` line 126). **Server-side Claude refresh is structurally absent.** |
 | C2 | (implicit) Claude client path is just runner parsing | The Mac client has a four-tier cascade in `ClaudeQuotaAdapter.swift`: statusline bridge (15-min max age, `StatuslinePolicy.maxSnapshotAge` line 33) → OAuth `/api/oauth/usage` (`ClaudeOAuthUsageFetcher.swift`) → 1-token header probe of `anthropic-ratelimit-unified-*` (`headerProbeSnapshot`, ~line 293) → JSONL token counting with plan caps. |
 | C3 | "QuotaSnapshotSyncService lacks the permission-denied suppression UsageSyncService has" | **Already fixed** — both `ProviderAccountSyncService.uploadAccounts` and `QuotaSnapshotSyncService.uploadSnapshots` call `context.suppressSync(for: CloudSyncBackoffPolicy.permissionDeniedCooldown)` on `permissionDenied`/`unauthenticated` (lines 44–50 and 151–157). No task needed. |
 | C4 | (not claimed) | The daemon executors (`OpenBurnBarProviderExecutor.swift`, `OpenBurnBarAnthropicProviderExecutor.swift`) read **only** `Content-Type` from provider responses. Rate-limit headers (`anthropic-ratelimit-*`, `x-ratelimit-*`, `retry-after`) that arrive free on every proxied request are discarded. This is the single largest efficiency win for Objective 1. |
@@ -124,14 +124,14 @@ Ranked by impact, with evidence. All five causes are fixed by Phase 2.
 **RC1 — No server-side Claude refresh path exists (structural; the dominant cause for
 cloud users).**
 Evidence chain:
-1. `functions/src/quota.ts` line 54: `HOSTED_RUNNER_PROVIDERS = new Set<Provider>(["codex"])`.
+1. `packages/functions-shared/src/quota.ts` line 54: `HOSTED_RUNNER_PROVIDERS = new Set<Provider>(["codex"])`.
    `refreshUserProviderAccountQuota` only routes `server_private` accounts to the hosted
    runner for providers in this set (line 243). For any other `server_private` provider it
    throws `"not cloud-refreshable"`.
-2. `functions/src/callables/shared/accounts.ts` line 32: `HOSTED_QUOTA_PROVIDERS = ["codex"]`
+2. `packages/functions-shared/src/shared/accounts.ts` line 32: `HOSTED_QUOTA_PROVIDERS = ["codex"]`
    — the hosted connect callable rejects Claude, so a Claude account can never *become*
    `server_private`.
-3. `applySelfHostedQuotaConnect` (`functions/src/callables/providerAccountWrites.ts` line
+3. `applySelfHostedQuotaConnect` (`functions-identity/src/callables/providerAccountWrites.ts` line
    123) writes `storageScope: "local_only"` for self-hosted Claude — and
    `REFRESHABLE_SCOPES` (`quotaRefreshSweep.ts` line 126) excludes `local_only`, so the
    sweep never touches those accounts.
@@ -177,7 +177,7 @@ credential dies after the first server-side refresh-token rotation
 
 **Before:** flat 15-min polling loops on both client and server; every refresh is an
 active fetch; rate-limit headers on proxied traffic discarded; the shared
-`externalApiPolicy` breaker (`functions/src/resilience.ts` line 125) lets one dead
+`externalApiPolicy` breaker (`packages/functions-shared/src/resilience.ts` line 125) lets one dead
 provider open the breaker for the whole sweep run.
 
 **After:** every quota consumer draws from a **signal ladder**, always preferring the
@@ -284,15 +284,15 @@ Legend: **AC** = acceptance criteria, **V** = validation/tests, **R** = risks,
 ### Phase 0 — Foundations
 
 #### T0.1 Per-provider circuit breakers for the quota sweep
-- **Files:** `functions/src/resilience.ts`, `functions/src/resilienceHelpers.ts`,
-  `functions/src/providers/httpClient.ts`, `functions/src/__tests__/` (new
+- **Files:** `packages/functions-shared/src/resilience.ts`, `packages/functions-shared/src/resilienceHelpers.ts`,
+  `packages/functions-shared/src/providers/httpClient.ts`, `functions/src/__tests__/` (new
   `providerResilience.test.ts`).
 - **Change:** add `providerApiPolicy(providerKey: string): IPolicy` in `resilience.ts`
   backed by a `Map<string, IPolicy>` memo, each entry composed exactly like
   `externalApiPolicy` (same `externalTimeout`, retry, breaker constants — import and
   reuse them, do not copy numbers). Add
   `providerApiWithResilience(provider: string, label: string, fn)` to
-  `resilienceHelpers.ts`. In `functions/src/providers/httpClient.ts`, thread the provider
+  `resilienceHelpers.ts`. In `packages/functions-shared/src/providers/httpClient.ts`, thread the provider
   key into `providerFetch` so each provider adapter's outbound calls execute under its own
   policy. Keep `externalApiPolicy` for non-provider callers (benchmarks, insights).
 - **AC:** a simulated dead provider (all calls throw) opens only its own breaker; a
@@ -305,7 +305,7 @@ Legend: **AC** = acceptance criteria, **V** = validation/tests, **R** = risks,
 - **RB:** revert commit; policies are process-local, no data migration.
 
 #### T0.2 Quota freshness telemetry + SLO
-- **Files:** `functions/src/quota.ts` (both refresh functions), `functions/src/logging.ts`
+- **Files:** `packages/functions-shared/src/quota.ts` (both refresh functions), `packages/functions-shared/src/logging.ts`
   (reuse `logError`-style structured logs — add `logInfo` event
   `quota.snapshot_written` with `provider`, `age_ms_bucket`, `source`),
   `AgentLens/Services/ProviderQuota/ProviderQuotaService.swift` (extend the existing
@@ -322,7 +322,7 @@ Legend: **AC** = acceptance criteria, **V** = validation/tests, **R** = risks,
 
 #### T0.3 Shared `QuotaRefreshPolicy` (the signal ladder as code)
 - **Files:** new `OpenBurnBarCore/Sources/OpenBurnBarCore/SharedModels/QuotaRefreshPolicy.swift`;
-  new `functions/src/quotaRefreshPolicy.ts`; new tests in
+  new `packages/functions-shared/src/quotaRefreshPolicy.ts`; new tests in
   `OpenBurnBarCore/Tests/OpenBurnBarCoreTests/QuotaRefreshPolicyTests.swift` and
   `functions/src/__tests__/quotaRefreshPolicy.test.ts`.
 - **Change:** one pure module (mirrored Swift/TS with a shared JSON fixture asserting
@@ -428,7 +428,7 @@ Legend: **AC** = acceptance criteria, **V** = validation/tests, **R** = risks,
 
 #### T1.4 Adaptive server sweep priority
 - **Depends on:** T0.3.
-- **Files:** `functions/src/quota.ts` (`refreshUserProviderAccountQuota` success
+- **Files:** `packages/functions-shared/src/quota.ts` (`refreshUserProviderAccountQuota` success
   transaction ~lines 288–296 — also write `nextRefreshAfter` computed by
   `quotaRefreshPolicy.ts` from the snapshot's dominant bucket),
   `functions/src/quotaRefreshSweep.ts` (selection pass: after the ordered query, skip
@@ -461,9 +461,9 @@ Legend: **AC** = acceptance criteria, **V** = validation/tests, **R** = risks,
 ### Phase 2 — Fresh Claude quotas (Objective 3)
 
 #### T2.1 First-class Claude OAuth adapter in functions
-- **Files:** new `functions/src/providers/claude.ts`; `functions/src/quota.ts`
+- **Files:** new `functions/src/providers/claude.ts`; `packages/functions-shared/src/quota.ts`
   (`adapterFor` — add `case "claude-code": return claudeAdapter;`);
-  `functions/src/secrets.ts` (confirm an `addSecretVersion`-style helper exists; if the
+  `packages/functions-shared/src/secrets.ts` (confirm an `addSecretVersion`-style helper exists; if the
   only exports are `retrieveCredential`/`destroyCredential`, add
   `storeCredentialVersion(secretName, payload)` following the existing Secret Manager
   client usage in that file); new `functions/src/__tests__/providers/claude.test.ts`.
@@ -499,12 +499,12 @@ Legend: **AC** = acceptance criteria, **V** = validation/tests, **R** = risks,
 
 #### T2.2 Hosted Claude dispatch (server)
 - **Depends on:** T2.1.
-- **Files:** `functions/src/quota.ts` (line 54: add `"claude-code"` to
+- **Files:** `packages/functions-shared/src/quota.ts` (line 54: add `"claude-code"` to
   `HOSTED_RUNNER_PROVIDERS`; in `refreshHostedQuotaAccount`, try `claudeAdapter` first
   for `claude-code` and fall back to `fetchHostedRunnerSnapshot` when the adapter
   returns `oauth_scope_unsupported`);
-  `functions/src/callables/shared/accounts.ts` (line 32: add `"claude-code"` to
-  `HOSTED_QUOTA_PROVIDERS`); `functions/src/types/legacy/providers.ts` (move
+  `packages/functions-shared/src/shared/accounts.ts` (line 32: add `"claude-code"` to
+  `HOSTED_QUOTA_PROVIDERS`); `packages/functions-shared/src/types/legacy/providers.ts` (move
   `"claude-code"` from `LOCAL_ONLY_PROVIDERS` into a new exported
   `HYBRID_REFRESH_PROVIDERS` list and grep all `LOCAL_ONLY_PROVIDERS` consumers to keep
   their semantics — client-side scanning must remain enabled for claude);
@@ -525,7 +525,7 @@ Legend: **AC** = acceptance criteria, **V** = validation/tests, **R** = risks,
 - **Depends on:** T2.2.
 - **Files:** locate the existing hosted **Codex** connect UI/service by grepping AgentLens
   for the callable name used against `connectHostedQuotaAccount`
-  (`functions/src/callables/providerAccounts.ts`) and mirror it:
+  (`functions-identity/src/domains/identity/providerAccounts.ts`) and mirror it:
   `AgentLens/Views/Settings/ConnectionsSettingsView*.swift` for the entry point, the
   Claude OAuth bundle sourced from `ClaudeCredentialsReader` /
   `ClaudeCodeOAuthCredentialImporter` (user-selected profile, explicit consent sheet).
@@ -559,7 +559,7 @@ Legend: **AC** = acceptance criteria, **V** = validation/tests, **R** = risks,
   3. On zero-bucket parse, return a structured error object
      `{ code: "claude_usage_parse_failed", transcriptHash }` (never the raw transcript —
      it may contain account info) instead of a generic throw; `server.mjs` maps it to
-     HTTP 502 with that code; `functions/src/quota.ts` `refreshHostedQuotaAccount` stores
+     HTTP 502 with that code; `packages/functions-shared/src/quota.ts` `refreshHostedQuotaAccount` stores
      `lastErrorCode: "claude_usage_parse_failed"` and logs a `logError` event
      (`quota.claude_parse_failed`) that the SLO runbook (T0.2) lists as page-worthy.
 - **AC:** fixtures pass; the parse-failure path produces the named error code end-to-end
@@ -846,7 +846,7 @@ Legend: **AC** = acceptance criteria, **V** = validation/tests, **R** = risks,
   with vault-key access); Firestore rules for
   `users/{uid}/roaming_profile/{current}` (owner-only read/write, envelope-shape
   validated — mirror the existing CloudVault blob rules; update
-  `firestore.rules` and its tests); `functions/src/callables/shared/validators.ts`
+  `firestore.rules` and its tests); `packages/functions-shared/src/shared/validators.ts`
   (envelope validator reuse — `CloudVaultBlobEnvelopeDoc` at line ~301 is the pattern);
   `docs/SCHEMA_SQLITE.sql` note if any local cache table is added (avoid one — read
   directly, cache in UserDefaults).
@@ -934,9 +934,9 @@ Legend: **AC** = acceptance criteria, **V** = validation/tests, **R** = risks,
   refresh procedure. Any red cell blocks release.
 
 #### T6.2 Documentation
-- **Files:** new `docs/ARCHITECTURE/quota-signal-ladder.md` and
-  `docs/ARCHITECTURE/model-equivalence.md` ADRs (follow the existing ADR format in
-  `docs/ARCHITECTURE/README.md` and link from it); `docs/PROVIDERS.md` (Ollama
+- **Files:** new `docs/architecture/quota-signal-ladder.md` and
+  `docs/architecture/model-equivalence.md` ADRs (follow the existing ADR format in
+  `docs/architecture/README.md` and link from it); `docs/PROVIDERS.md` (Ollama
   multi-endpoint, hosted Claude); `CHANGELOG.md`; `docs/runbooks/slos.md` (from T0.2);
   update this plan's status header to `Shipped` per phase as phases land.
 
@@ -994,7 +994,7 @@ Tied to the non-negotiable invariants; every item is a hard gate:
 
 1. **Plaintext prohibition.** No credential, OAuth bundle, cookie, or session token in:
    Firestore docs, logs (`logError`/`logInfo` fields), decision events, quota snapshots
-   (`sanitizeMeta` + `isSecretLikeKey` in `functions/src/quota.ts` stays on every new
+   (`sanitizeMeta` + `isSecretLikeKey` in `packages/functions-shared/src/quota.ts` stays on every new
    meta path), telemetry, or PR bodies. Grep the diff for token-bearing variable names
    before review.
 2. **AAD + envelope invariants.** Every new CloudVault payload uses the existing framing

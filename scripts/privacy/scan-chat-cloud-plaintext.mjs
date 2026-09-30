@@ -807,14 +807,29 @@ for (const field of [
   );
 }
 
-assertRulesRejectFields("match /events/{eventId}", [
-  "title",
-  "message",
-  "fullMessage",
-  "toolName",
-  "artifactPath",
-  "changedFilePath",
-]);
+// Mission events (cli_agent_mission_requests/{requestId}/events): clients can
+// never create an event (the Admin SDK owns every create) and may only re-wrap
+// an already-sealed payload. An allowlist of changed keys plus
+// `contentSealed == true` supersedes the old plaintext-field denylist
+// (title/message/fullMessage/toolName/artifactPath/changedFilePath), which this
+// scan still asserted after the rules moved to the allowlist; it had been red
+// since at least the 2026-09-24 nightly.
+{
+  const eventsStart = "match /events/{eventId} {";
+  const eventsEnd = "match /users/{userId}/burnbar_attachments/{attachmentId}";
+  // readRel("firestore.rules") expands `let d = request.resource.data` aliases.
+  for (const needle of [
+    "request.resource.data.diff(resource.data).affectedKeys().hasOnly([",
+    "request.resource.data.contentSealed == true",
+    "allow update: if validCliAgentMissionEventRewrapUpdate();",
+  ]) {
+    assertSectionIncludes("firestore.rules", eventsStart, eventsEnd, needle, `mission events: ${needle}`);
+  }
+  const eventsRules = stripCodeCommentsAndStrings(sectionBetween("firestore.rules", eventsStart, eventsEnd));
+  if (/\ballow\s+(create|write)\b/u.test(eventsRules)) {
+    fail("firestore.rules: mission events must not allow client create/write (Admin SDK owns event creation)");
+  }
+}
 
 assertRulesAllowlistExcludes(
   "match /users/{userId}/agent_notification_replies",
@@ -875,12 +890,12 @@ assertIncludes(
   "Mac session-log token hash writes preserve encrypted search recall",
 );
 assertIncludes(
-  "functions/src/callables/encryptedSearch.ts",
+  "functions-sync/src/domains/search/encryptedSearch.ts",
   'const tokenHashes = requireTokenHashes(raw.tokenHashes, "chunk.tokenHashes");',
   "commitEncryptedSearchIndexBatch must validate token hash arrays in trusted code",
 );
 assertIncludes(
-  "functions/src/callables/encryptedSearch.ts",
+  "functions-sync/src/domains/search/encryptedSearch.ts",
   'const semanticHashes = requireOptionalSearchHashes(raw.semanticHashes, "chunk.semanticHashes");',
   "commitEncryptedSearchIndexBatch must validate semantic hash arrays in trusted code",
 );
@@ -1039,14 +1054,14 @@ assertIncludes(
 );
 assertSectionIncludes(
   "AgentLens/Services/CloudSync/SessionLogSyncService.swift",
-  "let markdown = OpenBurnBarCore.SessionLogMarkdownFormatter.markdown(for: record)",
+  "let markdown = OpenBurnBarLogParsers.SessionLogMarkdownFormatter.markdown(for: record)",
   "try await encryptedCloudClient.commitEncryptedSearchIndex",
   "let privateProjectSearchText = Self.clampedPrivateSearchText(record.projectName)",
   "session project text stays local for keyed hashes",
 );
 assertSectionNotIncludes(
   "AgentLens/Services/CloudSync/SessionLogSyncService.swift",
-  "let markdown = OpenBurnBarCore.SessionLogMarkdownFormatter.markdown(for: record)",
+  "let markdown = OpenBurnBarLogParsers.SessionLogMarkdownFormatter.markdown(for: record)",
   "try await encryptedCloudClient.commitEncryptedSearchIndex",
   '"projectName"',
   "session-log upload raw project field",
@@ -1069,12 +1084,12 @@ assertNotIncludes(
   "legacy Firestore session-log body reassembly",
 );
 assertNotIncludes(
-  "functions/src/callables/remoteMcp.ts",
+  "functions-identity/src/domains/identity/remoteMcp.ts",
   '.select("docId", "sessionId", "deviceId", "bodyHash", "title", "snippet", "projectName", "model", "terms")',
   "Remote MCP legacy plaintext stream search",
 );
 assertIncludes(
-  "functions/src/callables/remoteMcp.ts",
+  "functions-identity/src/domains/identity/remoteMcp.ts",
   "encryptedSearchRequired: true",
   "Remote MCP encrypted-search-only response",
 );
@@ -1148,7 +1163,7 @@ assertIncludes(
   "CLI session writer uses sealed codec",
 );
 assertSectionNotIncludes(
-  "OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/CLIAgentSessionRecord.swift",
+  "OpenBurnBarCore/Sources/OpenBurnBarInboxModels/CLIAgentSessionRecord.swift",
   "public static func encodeSealed(",
   "public static func encodeMessage",
   '"title"',
@@ -1163,7 +1178,7 @@ for (const field of [
   '"customTitle"',
 ]) {
   assertSectionNotIncludes(
-    "OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/CLIAgentSessionRecord.swift",
+    "OpenBurnBarCore/Sources/OpenBurnBarInboxModels/CLIAgentSessionRecord.swift",
     "public static func encodeSealed(",
     "public static func encodeMessage",
     field,
@@ -1241,27 +1256,27 @@ assertIncludes(
 );
 
 assertIncludes(
-  "functions/src/agentNotifications.ts",
+  "functions-sync/src/domains/notify/agentNotificationTriggers.ts",
   'const GENERIC_PREVIEW = "OpenBurnBar has a new agent reply."',
   "generic notification preview",
 );
 assertNotIncludes(
-  "functions/src/agentNotifications.ts",
+  "functions-sync/src/domains/notify/agentNotificationTriggers.ts",
   "createHash",
   "notification content hashing",
 );
 assertNotIncludes(
-  "functions/src/agentNotifications.ts",
+  "functions-sync/src/domains/notify/agentNotificationTriggers.ts",
   "truncatePreview",
   "notification text preview truncation",
 );
 assertNotIncludes(
-  "functions/src/agentNotifications.ts",
+  "functions-sync/src/domains/notify/agentNotificationTriggers.ts",
   "messageText",
   "notification message text event id input",
 );
 assertNotIncludes(
-  "functions/src/agentNotifications.ts",
+  "functions-sync/src/domains/notify/agentNotificationTriggers.ts",
   "preview: reply.text",
   "notification plaintext preview",
 );
@@ -1271,12 +1286,12 @@ assertNotIncludes(
   "notification events must not be hidden from data domains",
 );
 assertIncludes(
-  "functions/src/callables/agentNotifications.ts",
+  "functions-sync/src/domains/notify/agentNotifications.ts",
   "sealedReplyPayload",
   "notification reply sealed payload",
 );
 assertNotIncludes(
-  "functions/src/callables/agentNotifications.ts",
+  "functions-sync/src/domains/notify/agentNotifications.ts",
   "replyText",
   "notification reply plaintext field",
 );
@@ -1363,36 +1378,36 @@ for (const [section, note, allowlistHelperName] of [
 // context. Readers may still open old schema-1 payloads locally, but Firestore
 // rules must no longer accept v1 sealed-content writes.
 assertIncludes(
-  "OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/CloudVaultCrypto.swift",
+  "OpenBurnBarCore/Sources/OpenBurnBarVaultModels/CloudVaultCrypto.swift",
   "public static let currentSealedPayloadSchemaVersion = 2",
   "Swift CloudVault must write sealedPayload schemaVersion 2",
 );
 assertIncludes(
-  "OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/CloudVaultCrypto.swift",
+  "OpenBurnBarCore/Sources/OpenBurnBarVaultModels/CloudVaultCrypto.swift",
   'public static let aadContextPrefix = "OpenBurnBar-CloudVault-aad-v2"',
   "Swift CloudVault must use the six-part aad-v2 context",
 );
 assertSectionIncludes(
-  "OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/CloudVaultCrypto.swift",
+  "OpenBurnBarCore/Sources/OpenBurnBarVaultModels/CloudVaultCrypto.swift",
   "public var stringValue: String",
   "public var legacyV1StringValue: String",
   "schemaVersion: schemaVersion",
   "Swift CloudVault AAD must bind field, schemaVersion, and purpose",
 );
 assertSectionIncludes(
-  "OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/CloudVaultCrypto.swift",
+  "OpenBurnBarCore/Sources/OpenBurnBarVaultModels/CloudVaultCrypto.swift",
   "public var stringValue: String",
   "public var legacyV1StringValue: String",
   "purpose: purpose",
   "Swift CloudVault AAD must bind field, schemaVersion, and purpose",
 );
 assertIncludes(
-  "OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/CloudVaultCrypto.swift",
+  "OpenBurnBarCore/Sources/OpenBurnBarVaultModels/CloudVaultCrypto.swift",
   'public static let sealedPayloadAADContext = "OpenBurnBar-CloudVaultSealedPayload-v2"',
   "Swift CloudVault must publish the sealedPayload v2 AAD context",
 );
 assertIncludes(
-  "OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/CloudVaultCrypto.swift",
+  "OpenBurnBarCore/Sources/OpenBurnBarVaultModels/CloudVaultCrypto.swift",
   "authenticating: sealedPayloadAAD(for:",
   "Swift CloudVault sealedPayload v2 must authenticate envelope metadata as AAD",
 );
@@ -1451,7 +1466,7 @@ assertSectionIncludes(
   "Firestore rules must require the CloudVault sealedPayload v2 AAD context",
 );
 assertIncludes(
-  "functions/src/callables/shared/validators.ts",
+  "packages/functions-shared/src/shared/validators.ts",
   'const CLOUD_VAULT_AAD_CONTEXT_PREFIX = "OpenBurnBar-CloudVault-aad-v2"',
   "Functions validators must use the six-part aad-v2 context",
 );
@@ -1555,7 +1570,7 @@ for (const field of [
 // may be read transiently to DERIVE the token and is explicitly
 // FieldValue.delete()'d off legacy rows on re-connect.
 // (§4 slug remediation — closes the scanner's Admin-SDK blind spot.)
-const KNOWLEDGE_SYNC = "functions/src/callables/knowledgeSync.ts";
+const KNOWLEDGE_SYNC = "functions-sync/src/domains/knowledge/knowledgeSync.ts";
 const CONNECT_REPO_START = "export const connectKnowledgeRepo = onCall(";
 const CONNECT_REPO_END = "export const disconnectKnowledgeRepo = onCall(";
 // (a) The persisted row must include the canonical opaque manifest id as an
@@ -1601,7 +1616,7 @@ assertSectionNotMatches(
   "connectKnowledgeRepo may only write sourceSlug as FieldValue.delete() (strip legacy), never a value",
 );
 assertIncludes(
-  "functions/src/callables/knowledgeMemory.ts",
+  "functions-sync/src/domains/knowledge/knowledgeMemory.ts",
   "rootPath is private and must stay sealed on device.",
   "configureKnowledgeSource must reject rootPath",
 );
@@ -1611,7 +1626,7 @@ assertNotIncludes(
   "Knowledge sync must not send rootPath to the server",
 );
 assertSectionNotIncludes(
-  "functions/src/callables/knowledgeMemory.ts",
+  "functions-sync/src/domains/knowledge/knowledgeMemory.ts",
   "configureKnowledgeSource",
   "deleteKnowledgeSource",
   "rootPath,",
@@ -1630,7 +1645,7 @@ assertNotIncludes(
   "macOS cloud budget events must not upload detailJSON",
 );
 assertNotIncludes(
-  "OpenBurnBarMobile/Models/BudgetRulesStore.swift",
+  "OpenBurnBarMobile/Models/FirestoreBudgetRulesStore.swift",
   '"detailJSON": event.detailJSON as Any',
   "iOS cloud budget events must not upload detailJSON",
 );
@@ -1671,10 +1686,10 @@ assertRulesBlockDeniesClientWrite(
 // relay-capable client smuggle plaintext, or hardcodes the legacy protocol)
 // fails red here. (F8 — close the scanner's server-source blind spot.)
 const HERMES_GATEWAY_WRITE_BODY =
-  "functions/src/callables/hermesGatewayResolve.ts";
-const HERMES_GATEWAY_STATE = "functions/src/callables/hermesGatewayRoutes.ts";
+  "functions-media/src/callables/hermesGatewayResolve.ts";
+const HERMES_GATEWAY_STATE = "functions-media/src/callables/hermesGatewayRoutes.ts";
 const HERMES_GATEWAY_OVERSIGHT =
-  "functions/src/callables/hermesGatewayAttachmentRoutes.ts";
+  "functions-media/src/callables/hermesGatewayAttachmentRoutes.ts";
 assertIncludes(
   HERMES_GATEWAY_WRITE_BODY,
   "requireProductionGatewayRelayEnvelope(",
@@ -1730,7 +1745,7 @@ assertIncludes(
 // a re-introduced cleartext oracle. Pin the callable contract: dedup is a
 // vault-keyed HMAC (versioned), the embedding is cloaked, and recall floors out
 // legacy v0 cleartext-hash rows. (F8 — server-source blind spot.)
-const KNOWLEDGE_MEMORY = "functions/src/callables/knowledgeMemory.ts";
+const KNOWLEDGE_MEMORY = "functions-sync/src/domains/knowledge/knowledgeMemory.ts";
 assertIncludes(
   KNOWLEDGE_MEMORY,
   "requireCloakedVector",
@@ -1747,7 +1762,7 @@ assertIncludes(
   "knowledge vectors must carry a dedupHashVersion so legacy cleartext-hash rows are fenced out",
 );
 assertIncludes(
-  "functions/src/callables/knowledgeSearch.ts",
+  "functions-sync/src/domains/knowledge/knowledgeSearch.ts",
   '.where("dedupHashVersion", "==", 1)',
   "knowledgeSearch must floor dedupHashVersion == 1 so legacy cleartext-hash rows are never served",
 );
@@ -1758,7 +1773,7 @@ assertIncludes(
 // senderDisplayName / fileName / agentURI / topicID. These assertions pin the
 // shape-aware export path so a regression that trusts a key name instead of the
 // sealed envelope shape fails red.
-const DATA_EXPORT = "functions/src/callables/dataExport.ts";
+const DATA_EXPORT = "functions/src/domains/compliance/dataExport.ts";
 // 1. CloudVault and Hermes envelopes are recognized by sealed shape, not key name.
 assertSectionIncludes(
   DATA_EXPORT,
@@ -1823,32 +1838,32 @@ for (const gatewayEventFile of [
   );
 }
 assertIncludes(
-  "functions/src/hermesGatewayCore.ts",
+  "packages/functions-shared/src/hermesGatewayCore.ts",
   "return false;",
   "gateway plaintext write gate must be permanently closed",
 );
 assertIncludes(
-  "functions/src/hermesGatewayEnvelope.ts",
+  "packages/functions-shared/src/hermesGatewayEnvelope.ts",
   "HERMES_GATEWAY_PRODUCTION_RELAY_KEY_VERSIONS",
   "gateway validation must have an explicit production relay-envelope version set",
 );
 assertIncludes(
-  "functions/src/hermesGatewayEnvelope.ts",
+  "packages/functions-shared/src/hermesGatewayEnvelope.ts",
   "HERMES_GATEWAY_PREFERRED_RELAY_ENVELOPE_VERSION = 3",
   "gateway negotiation must prefer the HPKE-auth v3 relay envelope",
 );
 assertIncludes(
-  "functions/src/hermesGatewayEnvelope.ts",
+  "packages/functions-shared/src/hermesGatewayEnvelope.ts",
   'HERMES_GATEWAY_RELAY_ENCRYPTION_V3 = "hpke-auth-p256-hkdfsha256-aes256gcm"',
   "gateway validation must know the HPKE-auth v3 encryption marker",
 );
 assertIncludes(
-  "functions/src/hermesGatewayEnvelope.ts",
+  "packages/functions-shared/src/hermesGatewayEnvelope.ts",
   "negotiateGatewayRelayEnvelopeCapabilities",
   "gateway clients must negotiate v2/v3 relay-envelope capabilities",
 );
 assertIncludes(
-  "functions/src/hermesGatewayDocs.ts",
+  "packages/functions-shared/src/hermesGatewayDocs.ts",
   "preferredRelayEnvelopeVersion: client.preferredRelayEnvelopeVersion",
   "gateway /state public client view must advertise the negotiated preferred relay envelope",
 );
@@ -1960,7 +1975,7 @@ assertNotMatches(
 for (const rotationFile of [
   "OpenBurnBarMobile/Services/HermesGatewayRelayKeypair.swift",
   "tools/hermes-platform-burnbar/adapter.py",
-  "functions/src/callables/hermesGateway.ts",
+  "functions-media/src/domains/hermes/hermesGateway.ts",
 ]) {
   assertNotIncludes(
     rotationFile,
@@ -1975,12 +1990,12 @@ for (const rotationFile of [
 // response.error. Pin both directions: senders emit only errorCode, receivers
 // ignore the legacy plaintext field and map known codes to fixed public text.
 assertIncludes(
-  "OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/Generated/HermesRealtimeRelayEnvelope.swift",
+  "OpenBurnBarCore/Sources/OpenBurnBarHermesModels/HermesRealtimeRelayEnvelope.swift",
   "public enum HermesRealtimeRelayErrorCode",
   "Swift iroh relay frame model must carry fixed public error codes",
 );
 assertIncludes(
-  "OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/Generated/HermesRealtimeRelayEnvelope.swift",
+  "OpenBurnBarCore/Sources/OpenBurnBarHermesModels/HermesRealtimeRelayEnvelope.swift",
   "public var errorCode: String?",
   "Swift iroh relay payload must expose errorCode",
 );
@@ -2067,21 +2082,21 @@ assertSectionIncludes(
 // "legacy gateway plaintext never auto-scrubbed." These assertions pin the fix
 // and forbid a regression back to the no-op gate.
 assertSectionIncludes(
-  "functions/src/callables/privacyBackfill.ts",
+  "functions/src/domains/compliance/privacyBackfill.ts",
   'collection: "hermes_gateway_messages"',
   'collection: "hermes_gateway_attachments"',
   '{ field: "threadId", gatewayRelayed: true }',
   "privacy backfill must scrub gateway message threadId unconditionally (sealed + legacy)",
 );
 assertSectionIncludes(
-  "functions/src/callables/privacyBackfill.ts",
+  "functions/src/domains/compliance/privacyBackfill.ts",
   'collection: "hermes_gateway_messages"',
   'collection: "hermes_gateway_attachments"',
   '{ field: "replyToEventId", gatewayRelayed: true }',
   "privacy backfill must scrub gateway message replyToEventId unconditionally (sealed + legacy)",
 );
 assertSectionNotIncludes(
-  "functions/src/callables/privacyBackfill.ts",
+  "functions/src/domains/compliance/privacyBackfill.ts",
   'collection: "hermes_gateway_messages"',
   'collection: "hermes_gateway_attachments"',
   'requires: "relayEnvelope"',

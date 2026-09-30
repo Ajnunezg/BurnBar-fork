@@ -365,10 +365,15 @@ assert.equal(sanitizeHermesGatewayApprovalSummary(42), "");
 // (hermesGateway*.ts) to stay under the file-length cap; the barrel re-exports
 // them. Scan the concatenation of the barrel + all siblings so these structural
 // assertions follow each callable/handler wherever the split relocated it.
-const callablesDir = new URL("../src/callables/", import.meta.url);
-const source = readdirSync(callablesDir)
+// The gateway ships from the functions-media deploy codebase (firebase.json
+// codebase "media"); functions/src/callables no longer holds it.
+const callablesDir = new URL("../../functions-media/src/callables/", import.meta.url);
+const gatewayFiles = readdirSync(callablesDir)
   .filter((file) => /^hermesGateway.*\.ts$/.test(file))
-  .sort()
+  .sort();
+// An empty scan would turn every negative assertion below into a silent pass.
+assert.ok(gatewayFiles.length >= 5, `expected the hermesGateway*.ts modules in ${callablesDir.pathname}, found ${gatewayFiles.length}`);
+const source = gatewayFiles
   .map((file) => readFileSync(new URL(file, callablesDir), "utf8"))
   .join("\n");
 
@@ -513,7 +518,7 @@ assert.match(source, /attachment_size_mismatch/);
 assert.match(source, /sha256ForStorageFile/);
 assert.match(source, /must be finalized before use/);
 
-const indexSource = readFileSync(new URL("../src/index.ts", import.meta.url), "utf8");
+const indexSource = readFileSync(new URL("../../functions-media/src/index.ts", import.meta.url), "utf8");
 for (const name of [
   "burnBarHermesGateway",
   "approveHermesGatewayDeviceGrant",

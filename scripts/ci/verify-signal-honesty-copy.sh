@@ -140,7 +140,9 @@ if (mode === "--self-test" || mode === "selftest") {
 // UI source — the genuinely user-facing copy the gate previously missed. We exclude
 // build output, deps, and the signalification plan docs themselves (which quote the
 // banned phrases by design), plus this gate + its allowlist.
-const ROOTS = ["website/src", "functions/src", "packages", "docs", "AgentLens", "android/app/src/main", "OpenBurnBarMobile", "OpenBurnBarCore/Sources", "apps/console/app", "apps/console/components", "apps/console/lib"];
+// Every Functions deploy codebase is a copy surface: the old functions/src-only
+// list stopped seeing functions-identity/-sync/-media after the codebase split.
+const ROOTS = ["website/src", "functions/src", "functions-identity/src", "functions-sync/src", "functions-media/src", "packages", "docs", "AgentLens", "android/app/src/main", "OpenBurnBarMobile", "OpenBurnBarCore/Sources", "apps/console/app", "apps/console/components", "apps/console/lib"];
 // NOTE: the `lib` exclusion is scoped to compiled-output trees (packages/*/lib,
 // functions/lib) so it does NOT swallow hand-written Next.js source under
 // apps/console/lib (which holds the deployed console's domain copy). `out`/`.next`
@@ -153,7 +155,11 @@ const SCAN_EXT = /\.(ts|tsx|astro|md|mdx|json|swift|kt|xml|strings)$/;
 const hits = new Map(); // key -> { count, firstLine, file, phrase }
 
 function scan(dir) {
-  if (!existsSync(dir)) return;
+  if (!existsSync(dir)) {
+    // A moved root must fail loudly, not shrink the scan to nothing.
+    console.error(`FAIL: honesty-copy scan root ${dir} does not exist; update ROOTS.`);
+    process.exit(1);
+  }
   for (const entry of readdirSync(dir)) {
     const p = join(dir, entry);
     if (EXCLUDE_DIR.test(p)) continue;

@@ -441,11 +441,12 @@ public final class MuseParser: LogParser, Sendable {
         // Cost — prefer catalog pricing; Muse pricing lives under the "meta" provider
         // in Resources/catalog.json (the canonical vendor key). Scoped lookup with
         // "meta" is exact; nil fallback also works via global search but is less precise.
+        let pricing = ModelPricing.lookup(model: resolvedModel, providerID: "meta")
         let costUSD: Double = {
             if hasUsage {
-                let pricing = ModelPricing.lookup(model: resolvedModel, providerID: "meta")
-                // If model is unknown to catalog, lookup returns fallback (2.5/10/1.25); we keep it.
-                // For the contributor variant, catalog correctly returns 0.10/0.20/0.002.
+                // An unknown model prices at the fallback rates and the row
+                // says so (`pricingSource: .fallback`). For the contributor
+                // variant, catalog correctly returns 0.10/0.20/0.002.
                 return (try? pricing.cost(inputTokens: totalInput, outputTokens: totalOutput, cacheCreationTokens: totalCacheWrite, cacheReadTokens: totalCacheRead)) ?? 0
             }
             return 0
@@ -472,6 +473,7 @@ public final class MuseParser: LogParser, Sendable {
                 cacheReadTokens: totalCacheRead,
                 reasoningTokens: totalReasoning,
                 costUSD: costUSD,
+                pricingSource: pricing.source,
                 startTime: start,
                 endTime: end,
                 provenanceMethod: .providerLog,

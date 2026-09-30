@@ -5,7 +5,7 @@ Copy-paste templates for the Sentry UI. GCP Cloud Monitoring remains the **prima
 ## Prerequisites
 
 - Functions release tag matches `FUNCTION_VERSION` (set by `deploy-production.yml`).
-- Sentry release format: `openburnbar-functions@<tag>` (see `functions/src/sentry.ts`).
+- Sentry release format: `openburnbar-functions@<tag>` (see `packages/functions-shared/src/sentry.ts`).
 
 ## Issue alert — callable error spike
 

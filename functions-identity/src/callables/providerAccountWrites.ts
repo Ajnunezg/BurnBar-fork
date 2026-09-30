@@ -1,9 +1,12 @@
 /**
  * @fileoverview Firestore write helpers backing the provider-account callables.
  *
- * These functions are pure relocations of the post-authorization bodies of the
- * connect/update/delete callables in providerAccounts.ts — identical inputs
- * produce identical Firestore reads/writes, side-effects, and thrown errors.
+ * These are the post-authorization bodies of the connect/update/delete
+ * callables in providerAccounts.ts. Hosted-credential writes go through
+ * providerSecretErasure.ts: a replacement destroys every superseded Secret
+ * Manager version, and a deletion persists its erasure intent, destroys every
+ * version, and throws `unavailable` (never `success`) while any version
+ * remains — the reference stays as the reconciler's retry manifest.
  */
 
 import { HttpsError } from "firebase-functions/v2/https";
@@ -11,10 +14,14 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { db } from "@openburnbar/functions-shared/adminRuntime.js";
 import { logError } from "@openburnbar/functions-shared/logging.js";
 import { ACCOUNT_SCHEMA_VERSION, assertHostedProvider, connectionDocFromAccount, hostedCredentialKind, hostedProviderLabel } from "@openburnbar/functions-shared/shared/accounts.js";
-import { normalizeHostedCredential, writePrivateSecretRef } from "@openburnbar/functions-shared/shared/providerConnect.js";
+import { normalizeHostedCredential } from "@openburnbar/functions-shared/shared/providerConnect.js";
 import { boundedTrimmedString, nowISO } from "@openburnbar/functions-shared/shared/validators.js";
-import { storeCredential, destroyCredential } from "@openburnbar/functions-shared/secrets.js";
-import { providerAccountSecretRefPath } from "@openburnbar/functions-shared/quota.js";
+import { storeCredential } from "@openburnbar/functions-shared/secrets.js";
+import {
+  adoptStoredCredentialVersion,
+  eraseProviderAccountSecret,
+  providerCredentialErasurePendingError,
+} from "@openburnbar/functions-shared/providerSecretErasure.js";
 import { revokeAllLinksForAccount, upsertDeviceLink } from "@openburnbar/functions-shared/domains/device-links/index.js";
 import { optionalStringField, requireProviderAccountDoc, stripUndefinedObject } from "@openburnbar/functions-shared/guards.js";
 import type { ProviderAccountDoc } from "@openburnbar/functions-shared/types.js";
@@ -44,7 +51,14 @@ export async function applyHostedQuotaConnect(
   const existing = await accountRef.get();
   const createdAt = existing.exists ? (optionalStringField(existing.get("createdAt")) ?? now) : now;
   const secretVersionName = await storeCredential(uid, provider, credential, accountID);
-  await writePrivateSecretRef(uid, accountID, provider, secretVersionName, createdAt, now);
+  await adoptStoredCredentialVersion({
+    uid,
+    accountID,
+    providerID: provider,
+    secretVersionName,
+    createdAt,
+    updatedAt: now,
+  });
 
   const accountDoc: ProviderAccountDoc = {
     id: accountID,
@@ -172,28 +186,30 @@ export async function applyHostedQuotaCredentialDelete(
   if (account.storageScope !== "server_private") {
     throw new HttpsError("failed-precondition", "Account is not a hosted quota account.");
   }
-  const privateRef = db.doc(providerAccountSecretRefPath(uid, accountID));
-  const privateSnap = await privateRef.get();
-  const secretVersionName = privateSnap.exists ? optionalStringField(privateSnap.get("secretVersionName")) : undefined;
-  if (secretVersionName) {
-    await destroyCredential(secretVersionName);
-  }
   const now = nowISO();
-  await db.runTransaction(async (tx) => {
-    tx.delete(privateRef);
-    tx.set(
-      accountRef,
-      {
-        status: "deleted",
-        lastValidatedAt: null,
-        lastRefreshAt: null,
-        lastErrorCode: null,
-        updatedAt: now,
-      },
-      { merge: true },
-    );
+  const erasure = await eraseProviderAccountSecret({
+    uid,
+    accountID,
+    reason: "hosted_quota_credential_delete",
+    alsoInIntentTransaction: (tx) => {
+      tx.set(accountRef, deletedAccountFields(now), { merge: true });
+    },
   });
+  if (!erasure.complete) {
+    throw providerCredentialErasurePendingError(accountID, erasure);
+  }
   return { success: true, accountID };
+}
+
+/** Account-doc fields for a deleted provider account (credential erasure requested). */
+function deletedAccountFields(now: string): Record<string, unknown> {
+  return {
+    status: "deleted",
+    lastValidatedAt: null,
+    lastRefreshAt: null,
+    lastErrorCode: null,
+    updatedAt: now,
+  };
 }
 
 type ProviderAccountUpdateInput = {
@@ -271,49 +287,24 @@ export async function applyProviderAccountDelete(
   }
   const account = requireProviderAccountDoc(accountSnap.data());
 
-  const privateRef = db.doc(providerAccountSecretRefPath(uid, accountID));
-  const privateSnap = await privateRef.get();
-  const secretVersionName = privateSnap.exists ? optionalStringField(privateSnap.get("secretVersionName")) : undefined;
-
-  if (secretVersionName) {
-    try {
-      await destroyCredential(secretVersionName);
-    } catch (err) {
-      logError({
-        event: "callable_warn",
-        message: `Failed to destroy provider account secret for ${accountID}:`,
-        detail: String(err),
-      });
-    }
-  }
-
+  // The account stops being used the moment deletion is requested; the
+  // credential's erasure is durable (retried by the reconciler) and a failure
+  // is reported below instead of being swallowed.
   const now = nowISO();
-  await db.runTransaction(async (tx) => {
-    tx.delete(privateRef);
-    tx.set(
-      accountRef,
-      {
-        status: "deleted",
-        lastValidatedAt: null,
-        lastRefreshAt: null,
-        lastErrorCode: null,
-        updatedAt: now,
-      },
-      { merge: true },
-    );
-    if (account.isDefault) {
-      tx.set(
-        db.doc(`users/${uid}/provider_connections/${account.providerID}`),
-        {
-          status: "disconnected",
-          lastValidatedAt: null,
-          lastRefreshAt: null,
-          lastErrorCode: null,
-          updatedAt: now,
-        },
-        { merge: true },
-      );
-    }
+  const erasure = await eraseProviderAccountSecret({
+    uid,
+    accountID,
+    reason: "provider_account_delete",
+    alsoInIntentTransaction: (tx) => {
+      tx.set(accountRef, deletedAccountFields(now), { merge: true });
+      if (account.isDefault) {
+        tx.set(
+          db.doc(`users/${uid}/provider_connections/${account.providerID}`),
+          { ...deletedAccountFields(now), status: "disconnected" },
+          { merge: true },
+        );
+      }
+    },
   });
 
   const snapshotQuery = await db.collection(`users/${uid}/quota_snapshots`).where("accountID", "==", accountID).get();
@@ -342,5 +333,8 @@ export async function applyProviderAccountDelete(
     });
   }
 
+  if (!erasure.complete) {
+    throw providerCredentialErasurePendingError(accountID, erasure);
+  }
   return { success: true, accountID };
 }

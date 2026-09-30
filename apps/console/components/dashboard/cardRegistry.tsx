@@ -52,6 +52,8 @@ export type CardId =
   | "devices"
   | "formation";
 
+export type CardDataSource = "rollup" | "quotas" | "fusion";
+
 export interface CardDef {
   id: CardId;
   title: string;
@@ -59,6 +61,11 @@ export interface CardDef {
   blurb: string;
   icon: LucideIcon;
   defaultSize: { w: number; h: number };
+  /**
+   * The read this card renders. When that read fails the grid shows an
+   * "unavailable" hint instead of the card, so a failure never renders as zero.
+   */
+  dataSource: CardDataSource;
   component: ComponentType<CardProps>;
 }
 
@@ -69,6 +76,7 @@ export const CARD_DEFS: CardDef[] = [
     blurb: "Total spend for the window, with a usage trend.",
     icon: Flame,
     defaultSize: { w: 4, h: 3 },
+    dataSource: "rollup",
     component: BurnTotalCard,
   },
   {
@@ -77,6 +85,7 @@ export const CARD_DEFS: CardDef[] = [
     blurb: "Daily token usage across the window.",
     icon: LineChart,
     defaultSize: { w: 8, h: 3 },
+    dataSource: "rollup",
     component: UsageTrendCard,
   },
   {
@@ -85,6 +94,7 @@ export const CARD_DEFS: CardDef[] = [
     blurb: "Total tokens processed.",
     icon: Coins,
     defaultSize: { w: 3, h: 2 },
+    dataSource: "rollup",
     component: TokensCard,
   },
   {
@@ -93,6 +103,7 @@ export const CARD_DEFS: CardDef[] = [
     blurb: "Total API requests and average size.",
     icon: Activity,
     defaultSize: { w: 3, h: 2 },
+    dataSource: "rollup",
     component: RequestsCard,
   },
   {
@@ -101,6 +112,7 @@ export const CARD_DEFS: CardDef[] = [
     blurb: "Fusion search allowance this month.",
     icon: Wand2,
     defaultSize: { w: 6, h: 2 },
+    dataSource: "fusion",
     component: WandCard,
   },
   {
@@ -109,6 +121,7 @@ export const CARD_DEFS: CardDef[] = [
     blurb: "Spend by provider, ranked.",
     icon: Boxes,
     defaultSize: { w: 4, h: 4 },
+    dataSource: "rollup",
     component: ProviderListCard,
   },
   {
@@ -117,6 +130,7 @@ export const CARD_DEFS: CardDef[] = [
     blurb: "Spend by model, ranked.",
     icon: Cpu,
     defaultSize: { w: 4, h: 4 },
+    dataSource: "rollup",
     component: ModelsCard,
   },
   {
@@ -125,6 +139,7 @@ export const CARD_DEFS: CardDef[] = [
     blurb: "Live provider quota — used vs limit.",
     icon: Gauge,
     defaultSize: { w: 4, h: 4 },
+    dataSource: "quotas",
     component: ProviderLimitsCard,
   },
   {
@@ -133,6 +148,7 @@ export const CARD_DEFS: CardDef[] = [
     blurb: "Token usage by device.",
     icon: MonitorSmartphone,
     defaultSize: { w: 6, h: 3 },
+    dataSource: "rollup",
     component: DevicesCard,
   },
   {
@@ -141,6 +157,7 @@ export const CARD_DEFS: CardDef[] = [
     blurb: "The provider swarm forming on the backdrop.",
     icon: Orbit,
     defaultSize: { w: 6, h: 3 },
+    dataSource: "rollup",
     component: FormationCard,
   },
 ];

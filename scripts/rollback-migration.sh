@@ -121,6 +121,7 @@ MIGRATIONS=(
   "v68_agent_memories_review_default_repair|atomic|unapplied-only|backup-restore|Rebuilds agent_memories so review_status defaults to quarantined (fail closed) where an older bootstrap left DEFAULT approved; columns, rows and indexes carried verbatim; no-op when the default is already correct"
   "v69_token_usage_end_time_index|atomic|unapplied-only|backup-restore|Index on token_usage.endTime so the receipt close-monitor end-time window does not scan the ledger"
   "v70_agent_memories_index_backfill|atomic|unapplied-only|backup-restore|Backfills the three schema-owned agent_memories indexes (project, review_status, chat_scope) that v68 only recreated inside its conditional rebuild; no-op where they already exist"
+  "v71_token_usage_pricing_provenance|atomic|unapplied-only|backup-restore|Pricing provenance on token_usage: where a row's dollars came from (catalog, fallback, reported) and the confidence of its token counts alone"
 )
 
 # ── Commands ─────────────────────────────────────────────────────────────

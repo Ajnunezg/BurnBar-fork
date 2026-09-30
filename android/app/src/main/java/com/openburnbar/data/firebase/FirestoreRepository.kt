@@ -503,6 +503,8 @@ internal fun DocumentSnapshot.toTokenUsage(vaultKey: ByteArray? = null, projectN
         costUsd = (data["costUsd"] as? Number)?.toDouble() ?: 0.0,
         cost = (data["cost"] as? Number)?.toDouble() ?: 0.0,
         provenanceConfidence = data["provenanceConfidence"] as? String,
+        pricingSource = data["pricingSource"] as? String,
+        tokenConfidence = data["tokenConfidence"] as? String,
         provenanceMethod = data["provenanceMethod"] as? String,
         userDisplayId = data["user_display_id"] as? String,
         // Sealed-present means decrypt-or-nil; legacy plaintext is used only when

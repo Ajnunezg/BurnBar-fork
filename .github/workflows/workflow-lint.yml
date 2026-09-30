@@ -136,6 +136,8 @@ on:
       - "scripts/ci/promote-github-release.test.mjs"
       - "scripts/ci/macos-r2-publication.mjs"
       - "scripts/ci/macos-r2-publication.test.mjs"
+      - "scripts/release/generate-final-launch-evidence.mjs"
+      - "scripts/release/generate-final-launch-evidence.test.mjs"
       - "scripts/ci/verify-apple-appcheck-release-artifact.sh"
       - "scripts/ci/verify-apple-appcheck-release-artifact.test.sh"
       - "scripts/upload-macos-downloads-r2.sh"
@@ -162,6 +164,29 @@ on:
       - "scripts/ci/release-dry-run-attestation.test.mjs"
       - "scripts/ops/run-firestore-restore-drill.sh"
       - "scripts/ops/run-firestore-restore-drill.test.sh"
+      - "scripts/ops/ops-paging-drill.mjs"
+      - "scripts/ops/ops-paging-drill.test.mjs"
+      - "scripts/ops/firestore-restore-drill-verify.mjs"
+      - "scripts/ops/firestore-restore-drill-verify.test.mjs"
+      - "scripts/ops/verify-firestore-disaster-recovery.sh"
+      - "docs/schemas/firestore-restore-drill-receipt.schema.json"
+      - "scripts/test-commercial-launch-gate-firestore-restore.mjs"
+      - "scripts/lib/json-schema-subset.mjs"
+      - "scripts/ops/rollback-drill-evidence.mjs"
+      - "scripts/ops/rollback-drill-evidence.test.mjs"
+      - "scripts/ci/check-deploy-freshness.mjs"
+      - "scripts/ci/__tests__/check-deploy-freshness.test.mjs"
+      - "scripts/ci/__tests__/fixtures/deploy-freshness/**"
+      - "scripts/ops/rollback-revision.sh"
+      - "docs/schemas/rollback-drill-receipt.schema.json"
+      - "scripts/commercial-launch-gate.mjs"
+      - "scripts/lib/evaluate-firebase-app-check-enforcement.mjs"
+      - "scripts/lib/alert-delivery-drill.mjs"
+      - "scripts/lib/ops-alerts-gate.mjs"
+      - "scripts/validate-launch-evidence-bundle.mjs"
+      - "scripts/test-launch-evidence-bundle.mjs"
+      - "functions/scripts/billing-alert-policy-definitions.mjs"
+      - "functions/scripts/ops-alert-policy-definitions.mjs"
       - "scripts/ops/verify-firestore-app-check-enforcement.sh"
       - "scripts/ops/verify-firestore-app-check-enforcement.test.sh"
       - "scripts/test-openburnbar-mobile.sh"
@@ -176,6 +201,8 @@ on:
       - "scripts/build-domain-core-xcframework.sh"
       - "scripts/build-iroh-xcframework.sh"
       - "scripts/ci/verify-codeowners-security-trees.test.sh"
+      - "scripts/ci/verify-codeowners-security-trees.sh"
+      - ".github/CODEOWNERS"
       - "third_party/hermes-agent/manifest.json"
       - "third_party/libsignal/manifest.json"
       - "tools/qa/run-functional-qa.sh"
@@ -290,6 +317,8 @@ on:
       - "scripts/ci/promote-github-release.test.mjs"
       - "scripts/ci/macos-r2-publication.mjs"
       - "scripts/ci/macos-r2-publication.test.mjs"
+      - "scripts/release/generate-final-launch-evidence.mjs"
+      - "scripts/release/generate-final-launch-evidence.test.mjs"
       - "scripts/ci/verify-apple-appcheck-release-artifact.sh"
       - "scripts/ci/verify-apple-appcheck-release-artifact.test.sh"
       - "scripts/upload-macos-downloads-r2.sh"
@@ -316,6 +345,29 @@ on:
       - "scripts/ci/release-dry-run-attestation.test.mjs"
       - "scripts/ops/run-firestore-restore-drill.sh"
       - "scripts/ops/run-firestore-restore-drill.test.sh"
+      - "scripts/ops/ops-paging-drill.mjs"
+      - "scripts/ops/ops-paging-drill.test.mjs"
+      - "scripts/ops/firestore-restore-drill-verify.mjs"
+      - "scripts/ops/firestore-restore-drill-verify.test.mjs"
+      - "scripts/ops/verify-firestore-disaster-recovery.sh"
+      - "docs/schemas/firestore-restore-drill-receipt.schema.json"
+      - "scripts/test-commercial-launch-gate-firestore-restore.mjs"
+      - "scripts/lib/json-schema-subset.mjs"
+      - "scripts/ops/rollback-drill-evidence.mjs"
+      - "scripts/ops/rollback-drill-evidence.test.mjs"
+      - "scripts/ci/check-deploy-freshness.mjs"
+      - "scripts/ci/__tests__/check-deploy-freshness.test.mjs"
+      - "scripts/ci/__tests__/fixtures/deploy-freshness/**"
+      - "scripts/ops/rollback-revision.sh"
+      - "docs/schemas/rollback-drill-receipt.schema.json"
+      - "scripts/commercial-launch-gate.mjs"
+      - "scripts/lib/evaluate-firebase-app-check-enforcement.mjs"
+      - "scripts/lib/alert-delivery-drill.mjs"
+      - "scripts/lib/ops-alerts-gate.mjs"
+      - "scripts/validate-launch-evidence-bundle.mjs"
+      - "scripts/test-launch-evidence-bundle.mjs"
+      - "functions/scripts/billing-alert-policy-definitions.mjs"
+      - "functions/scripts/ops-alert-policy-definitions.mjs"
       - "scripts/ops/verify-firestore-app-check-enforcement.sh"
       - "scripts/ops/verify-firestore-app-check-enforcement.test.sh"
       - "scripts/test-openburnbar-mobile.sh"
@@ -336,6 +388,8 @@ on:
       - "scripts/ci/check-toolchain-pins.mjs"
       - "governance/toolchain-pin-exceptions.json"
       - "scripts/ci/verify-codeowners-security-trees.test.sh"
+      - "scripts/ci/verify-codeowners-security-trees.sh"
+      - ".github/CODEOWNERS"
       - "third_party/hermes-agent/manifest.json"
       - "third_party/libsignal/manifest.json"
       - "tools/qa/run-functional-qa.sh"
@@ -442,7 +496,9 @@ jobs:
         run: node scripts/ci/verify-jscpd-report.test.mjs
 
       - name: Self-test ops failure issue (escalation + paging)
-        run: node --test .github/actions/ops-failure-issue/escalation.test.cjs .github/actions/ops-failure-issue/paging-wiring.test.cjs .github/actions/ops-failure-issue/paging-payload.test.cjs
+        run: |
+          node --test .github/actions/ops-failure-issue/escalation.test.cjs .github/actions/ops-failure-issue/paging-wiring.test.cjs .github/actions/ops-failure-issue/paging-payload.test.cjs .github/actions/ops-failure-issue/paging-delivery.test.cjs
+          node --test scripts/ops/ops-paging-drill.test.mjs
 
       - name: Self-test release attestation verifier
         run: bash scripts/ci/verify-release-attestations.test.sh
@@ -462,11 +518,27 @@ jobs:
             scripts/ci/macos-r2-publication.test.mjs \
             scripts/ci/verify-release-promotion-workflow.test.mjs
 
+      - name: Self-test launch-evidence skeleton writer
+        run: node --test scripts/release/generate-final-launch-evidence.test.mjs
+
       - name: Self-test packaged macOS release feed contract
         run: bash scripts/ci/verify-apple-appcheck-release-artifact.test.sh
 
-      - name: Self-test Firestore restore drill env validation
+      - name: Self-test Firestore restore drill (env validation and end-to-end drills on fakes)
         run: bash scripts/ops/run-firestore-restore-drill.test.sh
+
+      - name: Self-test Firestore restore-drill count verification and launch-gate receipt check
+        run: |
+          node --test scripts/ops/firestore-restore-drill-verify.test.mjs
+          node scripts/test-commercial-launch-gate-firestore-restore.mjs
+
+      - name: Self-test the launch gate's rollback-drill receipt check and the launch evidence bundle validator
+        run: |
+          node --test scripts/ops/rollback-drill-evidence.test.mjs
+          node scripts/test-launch-evidence-bundle.mjs
+
+      - name: Self-test the deploy-freshness monitor (per-surface ages and next-step lines)
+        run: node --test scripts/ci/__tests__/check-deploy-freshness.test.mjs
 
       - name: Check functional QA runner syntax
         run: bash -n tools/qa/run-functional-qa.sh

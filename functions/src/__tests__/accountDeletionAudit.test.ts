@@ -180,7 +180,7 @@ function baseOptions(
     revokeAuthTokens: () => Promise<void>;
     appendAuditEventRequired: AccountDeletionAuditAppender;
     deleteStorageObjects: (prefix: string) => Promise<void>;
-    destroyCredential: (secretVersionName: string) => Promise<void>;
+    destroyCredentialSecret: (secretVersionName: string) => Promise<unknown>;
     useDefaultStorage: boolean;
   }> = {},
 ) {
@@ -188,7 +188,7 @@ function baseOptions(
     ...(overrides.useDefaultStorage
       ? {}
       : { deleteStorageObjects: overrides.deleteStorageObjects ?? (async () => {}) }),
-    destroyCredential: overrides.destroyCredential ?? (async () => {}),
+    destroyCredentialSecret: overrides.destroyCredentialSecret ?? (async () => {}),
     deleteAuthUser: overrides.deleteAuthUser ?? (async () => {}),
     revokeAuthTokens: overrides.revokeAuthTokens ?? (async () => {}),
     audit: {

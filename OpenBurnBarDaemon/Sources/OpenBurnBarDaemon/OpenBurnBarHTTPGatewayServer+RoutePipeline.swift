@@ -237,7 +237,7 @@ extension BurnBarHTTPGatewayServer {
                 httpStatus: response.statusCode,
                 streamed: false
             )
-            await recordUsageIfAvailable(
+            let usageLedgerOutcome = await recordUsageIfAvailable(
                 response.usage,
                 route: route,
                 idempotencyKey: idempotencyKey,
@@ -267,7 +267,8 @@ extension BurnBarHTTPGatewayServer {
             )
             return .completed(.buffered(GatewayHTTPResponse(
                 status: response.statusCode,
-                headers: ["Content-Type": response.contentType],
+                headers: ["Content-Type": response.contentType]
+                    .merging(Self.usageLedgerHeaders(for: usageLedgerOutcome)) { current, _ in current },
                 body: response.body
             )))
         } catch {

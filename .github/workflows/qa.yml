@@ -1,10 +1,13 @@
 name: OpenBurnBar Functional QA
 
 # Functional QA. Posts one updated PR comment and does not replace the
-# existing OpenBurnBar PR Harness/static validators. NOT a required check —
-# but its conclusion is honest: if QA is blocked or fails, the job goes red
-# (diligence 2026-06-11: the previous continue-on-error version concluded
-# "success" even when fully broken, green-washing every PR's check list).
+# existing OpenBurnBar PR Harness/static validators. Not a classic
+# branch-protection context, but `functional-qa` IS in the required_contexts of
+# governance/burnbar-ci-gate.json and burnbar-ci-gate.fast.json, so the required
+# BurnBar CI Gate blocks PRs and merge-queue candidates on it. Its conclusion is
+# honest: if QA is blocked or fails, the job goes red (diligence 2026-06-11: the
+# previous continue-on-error version concluded "success" even when fully
+# broken, green-washing every PR's check list).
 
 permissions:
   contents: read

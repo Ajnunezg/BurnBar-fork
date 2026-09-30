@@ -51,7 +51,7 @@ Branches at handoff: BurnBar repo `release/cut-builds-20260603`; Hermes repo `aj
 ## JOB 1 — iOS: compile in Xcode + run on a trusted physical iOS device
 The iOS oversight wiring is written but never compiled (no toolchain on the prior agent's box). Files touched:
 `OpenBurnBarMobile/Services/FunctionsRepository.swift`,
-`OpenBurnBarMobile/Services/ComputerUse/ComputerUseSecurityCallableClient.swift`,
+`OpenBurnBarMobile/Services/ComputerUse/ComputerUseSecurityCallableClient+Mobile.swift`,
 `OpenBurnBarMobile/Views/Hermes/HermesSettingsView.swift`,
 `OpenBurnBarMobileTests/OpenBurnBarMobileTests.swift`.
 

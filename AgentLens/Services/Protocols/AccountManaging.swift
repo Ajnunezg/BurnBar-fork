@@ -29,6 +29,25 @@ protocol AccountManaging: AnyObject, Sendable {
     /// Observers are retained for the process's lifetime, so callers pass a
     /// closure that captures its subject weakly.
     func observeAccountIdentityChanges(_ observer: @escaping @MainActor @Sendable (String?) -> Void)
+
+    /// Registers `observer` to run whenever the master Cloud sync switch
+    /// changes, with the new value. Background listeners and hosts that hold a
+    /// Firestore connection open use it to tear down the moment the user turns
+    /// sync off, instead of waiting for a cadence that no longer fires.
+    /// Retained for the process's lifetime; capture the subject weakly.
+    func observeCloudSyncConsentChanges(_ observer: @escaping @MainActor @Sendable (Bool) -> Void)
+}
+
+extension AccountManaging {
+    /// The uid a background uploader or cloud listener may act under: Firebase
+    /// is up, the user is signed in, AND the master Cloud sync switch is on.
+    /// `nil` means no background egress; callers treat it exactly like signed
+    /// out. Explicit user actions (a button that says what it sends) keep using
+    /// `currentUID`.
+    var cloudSyncUID: String? {
+        guard isCloudSyncEnabled else { return nil }
+        return currentUID
+    }
 }
 
 // MARK: - AccountManager Conformance

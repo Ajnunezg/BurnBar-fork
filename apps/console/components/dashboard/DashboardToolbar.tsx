@@ -5,6 +5,7 @@ import { Check, Pencil, Plus, RotateCcw, RotateCw, Sparkles } from "lucide-react
 
 import { KERNEL_META } from "@openburnbar/gl-engine/registry";
 import type { KernelId } from "@openburnbar/gl-engine/types";
+import type { DashboardSource } from "@/lib/dashboard/useDashboardUsage";
 import { USAGE_WINDOWS, type UsageWindowKey } from "@/lib/usage";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +41,7 @@ function relativeTime(iso: string, now: number): string {
 export interface DashboardToolbarProps {
   window: UsageWindowKey;
   setWindow: (w: UsageWindowKey) => void;
-  source: "live" | "empty";
+  source: DashboardSource;
   computedAt: string | null;
   loading: boolean;
   onRefresh: () => void;
@@ -283,7 +284,7 @@ function FreshnessLabel({
   computedAt,
   loading,
 }: {
-  source: "live" | "empty";
+  source: DashboardSource;
   computedAt: string | null;
   loading: boolean;
 }) {
@@ -298,6 +299,7 @@ function FreshnessLabel({
   let text: string;
   if (loading) text = "Loading…";
   else if (source === "empty") text = "No usage synced yet";
+  else if (source === "unavailable") text = "Usage unavailable";
   else if (computedAt && now != null) text = `Updated ${relativeTime(computedAt, now)}`;
   else text = "Live";
 

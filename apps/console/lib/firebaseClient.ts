@@ -3,10 +3,11 @@
  *
  * Mirrors website/src/lib/firebaseClient.ts (same project, same region) and adds
  * App Check (reCAPTCHA Enterprise) because every console callable enforces App
- * Check. The defaults below are the project's PUBLIC client identifiers (Firebase
- * web config + reCAPTCHA Enterprise *site* key) — they are not secrets and ship
- * in every client bundle regardless; security is enforced server-side via App
- * Check tokens + Firestore rules. Committing them as defaults makes every build
+ * Check. The defaults come from config/firebase-web-public.json, the project's
+ * PUBLIC client identifiers (Firebase web config + reCAPTCHA Enterprise *site*
+ * key) shared with the website — they are not secrets and ship in every client
+ * bundle regardless; security is enforced server-side via App Check tokens +
+ * Firestore rules. Reading them from that one reviewed file makes every build
  * (local AND CI, which has no `.env.production`) ship a working bundle. NEXT_PUBLIC_*
  * env still overrides them for staging/preview environments.
  */
@@ -25,23 +26,23 @@ import {
   ReCaptchaEnterpriseProvider,
   type AppCheck,
 } from "firebase/app-check";
+import firebaseWebPublic from "../../../config/firebase-web-public.json";
 
 // Public client identifiers (not secrets). Defaults are the production values so
 // a build with no env (CI / fresh checkout) still ships a working bundle; env
 // overrides win for staging/preview.
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBiAIHwf1MKZ6LN5HrsaPYsAR3UTe8hyw4",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "app.burnbar.ai",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "burnbar",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "burnbar.firebasestorage.app",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "246956661961",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:246956661961:web:2e267f5d3a84a525480118",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || firebaseWebPublic.apiKey,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || firebaseWebPublic.console.authDomain,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || firebaseWebPublic.projectId,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || firebaseWebPublic.console.storageBucket,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || firebaseWebPublic.messagingSenderId,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || firebaseWebPublic.appId,
 };
 
 // Public reCAPTCHA Enterprise SITE key (safe in the client; the secret key lives
 // server-side). Defaulted so App Check initializes even without env.
-const recaptchaSiteKey =
-  process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_KEY || "6Ld3bAktAAAAAABiZujpMLmUcvSMUPiJk6qENbOg";
+const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_KEY || firebaseWebPublic.recaptchaEnterpriseSiteKey;
 
 const isBrowser = typeof window !== "undefined";
 

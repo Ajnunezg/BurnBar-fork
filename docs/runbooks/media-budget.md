@@ -30,7 +30,7 @@ Operator runbook for the n0 hosted-relay budget guardrail. Plan of record: `plan
 
 ## Architecture
 
-`evaluateMediaBudget` Cloud Function runs hourly (`functions/src/mediaBudget.ts`):
+`evaluateMediaBudget` Cloud Function runs hourly (`functions-sync/src/domains/usage/mediaBudget.ts`):
 
 1. Reads n0 services API for month-to-date hosted-relay bytes.
 2. Reads `ops/media_session_daily_rollups/days/*` for the current month.

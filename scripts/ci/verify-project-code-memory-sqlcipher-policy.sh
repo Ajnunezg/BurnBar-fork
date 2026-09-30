@@ -13,7 +13,7 @@ from pathlib import Path
 
 checks = [
     (
-        Path("docs/ARCHITECTURE/011-project-code-memory-sqlcipher-release-policy.md"),
+        Path("docs/architecture/011-project-code-memory-sqlcipher-release-policy.md"),
         "Project Code Memory release readiness requires a SQLCipher-capable daemon build",
     ),
     (

@@ -28,6 +28,7 @@ on:
       - "scripts/ops/check-billing-budget-drift.*"
       - "governance/ops-billing-budget.json"
       - "scripts/ops/check-artifact-retention-drift.*"
+      - "scripts/ops/apply-artifact-retention.*"
       - "governance/ops-artifact-retention.json"
       - "scripts/ops/verify-github-governance.sh"
       - "governance/branch-protection.main.json"
@@ -69,6 +70,9 @@ jobs:
 
       - name: Artifact retention drift check — offline self-test
         run: node --test scripts/ops/check-artifact-retention-drift.test.mjs
+
+      - name: Artifact retention apply (plan, merge, post-apply verify) — offline tests
+        run: node --test scripts/ops/apply-artifact-retention.test.mjs
 
       - name: Syntax-check reworked GitHub governance verifier
         run: bash -n scripts/ops/verify-github-governance.sh
@@ -121,7 +125,7 @@ jobs:
           workload_identity_provider: ${{ vars.OPS_VERIFY_WIF_PROVIDER }}
           service_account: ${{ vars.OPS_VERIFY_SERVICE_ACCOUNT }}
 
-      # The three live checks below are independent planes; each runs whenever
+      # The four live checks below are independent planes; each runs whenever
       # authentication succeeded so one red surface never hides evidence about
       # another (same contract as the protected `verify` lane).
       - name: Branch-protection drift — live (ruleset + classic) vs committed source of truth
@@ -147,6 +151,46 @@ jobs:
       - name: Artifact retention drift — live gcf-artifacts policies vs committed contract
         if: always() && steps.auth.outcome == 'success'
         run: node scripts/ops/check-artifact-retention-drift.mjs
+
+  # Branch protection is GitHub state, not GCP state. Its live drift check used
+  # to run only inside alert-plane-drift (blocked behind the unprovisioned GCP
+  # WIF) and the approval-gated production `verify` lane, so it never executed:
+  # governance/branch-protection.main.json claimed CODEOWNER + last-push review
+  # while live main had both off and an always-bypass ruleset actor (read-only
+  # readout 2026-09-28, governance/README.md "Live drift"). Reading classic
+  # protection and ruleset bypass actors needs repository Administration:read,
+  # which GITHUB_TOKEN cannot hold, so this lane uses a read-only fine-grained
+  # token and FAILS CLOSED until that token is provisioned — never a silent skip.
+  branch-protection-drift:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (node24-native; June 16 forced-runtime fuse)
+        with:
+          persist-credentials: false
+
+      - name: Fail closed when the governance read token is not provisioned
+        env:
+          GOVERNANCE_READ_TOKEN: ${{ secrets.GOVERNANCE_READ_TOKEN }}
+        run: |
+          if [[ -z "${GOVERNANCE_READ_TOKEN}" ]]; then
+            echo "::error::governance-token-not-provisioned — secret GOVERNANCE_READ_TOKEN (fine-grained, this repo only, Administration: read-only) is not set, so live branch protection cannot be compared with governance/branch-protection.main.json. Failing closed instead of skipping."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0 (node24-native)
+        with:
+          node-version-file: .nvmrc
+
+      - name: Branch-protection drift — live (ruleset + classic) vs governance/branch-protection.main.json
+        env:
+          GH_TOKEN: ${{ secrets.GOVERNANCE_READ_TOKEN }}
+          OPENBURNBAR_GOVERNANCE_REPO: ${{ github.repository }}
+          OPENBURNBAR_GOVERNANCE_ORG: ${{ github.repository_owner }}
+        run: node scripts/ops/check-branch-protection-drift.mjs
 
   detect-secrets:
     runs-on: ubuntu-latest
@@ -303,7 +347,7 @@ jobs:
 
   standing-failure:
     name: Standing failure issue
-    needs: [drift-check-selftest, alert-plane-drift, verify, skipped-no-gcp-key]
+    needs: [drift-check-selftest, alert-plane-drift, branch-protection-drift, verify, skipped-no-gcp-key]
     if: always() && github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 15

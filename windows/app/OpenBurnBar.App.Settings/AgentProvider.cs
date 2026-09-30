@@ -1,24 +1,31 @@
-// PORTED (identity subset) from OpenBurnBarCore/.../SharedModels/AgentProvider.swift.
+// PORTED (identity subset) from
+// OpenBurnBarCore/Sources/OpenBurnBarProviderModels/AgentProvider.swift.
 //
 // The macOS Settings manifest builds one search row per AgentProvider case, using
 // three members of the Swift enum: displayName, persistedToken, and
 // providerID.rawValue. This is the Windows peer of exactly that subset — declared
-// in the SAME order as the Swift `case` list so `AllCases` matches
-// `AgentProvider.allCases`, and carrying the SAME display strings so the generated
-// provider rows are byte-identical after sorting.
+// in the SAME order as the Swift `case` list, and carrying the SAME display
+// strings so the generated provider rows are byte-identical after sorting.
+//
+// PARITY GAP (verified 2026-09-28): Swift declares 38 cases; this enum declares
+// 37. Swift added `together` (between `muse` and `fx`) in 99c2049e4b, and it has
+// not been ported here, to SwarmGlyphProviders.cs, to AgentProviderBrand, or to
+// the particles DefaultGlyphTokens table. Until it is, AllCases is NOT equal to
+// the Swift allCases. Nothing compares this list with the Swift source:
+// SettingsManifestTests and SwarmGlyphProvidersTests pin the count (37) by hand,
+// so a Swift-side addition cannot turn them red.
 //
 // Brand *colors* for these providers live separately in
 // Theme/ProviderBrand.cs (AgentProviderBrand) — that is a different concern
 // (parity-tested against DesignSystem.swift) and is intentionally NOT reused here:
-// the search index needs identity + labels, not palette. Parity of THIS table with
-// the Swift source is enforced by AgentProviderMetadataTests.
+// the search index needs identity + labels, not palette.
 
 namespace OpenBurnBar.App.Settings;
 
 /// <summary>
-/// Coding-agent provider identity. Mirrors <c>OpenBurnBarCore.AgentProvider</c>
-/// (36 cases, declaration order preserved so <see cref="AgentProviderMetadata.AllCases"/>
-/// equals the Swift <c>allCases</c>).
+/// Coding-agent provider identity. Mirrors 37 of the 38
+/// <c>OpenBurnBarCore.AgentProvider</c> cases in Swift declaration order; Swift
+/// <c>together</c> is not ported yet (see the PARITY GAP note at the top of this file).
 /// </summary>
 public enum AgentProvider
 {

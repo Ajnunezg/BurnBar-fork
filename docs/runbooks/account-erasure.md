@@ -10,7 +10,7 @@ Account erasure proceeds in this order:
 1. Require the authenticated high-risk owner proof and atomically persist the schema-v2 receipt plus immutable canonical intent event.
 2. Create `account_erasure_tombstones/{uid}`. Firestore rules, Storage rules, and the callable wrapper deny every operation except deletion recovery while this marker exists.
 3. Revoke Firebase refresh tokens before enumerating any data.
-4. Destroy hosted Secret Manager versions and delete the deterministic Cloud Storage prefixes.
+4. Destroy EVERY version of each hosted Secret Manager secret (a credential replacement adds a version under the same deterministic secret, so destroying only the referenced version would leave earlier credentials readable), and delete the deterministic Cloud Storage prefixes.
 5. Stop and retain a retryable manifest if any external artifact remains.
 6. Delete the user/workspace trees and every UID-owned root record in the code registry.
 7. Persist `cloud_data_deleted`, delete Firebase Auth, then atomically write the immutable completion event, terminal receipt, and completed tombstone state.
@@ -32,6 +32,57 @@ poison record from starving later privacy requests without weakening denial.
 A malformed credential reference with no usable Secret Manager version remains
 in place and blocks completion. Repair or investigate that server-only reference;
 deleting it would discard the only retry evidence and could orphan a credential.
+
+## Provider Credential Deletion and Replacement
+
+The same custody contract applies below account level
+(`packages/functions-shared/src/providerSecretErasure.ts`):
+
+- **Replacement** (`connectProviderAccount`, `connectProviderCredential`,
+  `connectHostedQuotaAccount`) moves `provider_account_secret_refs/{uid}_{accountID}`
+  forward to the new version, then destroys every older version. The reference never
+  moves backward, so a concurrent reconnect keeps the newer credential.
+- **Deletion** (`deleteProviderAccount`, `deleteHostedQuotaCredentials`,
+  `deleteProviderCredential`, and `revokeAllAccess` with `scope: "all"`) commits the
+  erasure intent and the account's `deleted` status in one transaction BEFORE any
+  Secret Manager call, destroys every version, and only then deletes the reference.
+  The account stops being used immediately; a credential with a pending erasure is
+  never served (`retrieveAccountSecret` refuses it).
+- **Failure never reports success.** The reference stays as the retry manifest with
+  `erasureScope` (`all_versions` | `superseded_versions`), `erasureReason`,
+  `erasureRequestedAt`, `erasureAttemptCount`, `erasureLastErrorCode`, and
+  `erasureRetryAfter`. Deletion callables return `unavailable` with
+  `details.erasurePending: true`; the panic result reports `provider_secrets(n)` as a
+  failure. A failed replacement cleanup does not fail the connect (the new credential
+  is valid) but leaves the same durable marker.
+- `reconcileAccountErasures` also drains references whose `erasureRetryAfter` has
+  passed, most overdue first, up to 20 per run. Each failure backs off exponentially
+  (15m, 30m, 1h … capped at 6h) so one poison secret cannot starve the queue.
+- **One attempt at a time.** Each attempt claims `erasureLeaseUntil` (10 minutes) in a
+  transaction before calling Secret Manager; the reconciler claims from the
+  reference's current state, never its query snapshot. An `all_versions` destroy
+  wipes every version of the account's secret, so a reconnect during one is refused
+  with `unavailable` (`errorCode: "credential_erasure_in_progress"`) and re-leases the
+  reference; the erasure then re-runs and also covers what that reconnect stored.
+
+Every failed attempt logs `provider_secret_erasure_failed` (`user_id_hash`,
+`account_id_hash`, `reason`, `scope`, `error_code`, `attempt_count`; never a secret
+name or raw UID). The `openburnbar_provider_secret_erasure_failed` log metric feeds
+the **OpenBurnBar Provider credential erasure stuck** alert, which pages when an
+erasure is refused more than once within an hour.
+
+**Runtime IAM.** Version-complete erasure lists a secret's versions, so the Functions
+runtime service account needs `secretmanager.versions.list` alongside
+`secretmanager.versions.destroy` (both are in `roles/secretmanager.secretVersionManager`
+and `roles/secretmanager.admin`). Without it, erasure fails closed with
+`error_code: "403"` and stays queued. It never falls back to a single-version destroy.
+
+**Operator recovery:** query `provider_account_secret_refs` for documents with an
+`erasureRetryAfter` field. A growing `erasureAttemptCount` with the same
+`erasureLastErrorCode` needs a human: `403` means the IAM grant above,
+`malformed_secret_ref` means the reference's `secretVersionName` must be repaired
+from the deterministic secret ID before the queue can finish it. Never delete a
+pending reference by hand. It is the only retry evidence.
 
 The callable never reports `success: true` while `retryRequired` is true or
 before the terminal receipt is durable. It
@@ -101,4 +152,4 @@ mutation. They are never upgraded automatically.
 - The audit and tombstone collections remain server-only. The reconciler query
   uses the composite `pending` + `updatedAt` index in `firestore.indexes.json`.
 - Rolling back reintroduces best-effort Storage cleanup and is not privacy-safe after a version-2 intent. Prefer a forward fix.
-- Focused verification: Functions build/typecheck, the account-deletion script, account-deletion audit/log tests, and the high-risk callable guard test.
+- Focused verification: Functions build/typecheck, the account-deletion script, account-deletion audit/log tests, `providerSecretErasure.test.ts` (version-complete custody against a stateful Secret Manager double), `accountDeletionReconciler.test.ts`, and the high-risk callable guard test.

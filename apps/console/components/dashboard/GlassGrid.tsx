@@ -3,7 +3,8 @@
 import * as React from "react";
 
 import type { DashboardData } from "@/lib/dashboard/useDashboardUsage";
-import { CARD_DEF_BY_ID, isCardId, type CardId } from "./cardRegistry";
+import { CARD_DEF_BY_ID, isCardId, type CardDef, type CardId } from "./cardRegistry";
+import { EmptyHint } from "./cards/primitives";
 import {
   GRID,
   columnWidth,
@@ -13,6 +14,18 @@ import {
 } from "./gridMath";
 import { GlassGridItem } from "./GlassGridItem";
 import type { DashboardLayoutItem } from "./layoutStore";
+
+/**
+ * A card's body, or an explicit "unavailable" hint when the read it renders
+ * failed. Quota and fusion cards handle their own `null` sources.
+ */
+export function CardBody({ def, data }: { def: CardDef; data: DashboardData }) {
+  if (def.dataSource === "rollup" && data.source === "unavailable") {
+    return <EmptyHint label={def.title} hint="Usage unavailable. Couldn't load your usage." />;
+  }
+  const Body = def.component;
+  return <Body data={data} />;
+}
 
 export interface GlassGridProps {
   items: DashboardLayoutItem[];
@@ -52,7 +65,6 @@ export function GlassGrid({
         items.map((item) => {
           if (!isCardId(item.cardId)) return null;
           const def = CARD_DEF_BY_ID[item.cardId as CardId];
-          const Body = def.component;
           return (
             <GlassGridItem
               key={item.cardId}
@@ -65,7 +77,7 @@ export function GlassGrid({
               onCommit={(rect) => onCommitRect(item.cardId, rect)}
               onRemove={() => onRemove(item.cardId)}
             >
-              <Body data={data} />
+              <CardBody def={def} data={data} />
             </GlassGridItem>
           );
         })}

@@ -22,7 +22,7 @@ independent per-function knob — it is one project-wide decision.
 
 ## Decision
 
-1. **One source of truth.** `functions/src/runtimeOptions.ts` exports
+1. **One source of truth.** `packages/functions-shared/src/runtimeOptions.ts` exports
    `FUNCTIONS_REGION` (default `"us-central1"`, overridable via the
    `FUNCTIONS_REGION` environment variable). Every function option object
    references this constant; no raw region literal remains in `functions/src`

@@ -1,6 +1,12 @@
 /**
  * Repo-owned Cloud Monitoring alert policies for OpenBurnBar ops (SLO + cost).
  * Apply with: node functions/scripts/apply-ops-alert-policies.mjs
+ * (after node functions/scripts/create-ops-log-metrics.mjs reconciles the
+ * log metrics in ops-log-metric-definitions.mjs).
+ *
+ * A condition on a user log metric must name the monitored-resource type its
+ * log entries carry: cloud_run_revision for every 2nd-gen Function and Cloud
+ * Run service. test-ops-alert-policy-definitions.mjs enforces that pairing.
  */
 
 import { BILLING_ALERT_POLICIES } from "./billing-alert-policy-definitions.mjs";
@@ -20,8 +26,10 @@ export const OPS_SLO_ALERT_POLICIES = [
       {
         displayName: "Callable errors > 30/min",
         conditionThreshold: {
+          // 2nd-gen Functions log as cloud_run_revision; a cloud_function
+          // filter here matched no series and could never fire.
           filter:
-            'metric.type="logging.googleapis.com/user/openburnbar_callable_error" AND resource.type="cloud_function"',
+            'metric.type="logging.googleapis.com/user/openburnbar_callable_error" AND resource.type="cloud_run_revision"',
           aggregations: [
             {
               alignmentPeriod: "60s",
@@ -167,7 +175,7 @@ export const OPS_SLO_ALERT_POLICIES = [
         displayName: "Circuit breaker trips > 5/min",
         conditionThreshold: {
           filter:
-            'resource.type="cloud_function" AND metric.type="logging.googleapis.com/user/openburnbar_circuit_breaker_tripped"',
+            'resource.type="cloud_run_revision" AND metric.type="logging.googleapis.com/user/openburnbar_circuit_breaker_tripped"',
           aggregations: [
             {
               alignmentPeriod: "60s",
@@ -178,6 +186,39 @@ export const OPS_SLO_ALERT_POLICIES = [
           comparison: "COMPARISON_GT",
           thresholdValue: 5,
           duration: "180s",
+          trigger: { count: 1 },
+        },
+      },
+    ],
+  },
+  {
+    displayName: "OpenBurnBar Provider credential erasure stuck",
+    documentation: {
+      content:
+        "An owner deleted, replaced, or panic-revoked a hosted provider credential, but Secret Manager refused to destroy at least one of its versions more than once within an hour (jsonPayload.event=provider_secret_erasure_failed). A copy of the credential still exists after the owner asked for it to be erased. Runbook: docs/runbooks/account-erasure.md (Provider Credential Deletion and Replacement). Read erasureLastErrorCode on the pending provider_account_secret_refs entries: 403 means the Functions runtime lacks secretmanager.versions.list/destroy; malformed_secret_ref means the reference must be repaired. Never delete a pending reference by hand.",
+      mimeType: "text/markdown",
+    },
+    combiner: "OR",
+    requiredMetricTypes: ["logging.googleapis.com/user/openburnbar_provider_secret_erasure_failed"],
+    conditions: [
+      {
+        // One failure then success is transient and never pages. A stuck
+        // erasure fails at the call and again at its first retry 15-30 min
+        // later, so it pages within about half an hour.
+        displayName: "Credential erasure refused more than once in 1 h",
+        conditionThreshold: {
+          filter:
+            'resource.type="cloud_run_revision" AND metric.type="logging.googleapis.com/user/openburnbar_provider_secret_erasure_failed"',
+          aggregations: [
+            {
+              alignmentPeriod: "3600s",
+              perSeriesAligner: "ALIGN_SUM",
+              crossSeriesReducer: "REDUCE_SUM",
+            },
+          ],
+          comparison: "COMPARISON_GT",
+          thresholdValue: 1,
+          duration: "0s",
           trigger: { count: 1 },
         },
       },

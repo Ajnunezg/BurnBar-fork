@@ -797,6 +797,35 @@ test("public verification aborts a stalled request within its declared timeout",
   }
 });
 
+for (const [label, prepare, verify] of [
+  ["public", preflight, verifyPublicR2Publication],
+  ["rollback public", rollbackPreflight, verifyPublicR2RollbackPublication],
+]) {
+  test(`${label} verification fetches only from the audited release update origin`, async () => {
+    const files = fixture();
+    try {
+      const manifest = structuredClone(prepare(files));
+      manifest.publicBaseUrl = "https://mirror.example.test";
+      let requests = 0;
+      await assert.rejects(
+        verify(manifest, {
+          attempts: 1,
+          delayMs: 0,
+          verifyAppSignature: files.verifyAppSignature,
+          fetchImpl: async () => {
+            requests += 1;
+            throw new Error("no request may leave for an unaudited origin");
+          },
+        }),
+        /publicBaseUrl must equal the audited release updateBaseUrl/u,
+      );
+      assert.equal(requests, 0);
+    } finally {
+      rmSync(files.root, { recursive: true, force: true });
+    }
+  });
+}
+
 test("local validator rejects a metadata commit substitution", () => {
   const files = fixture();
   try {

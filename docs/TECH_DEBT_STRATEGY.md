@@ -387,7 +387,7 @@ These are high-leverage improvements that can be done in 1–2 days each and sho
    - `Task.detached` (warning)
    - `import SwiftUI` in `Services/` or `DataStore/` (error)
 3. **Test Coverage Policy** — Any new service >200 lines requires tests before merge. Any refactor of a service >500 lines requires tests of the behavior being changed.
-4. **Architecture Decision Records (ADRs)** — Document naming conventions, actor boundaries, and error handling patterns in [`docs/ARCHITECTURE/`](ARCHITECTURE/README.md) (**done 2026-05-27**).
+4. **Architecture Decision Records (ADRs)** — Document naming conventions, actor boundaries, and error handling patterns in [`docs/architecture/`](architecture/README.md) (**done 2026-05-27**).
 5. **Monthly Debt Audit** — Re-run `./scripts/ci/update-tech-debt-metrics.sh` and review [`TECH_DEBT_METRICS.md`](TECH_DEBT_METRICS.md) trends.
 
 ---

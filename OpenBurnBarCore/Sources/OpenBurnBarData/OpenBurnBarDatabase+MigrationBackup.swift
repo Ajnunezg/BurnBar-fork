@@ -32,7 +32,12 @@ extension OpenBurnBarDatabase {
         // Reviewed 2026-09-23 (Wave 2.3): three `IF NOT EXISTS` index creates
         // on agent_memories. No pre-existing row is read, rewritten or
         // deleted, so transactional rollback is sufficient protection.
-        "v70_agent_memories_index_backfill"
+        "v70_agent_memories_index_backfill",
+        // Reviewed 2026-09-28 (meter honesty): two `ADD COLUMN`s on
+        // token_usage — `pricingSource` with a constant default, nullable
+        // `tokenConfidence`. No pre-existing row is read, rewritten or
+        // deleted, so transactional rollback is sufficient protection.
+        "v71_token_usage_pricing_provenance"
     ]
 
     public enum OpenBurnBarDatabaseError: Error {

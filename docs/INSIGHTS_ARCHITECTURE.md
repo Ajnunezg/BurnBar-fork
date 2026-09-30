@@ -339,7 +339,7 @@ android/app/src/main/java/com/openburnbar/data/insights/services/
    FirestoreInsightDataSource.kt, InsightAnalysisEngine.kt,
    InsightDigestBuilder.kt, InsightExecutor.kt
 
-functions/src/types.ts
+packages/functions-shared/src/types.ts
    InsightAnalysisRequestDoc, InsightAnalysisContextDoc,
    InsightAnalysisResultDoc, InsightAnalysisAuditEntryDoc
 ```

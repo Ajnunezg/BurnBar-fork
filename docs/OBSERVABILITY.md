@@ -21,7 +21,7 @@ Cross-surface logging uses a shared correlation shape:
 
 ## Cloud Functions
 
-- Use `functions/src/logging.ts` (`logInfo`, `logError`) for JSON structured logs.
+- Use `packages/functions-shared/src/logging.ts` (`logInfo`, `logError`) for JSON structured logs.
 - Budget evaluator publishes kill-switch RC events to `ops/computer_use_budget_status/events/`.
 
 ## Android

@@ -19,7 +19,33 @@ _PARENT = Path(__file__).resolve().parent.parent
 if str(_PARENT) not in sys.path:
     sys.path.insert(0, str(_PARENT))
 
+import cloud_vault_key_store  # noqa: E402
 import memory_engine as me  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _no_real_vault_key_store(monkeypatch: pytest.MonkeyPatch):
+    """
+    Keep every test off the machine's real cloud vault key.
+
+    `_cloud_config()` reads the key from the macOS Keychain (or libsecret)
+    through `cloud_vault_key_store._run_lookup`. On a developer Mac with
+    OpenBurnBar linked, a test that reached it would read the real key, so that
+    default runner fails loudly here; tests inject a fake `run` instead. The
+    cloud credential env vars are cleared so a developer shell that exports them
+    cannot reach a test either.
+    """
+
+    def _refuse(argv):
+        raise AssertionError(f"test reached the real vault key store via {argv[0]}; inject a fake run")
+
+    monkeypatch.setattr(cloud_vault_key_store, "_run_lookup", _refuse)
+    for name in (
+        cloud_vault_key_store.INSECURE_VAULT_KEY_ENV,
+        cloud_vault_key_store.ALLOW_INSECURE_VAULT_KEY_SOURCE_ENV,
+        "OPENBURNBAR_FIREBASE_ID_TOKEN",
+    ):
+        monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture(autouse=True)

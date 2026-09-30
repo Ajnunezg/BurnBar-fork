@@ -8,10 +8,11 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const budgetSrc = readFileSync(join(root, "src/computerUseBudget.ts"), "utf8");
-const mediaBudgetSrc = readFileSync(join(root, "src/mediaBudget.ts"), "utf8");
-const rcSrc = readFileSync(join(root, "src/computerUseRemoteConfig.ts"), "utf8");
+// The budget + kill-switch sources ship from the functions-sync deploy codebase.
+const syncRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "functions-sync");
+const budgetSrc = readFileSync(join(syncRoot, "src/domains/computer-use/computerUseBudget.ts"), "utf8");
+const mediaBudgetSrc = readFileSync(join(syncRoot, "src/domains/usage/mediaBudget.ts"), "utf8");
+const rcSrc = readFileSync(join(syncRoot, "src/computerUseRemoteConfig.ts"), "utf8");
 
 assert.match(budgetSrc, /syncKillSwitchForBudgetLevel/);
 assert.match(budgetSrc, /computer_use_budget_soft_usd/);

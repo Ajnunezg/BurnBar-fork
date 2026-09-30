@@ -6,6 +6,12 @@
 # this as the PRIMARY rollback path. The slow source rollback (git checkout +
 # rebuild + firebase deploy) lives at scripts/rollback.sh and is the fallback.
 #
+# A revision can only serve while its container image still exists, so the
+# target's image is checked in Artifact Registry before any traffic change (the
+# 2026-09-23 drill found every previous image pruned while the revisions still
+# read Ready). An ordinary rollback warns and still tries: Cloud Run refuses the
+# pin atomically when the image is gone. A drill refuses.
+#
 # Usage:
 #   ./scripts/ops/rollback-revision.sh <cloud-run-service> [target-revision]
 #
@@ -14,8 +20,14 @@
 #   --dry-run           Print the plan and the gcloud command; change nothing.
 #   --revisions-json <file>
 #                       Use a checked-in/offline revisions fixture; never calls gcloud.
-#   --drill             Execute the live pin and write a receipt (requires --receipt).
-#   --receipt <file>    Receipt path for --drill (or ROLLBACK_DRILL_RECEIPT).
+#   --drill             Round trip, then write a receipt (requires --receipt): pin
+#                       the target to 100%, read it back, health-probe it, restore
+#                       the pre-drill traffic (LATEST or the pinned revision) and
+#                       read that back. Any failure restores and records nothing.
+#   --receipt <file>    Receipt path for --drill (or ROLLBACK_DRILL_RECEIPT). A
+#                       receipt under launch-evidence/ for the production project
+#                       (.firebaserc default) is also copied to
+#                       launch-evidence/latest-rollback-revision-drill.json.
 #   --region <r>        Cloud Run region (default us-central1).
 #   --project <p>       GCP project (default from .firebaserc / gcloud config).
 #
@@ -31,7 +43,8 @@
 #
 # Prerequisites:
 #   - gcloud CLI installed and authenticated (gcloud auth login / ADC)
-#   - Caller has roles/run.admin (or run.services.update + run.revisions.list)
+#   - Caller has roles/run.admin (or run.services.update + run.revisions.list/get)
+#   - Caller can read the image: roles/artifactregistry.reader on gcf-artifacts
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -46,9 +59,118 @@ REVISIONS_JSON_INPUT="${ROLLBACK_REVISIONS_JSON:-}"
 TRAFFIC_JSON="${ROLLBACK_TRAFFIC_JSON:-}"
 DRILL=false
 DRILL_RECEIPT="${ROLLBACK_DRILL_RECEIPT:-}"
+LATEST_DRILL_POINTER="latest-rollback-revision-drill.json"
 
 usage() {
-  sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'
+  awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
+}
+
+# The .firebaserc project for an alias ("default" is production); empty if none.
+firebaserc_project() {
+  [[ -f .firebaserc ]] || return 0
+  python3 - "$1" <<'PY' 2>/dev/null || true
+import json
+import sys
+
+with open(".firebaserc") as handle:
+    print(json.load(handle).get("projects", {}).get(sys.argv[1], ""))
+PY
+}
+
+# Prints how a traffic readback is served: "latest <revision>" when 100%
+# follows LATEST, "revision <revision>" when 100% is pinned, otherwise "split".
+traffic_state() {
+  python3 - "$1" <<'PY'
+import json
+import sys
+
+traffic = json.loads(sys.argv[1] or "{}")
+entries = (traffic.get("status", {}) or {}).get("traffic")
+if entries is None:
+    entries = traffic.get("traffic", [])
+serving = [entry for entry in entries or [] if int(entry.get("percent") or 0) > 0]
+if len(serving) == 1 and int(serving[0].get("percent") or 0) == 100:
+    mode = "latest" if serving[0].get("latestRevision") else "revision"
+    print(f"{mode} {serving[0].get('revisionName') or ''}")
+else:
+    print("split")
+PY
+}
+
+# Reads live traffic back; succeeds when 100% follows LATEST (mode "latest") or
+# is pinned to <revision> (mode "revision").
+live_traffic_is() {
+  local mode="$1" revision="$2" traffic_json state
+  traffic_json="$(gcloud run services describe "$SERVICE" \
+    --region "$REGION" \
+    --project "$PROJECT" \
+    --format='json(status.traffic)')" || return 1
+  state="$(traffic_state "$traffic_json")" || return 1
+  if [[ "$mode" == "latest" ]]; then
+    [[ "$state" == "latest "* ]]
+  else
+    [[ "$state" == "revision ${revision}" ]]
+  fi
+}
+
+# Sets IMAGE_PREFLIGHT (verified | missing | unverifiable) and TARGET_IMAGE for
+# TARGET_REVISION. Cloud Run pulls a revision by the digest it resolved at
+# deploy time (status.imageDigest), so that digest is what has to exist.
+image_preflight() {
+  local revision_json
+  IMAGE_PREFLIGHT="unverifiable"
+  TARGET_IMAGE=""
+  revision_json="$(gcloud run revisions describe "$TARGET_REVISION" \
+    --region "$REGION" \
+    --project "$PROJECT" \
+    --format=json)" || return 0
+  TARGET_IMAGE="$(python3 - "$revision_json" <<'PY'
+import json
+import sys
+
+revision = json.loads(sys.argv[1] or "{}")
+digest = (revision.get("status", {}) or {}).get("imageDigest") or ""
+containers = (revision.get("spec", {}) or {}).get("containers") or [{}]
+print(digest if "@sha256:" in digest else (containers[0] or {}).get("image") or "")
+PY
+)" || TARGET_IMAGE=""
+  # Only Artifact Registry references can be checked (and all gen2 function
+  # images live there).
+  if [[ ! "$TARGET_IMAGE" =~ ^[a-z][a-z0-9-]*-docker\.pkg\.dev/[^[:space:]]+$ ]]; then
+    return 0
+  fi
+  if gcloud artifacts docker images describe "$TARGET_IMAGE" --format=json >/dev/null; then
+    IMAGE_PREFLIGHT="verified"
+  else
+    IMAGE_PREFLIGHT="missing"
+  fi
+}
+
+# Sets HEALTH_PROBE_STATUS: passed (a 2xx), warning (no 2xx), not-run (no URL).
+probe_health() {
+  local service_url probe_path status
+  HEALTH_PROBE_STATUS="not-run"
+  echo ""
+  echo "==> Health check"
+  service_url="$(gcloud run services describe "$SERVICE" \
+    --region "$REGION" \
+    --project "$PROJECT" \
+    --format='value(status.url)' 2>/dev/null || echo "")"
+  if [[ -z "$service_url" ]]; then
+    echo "WARN: could not resolve service URL — skipping health probe." >&2
+    return 0
+  fi
+  # Try a couple of common health paths; fall back to the service root.
+  for probe_path in "/healthLive" "/healthCheck" "/"; do
+    status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "${service_url%/}${probe_path}" 2>/dev/null)" || status="000"
+    echo "    GET ${service_url%/}${probe_path} -> HTTP ${status}"
+    if [[ "$status" =~ ^2 ]]; then
+      HEALTH_PROBE_STATUS="passed"
+      return 0
+    fi
+  done
+  HEALTH_PROBE_STATUS="warning"
+  echo "WARN: health probe did not return 2xx — verify manually before declaring the incident resolved." >&2
 }
 
 # ── Parse arguments ───────────────────────────────────────────────────────
@@ -121,6 +243,10 @@ if [[ "$DRILL" != "true" && -n "$DRILL_RECEIPT" ]]; then
   echo "ERROR: --receipt is only valid with --drill; no receipt is recorded for an ordinary rollback." >&2
   exit 1
 fi
+if [[ "$(basename "${DRILL_RECEIPT:-none}")" == "$LATEST_DRILL_POINTER" ]]; then
+  echo "ERROR: write a dated receipt (launch-evidence/rollback-drill-<date>-<project>.json); the script maintains ${LATEST_DRILL_POINTER} itself." >&2
+  exit 1
+fi
 if [[ "$DRILL" == "true" && "$DRY_RUN" == "true" ]]; then
   echo "ERROR: --drill cannot be combined with --dry-run." >&2
   exit 1
@@ -135,16 +261,8 @@ fi
 if [[ -z "$PROJECT" ]]; then
   PROJECT="${FIREBASE_PROJECT:-${GCLOUD_PROJECT:-}}"
 fi
-if [[ -z "$PROJECT" && -f .firebaserc ]]; then
-  PROJECT="$(python3 -c "
-import json, sys
-try:
-    with open('.firebaserc') as f:
-        d = json.load(f)
-    print(d.get('projects', {}).get('default', ''))
-except Exception:
-    print('')
-" 2>/dev/null || echo "")"
+if [[ -z "$PROJECT" ]]; then
+  PROJECT="$(firebaserc_project default)"
 fi
 if [[ -z "$PROJECT" && "$FIXTURE_MODE" != "true" ]]; then
   PROJECT="$(gcloud config get-value project 2>/dev/null || echo "")"
@@ -336,12 +454,56 @@ UPDATE_CMD=(gcloud run services update-traffic "$SERVICE"
   --project "$PROJECT"
   "--to-revisions=${TARGET_REVISION}=100")
 
+# ── Drill: capture the pre-drill traffic so it can be restored exactly ─────
+if [[ "$DRILL" == "true" ]]; then
+  PREVIOUS_SERVING="$(traffic_state "$TRAFFIC_JSON")"
+  PREVIOUS_MODE="${PREVIOUS_SERVING%% *}"
+  PREVIOUS_REVISION="${PREVIOUS_SERVING#* }"
+  if [[ "$PREVIOUS_MODE" == "latest" ]]; then
+    RESTORE_FLAG="--to-latest"
+  elif [[ "$PREVIOUS_MODE" == "revision" && "$PREVIOUS_REVISION" =~ ^[a-z][a-z0-9-]{0,62}$ ]]; then
+    RESTORE_FLAG="--to-revisions=${PREVIOUS_REVISION}=100"
+  else
+    echo "ERROR: --drill needs ${SERVICE} serving 100% on LATEST or on one pinned revision, so the drill can restore it exactly; live traffic is split." >&2
+    exit 1
+  fi
+  if [[ "$TARGET_REVISION" == "$PREVIOUS_REVISION" ]]; then
+    echo "ERROR: ${TARGET_REVISION} already serves 100%; a drill has to move traffic to another revision." >&2
+    exit 1
+  fi
+  RESTORE_CMD=(gcloud run services update-traffic "$SERVICE"
+    --region "$REGION"
+    --project "$PROJECT"
+    "$RESTORE_FLAG")
+fi
+
+# ── Image preflight (read-only; before any traffic change) ────────────────
+IMAGE_PREFLIGHT="not-run"
+TARGET_IMAGE=""
+if [[ "$FIXTURE_MODE" != "true" ]]; then
+  image_preflight
+fi
+
 echo ""
 echo "=== Revision-pin rollback plan ==="
 echo "    service:  ${SERVICE}"
 echo "    target:   ${TARGET_REVISION}  (will receive 100% traffic)"
+echo "    image:    ${IMAGE_PREFLIGHT}${TARGET_IMAGE:+  (${TARGET_IMAGE})}"
 echo "    command:  ${UPDATE_CMD[*]}"
+if [[ "$DRILL" == "true" ]]; then
+  echo "    restore:  ${RESTORE_CMD[*]}  (pre-drill: ${PREVIOUS_SERVING})"
+fi
 echo ""
+
+if [[ "$FIXTURE_MODE" != "true" && "$IMAGE_PREFLIGHT" != "verified" ]]; then
+  if [[ "$DRILL" == "true" ]]; then
+    echo "ERROR: the image for ${TARGET_REVISION} is ${IMAGE_PREFLIGHT} in Artifact Registry; refusing the drill before any traffic change." >&2
+    echo "       A revision without its image cannot serve. Rollback today is the slow source path: scripts/rollback.sh" >&2
+    echo "       Keep rollback images with the retention floors in governance/ops-artifact-retention.json, then re-drill after the next deploy." >&2
+    exit 1
+  fi
+  echo "WARN: the image for ${TARGET_REVISION} is ${IMAGE_PREFLIGHT} in Artifact Registry. Cloud Run refuses the pin if the image is gone (traffic stays put); if it does, use the slow source path: scripts/rollback.sh" >&2
+fi
 
 if [[ "$DRY_RUN" == "true" ]]; then
   echo "DRY RUN: no traffic changed."
@@ -354,7 +516,11 @@ fi
 
 # ── Confirm ───────────────────────────────────────────────────────────────
 if [[ "$ASSUME_YES" != "true" ]]; then
-  read -r -p "Pin 100% traffic to ${TARGET_REVISION}? [y/N] " CONFIRM
+  prompt="Pin 100% traffic to ${TARGET_REVISION}?"
+  if [[ "$DRILL" == "true" ]]; then
+    prompt="Drill: pin 100% traffic to ${TARGET_REVISION}, then restore ${PREVIOUS_SERVING}?"
+  fi
+  read -r -p "${prompt} [y/N] " CONFIRM
   if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
     echo "Rollback cancelled."
     exit 0
@@ -363,79 +529,63 @@ fi
 
 # ── Flip traffic ──────────────────────────────────────────────────────────
 echo "==> Flipping 100% traffic to ${TARGET_REVISION} (no rebuild)"
-"${UPDATE_CMD[@]}"
-echo "PASS: traffic pinned to ${TARGET_REVISION}"
-
-if [[ "$DRILL" == "true" ]]; then
-  echo "==> Verifying live traffic readback"
-  TRAFFIC_AFTER_JSON="$(gcloud run services describe "$SERVICE" \
-    --region "$REGION" \
-    --project "$PROJECT" \
-    --format='json(status.traffic)')"
-  if ! python3 - "$TARGET_REVISION" "$TRAFFIC_AFTER_JSON" <<'PY'
-import json
-import sys
-
-target = sys.argv[1]
-traffic = json.loads(sys.argv[2] or "{}")
-entries = (traffic.get("status", {}) or {}).get("traffic")
-if entries is None:
-    entries = traffic.get("traffic", [])
-percent = sum(
-    int(entry.get("percent") or 0)
-    for entry in entries or []
-    if entry.get("revisionName") == target
-)
-raise SystemExit(0 if percent >= 100 else 1)
-PY
-  then
-    echo "ERROR: live traffic readback did not confirm 100% on ${TARGET_REVISION}; no drill receipt recorded." >&2
-    exit 1
-  fi
-  echo "PASS: live traffic readback confirmed 100% on ${TARGET_REVISION}"
+if [[ "$DRILL" != "true" ]]; then
+  "${UPDATE_CMD[@]}"
+  echo "PASS: traffic pinned to ${TARGET_REVISION}"
+  probe_health
+  echo ""
+  echo "=== Revision-pin rollback complete ==="
+  echo "    Serving: ${TARGET_REVISION} (100%)"
+  echo ""
+  echo "Next steps:"
+  echo "  1. Confirm error rate recovers (Cloud Monitoring / firebase functions:log)."
+  echo "  2. Fix forward on a branch; redeploy via the normal release path."
+  echo "  3. If revisions are unusable, fall back to the slow source rollback: scripts/rollback.sh"
+  exit 0
 fi
 
-# ── Health check (warning-only) ───────────────────────────────────────────
-echo ""
-echo "==> Health check"
-HEALTH_PROBE_STATUS="not-run"
-SERVICE_URL="$(gcloud run services describe "$SERVICE" \
-  --region "$REGION" \
-  --project "$PROJECT" \
-  --format='value(status.url)' 2>/dev/null || echo "")"
-
-if [[ -z "$SERVICE_URL" ]]; then
-  echo "WARN: could not resolve service URL — skipping health probe." >&2
+# Drill: once the pin has been attempted, every path restores the pre-drill
+# traffic before exiting, and only a fully proven round trip writes a receipt.
+drill_failure=""
+if ! "${UPDATE_CMD[@]}"; then
+  drill_failure="Cloud Run refused the pin to ${TARGET_REVISION}"
+elif ! live_traffic_is revision "$TARGET_REVISION"; then
+  drill_failure="live traffic readback did not confirm 100% on ${TARGET_REVISION}"
 else
-  # Try a couple of common health paths; fall back to the service root.
-  HEALTH_OK=false
-  for path in "/healthLive" "/healthCheck" "/"; do
-    HEALTH_URL="${SERVICE_URL%/}${path}"
-    STATUS="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")"
-    echo "    GET ${HEALTH_URL} -> HTTP ${STATUS}"
-    if [[ "$STATUS" =~ ^2 ]]; then
-      HEALTH_OK=true
-      HEALTH_PROBE_STATUS="passed"
-      break
-    fi
-  done
-  if [[ "$HEALTH_OK" != "true" ]]; then
-    HEALTH_PROBE_STATUS="warning"
-    echo "WARN: health probe did not return 2xx — verify manually before declaring the incident resolved." >&2
+  echo "PASS: live traffic readback confirmed 100% on ${TARGET_REVISION}"
+  probe_health
+  if [[ "$HEALTH_PROBE_STATUS" != "passed" ]]; then
+    drill_failure="the health probe on ${TARGET_REVISION} did not pass (${HEALTH_PROBE_STATUS})"
   fi
 fi
 
-if [[ "$DRILL" == "true" ]]; then
-  receipt_directory="$(dirname "$DRILL_RECEIPT")"
-  mkdir -p "$receipt_directory"
-  receipt_tmp="$(mktemp "${DRILL_RECEIPT}.tmp.XXXXXX")"
-  trap 'rm -f "$receipt_tmp"' EXIT
-  python3 - "$receipt_tmp" "$SERVICE" "$REGION" "$TARGET_REVISION" "$HEALTH_PROBE_STATUS" <<'PY'
+echo ""
+echo "==> Restoring pre-drill traffic (${PREVIOUS_SERVING})"
+if ! "${RESTORE_CMD[@]}" || ! live_traffic_is "$PREVIOUS_MODE" "$PREVIOUS_REVISION"; then
+  echo "ERROR: the restore of pre-drill traffic (${PREVIOUS_SERVING}) was not confirmed; ${SERVICE} may still be pinned to ${TARGET_REVISION}. No drill receipt recorded." >&2
+  echo "       Restore it by hand now:" >&2
+  echo "       ${RESTORE_CMD[*]}" >&2
+  exit 1
+fi
+echo "PASS: live traffic readback confirmed the restore (${PREVIOUS_SERVING})"
+if [[ -n "$drill_failure" ]]; then
+  echo "ERROR: drill failed: ${drill_failure}. Pre-drill traffic is restored; no drill receipt recorded." >&2
+  exit 1
+fi
+
+receipt_directory="$(dirname "$DRILL_RECEIPT")"
+mkdir -p "$receipt_directory"
+receipt_tmp="$(mktemp "${DRILL_RECEIPT}.tmp.XXXXXX")"
+trap 'rm -f "$receipt_tmp"' EXIT
+python3 - "$receipt_tmp" "$SERVICE" "$REGION" "$TARGET_REVISION" "$HEALTH_PROBE_STATUS" "$PREVIOUS_MODE" "$PREVIOUS_REVISION" <<'PY'
 import json
 import sys
 from datetime import datetime, timezone
 
-output, service, region, target_revision, health_status = sys.argv[1:]
+output, service, region, target_revision, health_status, previous_mode, previous_revision = sys.argv[1:]
+previous_serving = {"mode": previous_mode}
+if previous_revision:
+    previous_serving["revision"] = previous_revision
 receipt = {
     "schema": "openburnbar.rollback-drill-receipt.v1",
     "schemaVersion": 1,
@@ -450,27 +600,36 @@ receipt = {
         "targetRevision": target_revision,
         "trafficPercent": 100,
         "healthProbe": health_status,
+        "imagePreflight": "verified",
+        "previousServing": previous_serving,
+        "restore": {"mode": previous_mode, "confirmed": True},
     },
     "checks": {
         "revisionListLoaded": True,
         "trafficPinned": True,
         "liveGcloudSession": True,
+        "imageVerified": True,
+        "trafficRestored": True,
     },
 }
 with open(output, "w", encoding="utf-8") as handle:
     json.dump(receipt, handle, indent=2)
     handle.write("\n")
 PY
-  mv "$receipt_tmp" "$DRILL_RECEIPT"
-  trap - EXIT
-  echo "LIVE DRILL RECEIPT: ${DRILL_RECEIPT}"
+mv "$receipt_tmp" "$DRILL_RECEIPT"
+trap - EXIT
+echo "LIVE DRILL RECEIPT: ${DRILL_RECEIPT}"
+
+pointer="${receipt_directory}/${LATEST_DRILL_POINTER}"
+if [[ "$(basename "$receipt_directory")" == "launch-evidence" ]]; then
+  if [[ "$PROJECT" == "$(firebaserc_project default)" ]]; then
+    cp "$DRILL_RECEIPT" "$pointer"
+    echo "LATEST PRODUCTION DRILL: ${pointer}"
+  else
+    echo "NOTE: ${pointer} tracks the production project only; left unchanged for ${PROJECT}."
+  fi
 fi
 
 echo ""
-echo "=== Revision-pin rollback complete ==="
-echo "    Serving: ${TARGET_REVISION} (100%)"
-echo ""
-echo "Next steps:"
-echo "  1. Confirm error rate recovers (Cloud Monitoring / firebase functions:log)."
-echo "  2. Fix forward on a branch; redeploy via the normal release path."
-echo "  3. If revisions are unusable, fall back to the slow source rollback: scripts/rollback.sh"
+echo "=== Revision-pin rollback drill complete ==="
+echo "    Pinned ${TARGET_REVISION} (100%, health ${HEALTH_PROBE_STATUS}), then restored ${PREVIOUS_SERVING}."

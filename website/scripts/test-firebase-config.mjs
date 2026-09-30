@@ -5,19 +5,21 @@
  * THE REGRESSION THIS POLICES SHIPPED TO PRODUCTION (finding C2): for months
  * website/src/lib/firebaseClient.ts fell back to a fake apiKey
  * ("AIzaSyFakeKeyPlaceholderForBuild") whenever PUBLIC_FIREBASE_* env was unset.
- * CI deploys burnbar.ai with NO .env (the real config is committed as the public
- * fallback, exactly like apps/console), so any reintroduced placeholder gets
- * inlined into the shipped bundle and sign-in on /link and /hermes/connect dies
- * silently — every gate stayed green because none looked at the built output.
+ * CI deploys burnbar.ai with NO .env (the real public config is committed once, in
+ * config/firebase-web-public.json, and both web clients fall back to it), so any
+ * reintroduced placeholder gets inlined into the shipped bundle and sign-in on
+ * /link and /hermes/connect dies silently — every gate stayed green because none
+ * looked at the built output.
  *
- * This gate fails closed on two independent checks against dist/:
- *   1. NO fake/placeholder Firebase identifier may appear anywhere in the build.
- *   2. The real production apiKey MUST appear in at least one built JS asset
- *      (proving the live config actually made it into the bundle).
+ * This gate fails closed on three independent checks:
+ *   1. The committed public config is complete and is not a placeholder.
+ *   2. NO fake/placeholder Firebase identifier may appear anywhere in dist/.
+ *   3. The expected apiKey, project id, and App Check site key MUST appear in
+ *      at least one built asset (proving the live config made it into the bundle).
  *
  * These are PUBLIC client identifiers (not secrets — they ship in every client
  * bundle regardless; security is enforced server-side by Firestore rules + App
- * Check). Committing them as the build-time fallback is the intended pattern.
+ * Check). Reading them from one reviewed config file is the intended pattern.
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -28,15 +30,8 @@ import assert from "node:assert";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
 const DIST = join(ROOT, "dist");
-
-// CI/deploy environments can override these public identifiers when building
-// the isolated staging site. A normal production build intentionally falls
-// back to the reviewed "burnbar" values mirrored in firebaseClient.ts.
-const EXPECTED_PROJECT_ID = process.env.PUBLIC_FIREBASE_PROJECT_ID || "burnbar";
-const EXPECTED_API_KEY =
-  process.env.PUBLIC_FIREBASE_API_KEY || "AIzaSyBiAIHwf1MKZ6LN5HrsaPYsAR3UTe8hyw4";
-const EXPECTED_RECAPTCHA_ENTERPRISE_SITE_KEY =
-  process.env.PUBLIC_RECAPTCHA_ENTERPRISE_KEY || "6Ld3bAktAAAAAABiZujpMLmUcvSMUPiJk6qENbOg";
+const PUBLIC_CONFIG_PATH = join(ROOT, "..", "config", "firebase-web-public.json");
+const PUBLIC_CONFIG = JSON.parse(readFileSync(PUBLIC_CONFIG_PATH, "utf8"));
 
 // Fragments that must NEVER appear in a shipped asset. Any one of these means a
 // fake placeholder fallback was re-inlined and the build would deploy broken auth.
@@ -46,6 +41,32 @@ const FORBIDDEN_FRAGMENTS = [
   "1:123456789:web:abcdef",
   "messagingSenderId:\"123456789\"",
 ];
+
+// Check 1: the committed defaults are real values, not blanks or placeholders.
+for (const [name, value] of Object.entries({
+  projectId: PUBLIC_CONFIG.projectId,
+  apiKey: PUBLIC_CONFIG.apiKey,
+  messagingSenderId: PUBLIC_CONFIG.messagingSenderId,
+  appId: PUBLIC_CONFIG.appId,
+  recaptchaEnterpriseSiteKey: PUBLIC_CONFIG.recaptchaEnterpriseSiteKey,
+  "website.authDomain": PUBLIC_CONFIG.website?.authDomain,
+  "website.storageBucket": PUBLIC_CONFIG.website?.storageBucket
+})) {
+  assert.ok(typeof value === "string" && value.trim() === value && value.length > 0, `${PUBLIC_CONFIG_PATH}: ${name} must be a non-empty trimmed string`);
+  assert.ok(
+    !FORBIDDEN_FRAGMENTS.some((fragment) => value.includes(fragment)),
+    `${PUBLIC_CONFIG_PATH}: ${name} is a placeholder`
+  );
+}
+assert.match(PUBLIC_CONFIG.apiKey, /^AIza[0-9A-Za-z_-]{35}$/u, `${PUBLIC_CONFIG_PATH}: apiKey is not a Firebase web API key`);
+
+// CI/deploy environments can override these public identifiers when building
+// the isolated staging site. A normal production build falls back to the
+// reviewed "burnbar" values in config/firebase-web-public.json.
+const EXPECTED_PROJECT_ID = process.env.PUBLIC_FIREBASE_PROJECT_ID || PUBLIC_CONFIG.projectId;
+const EXPECTED_API_KEY = process.env.PUBLIC_FIREBASE_API_KEY || PUBLIC_CONFIG.apiKey;
+const EXPECTED_RECAPTCHA_ENTERPRISE_SITE_KEY =
+  process.env.PUBLIC_RECAPTCHA_ENTERPRISE_KEY || PUBLIC_CONFIG.recaptchaEnterpriseSiteKey;
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir)) {

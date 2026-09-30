@@ -8,7 +8,7 @@
   "artifactDigests": [
     {
       "path": "OpenBurnBarCore/Package.swift",
-      "sha256": "19aff59febd59469a778becb956097d14efd4b569a4e362a3787f1c8b3b371ba"
+      "sha256": "06495410d093ddc0b0d6e196c3a1908b9c2a46656596019af70a26f6fc06281e"
     },
     {
       "path": "OpenBurnBarCore/Sources/OpenBurnBarSignalCore/CloudVaultDeviceTrustChain.swift",

@@ -137,7 +137,7 @@ packages/libsignal-protocol/package-lock.json       (NEW — same)
 
 **Owned file boundaries (Swift sources + Tests fixtures; do NOT touch the Python mirror — it is external):**
 ```
-OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/HermesRelayCrypto.swift  (read-canonical; freeze)
+OpenBurnBarCore/Sources/OpenBurnBarHermesModels/HermesRelayCrypto.swift  (read-canonical; freeze)
 OpenBurnBarCore/Sources/OpenBurnBarCore/SharedModels/HermesRatchetCrypto.swift   (read-canonical; freeze)
 OpenBurnBarCore/Sources/OpenBurnBarCore/SharedModels/CloudVaultCrypto.swift      (read-canonical; freeze)
 OpenBurnBarCore/Tests/OpenBurnBarCoreTests/Fixtures/LegacyEnvelopeVectors.json   (NEW — the 5-family frozen golden set)
@@ -168,9 +168,9 @@ tools/openburnbar-mcp-remote/src/seal.ts / decrypt.ts                           
 
 **Owned file boundaries:**
 ```
-functions/src/hermesGateway.ts
-functions/src/callables/hermesGateway.ts
-OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/HermesRelayCrypto.swift (shared w/ Stream 2,4 — coordinate)
+packages/functions-shared/src/hermesGateway.ts
+functions-media/src/domains/hermes/hermesGateway.ts
+OpenBurnBarCore/Sources/OpenBurnBarHermesModels/HermesRelayCrypto.swift (shared w/ Stream 2,4 — coordinate)
 OpenBurnBarCore/Sources/OpenBurnBarCore/SharedModels/HermesRatchetCrypto.swift (shared — coordinate)
 OpenBurnBarMobile/Services/HermesGatewayRelayKeypair.swift                     (shared w/ Stream 4,6)
 OpenBurnBarMobile/Services/FunctionsRepository.swift
@@ -212,16 +212,16 @@ Result: real tested Signal crypto round-trips in tests; negotiation never select
 
 **Owned file boundaries:**
 ```
-functions/src/callables/hermesGateway.ts                                        (shared w/ Stream 3,7 — coordinate)
-functions/src/hermesGateway.ts                                                  (shared — coordinate)
+functions-media/src/domains/hermes/hermesGateway.ts                                        (shared w/ Stream 3,7 — coordinate)
+packages/functions-shared/src/hermesGateway.ts                                                  (shared — coordinate)
 functions/src/__tests__/hermesGatewayAttachmentInit.test.ts
 OpenBurnBarMobile/Services/FunctionsRepository.swift                            (shared w/ Stream 3)
 OpenBurnBarMobile/Views/Hermes/HermesSettingsView.swift                         (shared w/ Stream 3,6)
 OpenBurnBarMobile/Services/HermesGatewayRelayKeypair.swift                      (shared w/ Stream 3,6)
-OpenBurnBarMobile/Services/HermesAttachmentLoader.swift
+OpenBurnBarMobile/Services/HermesAttachmentLoader+Mobile.swift
 OpenBurnBarMobile/Services/HermesAttachmentWorkspace.swift
 OpenBurnBarMobile/Features/Mercury/Stores/MediaAttachmentManifestStore.swift    (Mercury — NAME only, do NOT migrate)
-OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/HermesRelayCrypto.swift  (shared — coordinate)
+OpenBurnBarCore/Sources/OpenBurnBarHermesModels/HermesRelayCrypto.swift  (shared — coordinate)
 OpenBurnBarCore/Sources/OpenBurnBarCore/SharedModels/HermesRatchetCrypto.swift  (shared — coordinate)
 tools/hermes-platform-burnbar/adapter.py                                        (shared w/ Stream 2,3)
 ```
@@ -312,7 +312,7 @@ AgentLens/Services/ComputerUse/EscrowRevocationWatcher.swift
 OpenBurnBarMobile/Services/LiveCloudReader.swift
 ```
 
-**Rule-0 avoid-list:** the bridge (consume `Fingerprint` only in the *later* PR, never edit the bridge); `docs/HERMES_GATEWAY_E2EE_REMEDIATION_PLAN.md` + `docs/runbooks/hermes-gateway-3features*` (AGPL-owned — coordinate, the safety-code MITM work overlaps); all license manifests (new test targets go via separate worktree, coordinate). **Do not edit `functions/src/callables/computerUseSecurity.ts` crypto in PR1** — PR1 is **client-side UX only, no callable change.**
+**Rule-0 avoid-list:** the bridge (consume `Fingerprint` only in the *later* PR, never edit the bridge); `docs/HERMES_GATEWAY_E2EE_REMEDIATION_PLAN.md` + `docs/runbooks/hermes-gateway-3features*` (AGPL-owned — coordinate, the safety-code MITM work overlaps); all license manifests (new test targets go via separate worktree, coordinate). **Do not edit `functions-sync/src/domains/computer-use/computerUseSecurity.ts` crypto in PR1** — PR1 is **client-side UX only, no callable change.**
 
 **First-PR scope (closes the P1 trust inversion):** **Honest fingerprint/safety-number display + verification UX on the ESCROW device-trust approve flow, behind a no-op flag, no crypto change.**
 - **Verified P1:** `approveEscrowDeviceTrust` (`computerUseSecurity.ts:155`) flips trust on `deviceId` + `approverDeviceId` + `trustState` **ONLY** — it **never reads or compares `publicKeyFingerprint`** (confirmed: lines 155-250 reference `trustState`, `approverDeviceId`, but not `publicKeyFingerprint`). The Mac `deviceRow` shows no fingerprint. A relay/swapped device gets **one-tap trust to the vault-key path with zero out-of-band comparison.** Meanwhile the *server_readable* Hermes path has the *strongest* UX (full safety code + change alert) and the *end_to_end* escrow/vault path has the *weakest* — an inversion.
@@ -339,11 +339,11 @@ OpenBurnBarMobile/Services/LiveCloudReader.swift
 **Owned file boundaries:**
 ```
 scripts/privacy/scan-chat-cloud-plaintext.mjs   scrub-chat-cloud-plaintext.mjs   backfill-privacy-plaintext.mjs
-functions/src/callables/dataExport.ts           functions/src/__tests__/dataExport.test.ts
-functions/src/callables/encryptedSearch.ts      (commitEncryptedProjectMemorySnapshot)
-functions/src/callables/knowledgeSync.ts        (connectKnowledgeRepo — the residual)
-functions/src/callables/knowledgeMemory.ts
-functions/src/callables/privacyBackfill.ts      functions/src/__tests__/privacyBackfill.test.ts
+functions/src/domains/compliance/dataExport.ts           functions/src/__tests__/dataExport.test.ts
+functions-sync/src/domains/search/encryptedSearch.ts      (commitEncryptedProjectMemorySnapshot)
+functions-sync/src/domains/knowledge/knowledgeSync.ts        (connectKnowledgeRepo — the residual)
+functions-sync/src/domains/knowledge/knowledgeMemory.ts
+functions/src/domains/compliance/privacyBackfill.ts      functions/src/__tests__/privacyBackfill.test.ts
 functions/scripts/test-firestore-rules.mjs      (the REAL emulator suite — NOT firestore-rules-tests/)
 firestore.rules                                 (project_memory_snapshots / knowledge_repos / hermes_gateway_* blocks — shared w/ Stream 3,5)
 ```

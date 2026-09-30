@@ -234,7 +234,7 @@ rule-based brief (model egress off)"` · `"92% of the last 24 checks found nothi
 comment states the rule: *"Do not name a cause the run telemetry cannot actually prove."* And
 **"nil is not zero"** — an unknown count never renders as `"0"`.
 
-From `docs/UI_DELIGHT_HANDOFF.md`: *"There is NO `.estimated` anywhere. If data isn't real, we say
+From `docs/archive/2026-09/UI_DELIGHT_HANDOFF.md`: *"There is NO `.estimated` anywhere. If data isn't real, we say
 so."* Confidence is `.exact | .unavailable`, nothing between.
 
 **Destructive copy:** `.confirmationDialog(titleVisibility: .visible)` + destructive verb + a

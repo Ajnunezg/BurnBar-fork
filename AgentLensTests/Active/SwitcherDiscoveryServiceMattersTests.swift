@@ -223,7 +223,7 @@ final class SwitcherDiscoveryServiceMattersTests: XCTestCase {
     }
 
     func test_connectionsReconnect_accessDeniedMessageWinsOverGenericConfirmation_sourceGuard() throws {
-        let source = try repositorySource("AgentLens/Views/Settings/ConnectionsSettingsView.swift")
+        let source = try repositorySource("AgentLens/Views/Settings/ConnectionsSettingsView+ExternalOAuth.swift")
 
         let reconnectBranch = try XCTUnwrap(source.range(of: "case .readyToPersist"))
         let captureDeclaration = try XCTUnwrap(source.range(of: "var captureMessage: String?", options: [], range: reconnectBranch.lowerBound..<source.endIndex))

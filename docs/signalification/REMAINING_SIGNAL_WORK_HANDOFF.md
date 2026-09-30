@@ -283,7 +283,7 @@ and persists the sanitized returned envelope, not the raw request object.
 
 High-risk files to audit:
 
-- `functions/src/signalAtRestWrite.ts`
+- `functions-sync/src/signalAtRestWrite.ts`
 - `firestore.rules`
 - `functions/scripts/test-firestore-rules.mjs`
 - `OpenBurnBarMobile/Services/MobileCloudVaultSignalPayloads.swift`
@@ -370,10 +370,10 @@ Remaining before production activation:
 
 Activation levers to audit before changing:
 
-- `functions/src/hermesGateway.ts`
+- `packages/functions-shared/src/hermesGateway.ts`
   - `HERMES_GATEWAY_PRODUCTION_SIGNAL_ENVELOPE_VERSIONS`
   - production negotiation for `supportsSignalEnvelope`
-- `functions/src/callables/computerUseSecurity.ts`
+- `functions-sync/src/domains/computer-use/computerUseSecurity.ts`
   - escrow fingerprint enforcement flag
 - `packages/data-domains/registry.json`
   - per-domain `sealingScheme`

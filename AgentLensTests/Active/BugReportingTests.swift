@@ -33,6 +33,10 @@ final class BugReportingTests: XCTestCase {
     }
 
     func testBugInvestigationPromptFormatting() {
+        // Linear context is authored server-side (formatBugInvestigationPrompt in
+        // functions-sync/src/domains/support/bugReporting.ts); the Mac planner has no
+        // bug-specific branch and must carry that prompt through verbatim.
+        let serverPrompt = "You are investigating a bug report filed on macOS and tracked in Linear as [BB-42](https://linear.app/example/issue/BB-42)."
         let data: [String: Any] = [
             "source": "macos-bug-report",
             "targetProject": "BurnBar",
@@ -43,13 +47,13 @@ final class BugReportingTests: XCTestCase {
 
         let prompt = CLIAgentMissionRuntimePlanner.prompt(
             title: "[Bug BB-42] Fix menu bar crash",
-            prompt: "Please investigate the crash logs and write a unit test.",
+            prompt: serverPrompt,
             backend: CLIAgentMissionBackend(chatBackend: .claude),
             data: data
         )
 
-        XCTAssertTrue(prompt.contains("investigating a bug report filed into Linear"))
-        XCTAssertTrue(prompt.contains("[Bug BB-42] Fix menu bar crash"))
+        XCTAssertTrue(prompt.contains(serverPrompt), "server-authored Linear context must reach the CLI verbatim")
+        XCTAssertTrue(prompt.contains("Mission: [Bug BB-42] Fix menu bar crash"))
         XCTAssertTrue(prompt.contains("Target project: BurnBar"))
         XCTAssertTrue(prompt.contains("Commands allowed: yes"))
         XCTAssertTrue(prompt.contains("File edits allowed: yes"))

@@ -48,10 +48,16 @@ final class TextExpansionSyncService: CloudSyncDomain, Sendable {
         return firestore // cov:ignore -- a real handle exists only with a configured FirebaseApp; the nil-guard throw path is unit-tested (TextExpansionSyncServiceTests).
     }
 
+    /// Snippets are where people paste secrets, so the per-feature switch never
+    /// outranks the master Cloud sync consent: both must be on, as for every
+    /// other sync domain.
     func sync() async {
         let gate = await context.syncGate()
-        guard !gate.syncSuppressed,
+        guard gate.account.isFirebaseAvailable,
+              gate.account.isSignedIn,
+              gate.account.isCloudSyncEnabled,
               gate.settings.textExpansionCloudSyncEnabled,
+              !gate.syncSuppressed,
               let uid = gate.account.uid else { return }
         guard state.beginSyncingIfIdle() else { return }
         defer { state.endSyncing() }

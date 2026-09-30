@@ -260,11 +260,13 @@ public struct FactoryQuotaAdapter: ProviderQuotaAdapter {
         // meaningful numbers — marked `isEstimated` so the UI reflects that
         // it's inferred rather than confirmed.
         let planTier = context.factoryPlan
-        let fiveHourCap = planTier.fiveHourTokenCap ?? 500_000
-        let sevenDayCap = planTier.sevenDayTokenCap ?? 5_000_000
         let confirmedCap = planTier.monthlyTokenCap
         let monthlyCap = confirmedCap ?? Self.inferredMonthlyTokenCap
         let isInferredCap = confirmedCap == nil
+        // Factory publishes only the monthly cap; the 5h / 7d windows show
+        // their burn against it ("% of plan" at that time scale).
+        let fiveHourCap = monthlyCap
+        let sevenDayCap = monthlyCap
 
         func percent(used: Int64, cap: Double) -> Double {
             guard cap > 0 else { return 0 }

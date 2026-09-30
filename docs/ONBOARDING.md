@@ -45,7 +45,7 @@ and green ratchets — see `budgets/` + `scripts/debt/` + `scripts/ci/`.
 | | |
 |---|---|
 | Modules | `functions/`, `functions-identity/`, `functions-sync/`, `functions-media/` (independent deploys) + `packages/functions-shared/` (validators, logging, runtime) |
-| Conventions | `onCallProduction` for new callables; `providerFetch` for provider HTTP (no raw `fetch` — ESLint `no-restricted-globals` on the PR door); resilience helpers in `functions/src/resilienceHelpers.ts` |
+| Conventions | `onCallProduction` for new callables; `providerFetch` for provider HTTP (no raw `fetch` — ESLint `no-restricted-globals` on the PR door); resilience helpers in `packages/functions-shared/src/resilienceHelpers.ts` |
 | Canonical tests | `scripts/build-functions-all.sh` (build), `npx vitest run` per codebase; emulator-backed suites where marked |
 | Runbooks | `docs/runbooks/functions-break-glass.md`, `docs/runbooks/rollback-automation.md` (`node scripts/rollout.mjs --status`) |
 
@@ -55,7 +55,7 @@ and green ratchets — see `budgets/` + `scripts/debt/` + `scripts/ci/`.
 |---|---|
 | Modules | `OpenBurnBarMobile/` (SwiftUI), `android/app/src/main` (Compose) |
 | Parity bar | `docs/mobile-parity/mobile-parity-ledger.md` (live; `productParityClaim` is false until the ledger says otherwise) |
-| Schema | Canonical Firestore contracts in `tools/schema-sync/` (TypeSpec → TS/Swift/Kotlin); `./tools/schema-sync/check-drift.sh` before changing shared models; legacy canon in `functions/src/types.ts` during migration |
+| Schema | Canonical Firestore contracts in `tools/schema-sync/` (TypeSpec → TS/Swift/Kotlin); `./tools/schema-sync/check-drift.sh` before changing shared models; legacy hand-maintained types in `packages/functions-shared/src/types/legacy/` during migration |
 | Canonical tests | `./scripts/test-openburnbar-mobile.sh` (physical iPhone locally, simulator in CI), `./scripts/test-openburnbar-android.sh` (`:app` + `:openburnbar-iroh-relay` JVM suites) |
 
 ### 6. Shared Rust domain core + crypto
@@ -97,7 +97,7 @@ and green ratchets — see `budgets/` + `scripts/debt/` + `scripts/ci/`.
 |---|---|
 | PR door | `.github/workflows/fast-feedback.yml` (lint + typecheck + unit tests, <5 min); `pr-native-fast.yml` (xcodegen drift, app smoke + impacted tests <20 min) |
 | Ratchets | `budgets/*.json` + `scripts/debt/check-*.sh` / `scripts/ci/check-*.sh` — all shrink-only or assert-zero; never add a suppression without an inline `reason:` (`scripts/ci/check-no-suppressions.sh`) |
-| Debt review | `docs/TECH_DEBT_STRATEGY.md` + `docs/TECH_DEBT_METRICS.md` (regen: `./scripts/ci/update-tech-debt-metrics.sh`); ADRs in `docs/ARCHITECTURE/` |
+| Debt review | `docs/TECH_DEBT_STRATEGY.md` + `docs/TECH_DEBT_METRICS.md` (regen: `./scripts/ci/update-tech-debt-metrics.sh`); ADRs in `docs/architecture/` |
 | Full local parity | `make ci` |
 
 ### 11. Security & diligence

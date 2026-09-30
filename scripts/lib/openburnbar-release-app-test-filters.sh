@@ -11,6 +11,9 @@ OPENBURNBAR_RELEASE_APP_TEST_FILTERS=(
     "OpenBurnBarTests/OpenBurnBarAppCheckProviderFactoryTests"
     "OpenBurnBarTests/MacAppStoreReviewComplianceTests"
     "OpenBurnBarTests/AccountManagerMattersTests"
+    # Cloud sync consent: nothing leaves the Mac until the master switch is on.
+    "OpenBurnBarTests/AccountManagerCloudSyncConsentTests"
+    "OpenBurnBarTests/TextExpansionSyncServiceTests"
     "OpenBurnBarTests/OpenBurnBarRuntimeTests"
     "OpenBurnBarTests/PopoverContentPrewarmerTests"
     "OpenBurnBarTests/DashboardChatWorkspaceViewTests"

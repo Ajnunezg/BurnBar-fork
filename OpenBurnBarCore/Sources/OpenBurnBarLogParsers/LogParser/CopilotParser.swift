@@ -305,6 +305,7 @@ public final class CopilotParser: LogParser, Sendable {
             outputTokens: output,
             cacheReadTokens: cacheRead,
             costUSD: cost,
+            pricingSource: pricing.source,
             startTime: state.start ?? fallbackDate,
             endTime: state.end ?? fallbackDate,
             provenanceMethod: exact ? .providerLog : .heuristicEstimate,

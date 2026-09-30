@@ -18,6 +18,8 @@
 #   3. Each policy's `indexDeclared` claim matches firestore.indexes.json in BOTH
 #      directions (no policy may claim a TTL the index does not carry, and no
 #      index TTL may hide behind a "pending" policy).
+#   4. Each policy's `source` is a real file that names its collection group, so
+#      a moved writer cannot leave the manifest pointing at nothing.
 #
 # Live GCP TTL state (ACTIVE/CREATING) is verified separately, with gcloud creds,
 # by scripts/ci/verify-firestore-ttl-state.mjs and scripts/security/verify-deployed-ttl.sh.
@@ -30,6 +32,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MANIFEST="${ROOT_DIR}/ops/firestore-ttl-policies.json"
 INDEXES="${ROOT_DIR}/firestore.indexes.json"
+# Tree the policy `source` paths resolve against (the self-test sandbox holds
+# only the manifest + indexes, so it points this at the real repo).
+SOURCE_ROOT="${TTL_SOURCE_ROOT:-$ROOT_DIR}"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -40,11 +45,12 @@ command -v python3 >/dev/null 2>&1 || fail "python3 is required to parse the TTL
 [ -f "$MANIFEST" ] || fail "missing TTL manifest: $MANIFEST"
 [ -f "$INDEXES" ] || fail "missing firestore.indexes.json: $INDEXES"
 
-python3 - "$MANIFEST" "$INDEXES" <<'PY'
+python3 - "$MANIFEST" "$INDEXES" "$SOURCE_ROOT" <<'PY'
 import json
+import os
 import sys
 
-manifest_path, indexes_path = sys.argv[1], sys.argv[2]
+manifest_path, indexes_path, source_root = sys.argv[1], sys.argv[2], sys.argv[3]
 
 ALLOWED_MECHANISMS = {"firestore-ttl-field", "aggregate-compaction", "recursive-delete"}
 ALLOWED_STATUS = {"active", "pending-operator-enablement"}
@@ -110,6 +116,14 @@ for i, policy in enumerate(manifest["policies"]):
     retention_seconds = policy.get("retentionSeconds")
     if retention_seconds is not None and not (isinstance(retention_seconds, int) and retention_seconds > 0):
         errors.append(f"{tag}: 'retentionSeconds' must be null or a positive integer.")
+
+    source = policy.get("source")
+    if source is not None:
+        source_path = os.path.join(source_root, source) if isinstance(source, str) else ""
+        if not os.path.isfile(source_path):
+            errors.append(f"{tag}: 'source' {source!r} does not exist (moved?); point it at the live writer.")
+        elif isinstance(cg, str) and cg not in open(source_path, encoding="utf-8").read():
+            errors.append(f"{tag}: 'source' {source!r} never names collection group {cg!r}.")
 
     # Duplicate guard: no two policies may own the same collection-group + field.
     key = (cg, ttl_field)

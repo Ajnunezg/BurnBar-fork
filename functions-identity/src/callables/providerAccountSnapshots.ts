@@ -7,13 +7,15 @@ import { HttpsError, onCall, type CallableRequest } from "firebase-functions/v2/
 import { getConfig } from "@openburnbar/functions-shared/config.js";
 import { enforceAuthAndAppCheck } from "@openburnbar/functions-shared/auth.js";
 import { db } from "@openburnbar/functions-shared/adminRuntime.js";
-import { logError, wrapCallableHandler } from "@openburnbar/functions-shared/logging.js";
+import { wrapCallableHandler } from "@openburnbar/functions-shared/logging.js";
 import { assertSelfHostedProvider } from "@openburnbar/functions-shared/shared/accounts.js";
 import { sanitizeUploadedQuotaSnapshot } from "@openburnbar/functions-shared/shared/providerConnect.js";
 import { assertProvider, nowISO, requiredIdentifier } from "@openburnbar/functions-shared/shared/validators.js";
-import { destroyCredential } from "@openburnbar/functions-shared/secrets.js";
-import { providerAccountSecretRefPath } from "@openburnbar/functions-shared/quota.js";
-import { optionalStringField, requireProviderAccountDoc } from "@openburnbar/functions-shared/guards.js";
+import {
+  eraseProviderAccountSecret,
+  providerCredentialErasurePendingError,
+} from "@openburnbar/functions-shared/providerSecretErasure.js";
+import { requireProviderAccountDoc } from "@openburnbar/functions-shared/guards.js";
 import { FUNCTIONS_REGION } from "@openburnbar/functions-shared/runtimeOptions.js";
 
 // ---------------------------------------------------------------------------
@@ -80,49 +82,19 @@ export const deleteProviderCredential = onCall(
     assertProvider(provider);
 
     const accountID = `${provider}_default`;
-    const privateRef = db.doc(providerAccountSecretRefPath(uid, accountID));
-    const privateSnap = await privateRef.get();
-    const secretVersionName = privateSnap.exists
-      ? optionalStringField(privateSnap.get("secretVersionName"))
-      : undefined;
-
-    // Destroy the secret payload if we know where it lives.
-    if (secretVersionName) {
-      try {
-        await destroyCredential(secretVersionName);
-      } catch (err) {
-        logError({
-          event: "destroy_provider_credential_secret_failed",
-          uid,
-          accountID,
-          detail: String(err),
-        });
-      }
-    }
-
     const now = nowISO();
-    await privateRef.delete();
-    await db.doc(`users/${uid}/provider_accounts/${accountID}`).set(
-      {
-        status: "deleted",
-        lastValidatedAt: null,
-        lastRefreshAt: null,
-        lastErrorCode: null,
-        updatedAt: now,
+    const cleared = { lastValidatedAt: null, lastRefreshAt: null, lastErrorCode: null, updatedAt: now };
+    // Every version of the stored secret is destroyed; a failure keeps the
+    // reference as the reconciler's retry manifest and is reported below.
+    const erasure = await eraseProviderAccountSecret({
+      uid,
+      accountID,
+      reason: "legacy_credential_delete",
+      alsoInIntentTransaction: (tx) => {
+        tx.set(db.doc(`users/${uid}/provider_accounts/${accountID}`), { status: "deleted", ...cleared }, { merge: true });
+        tx.set(db.doc(`users/${uid}/provider_connections/${provider}`), { status: "disconnected", ...cleared }, { merge: true });
       },
-      { merge: true },
-    );
-    const connRef = db.doc(`users/${uid}/provider_connections/${provider}`);
-    await connRef.set(
-      {
-        status: "disconnected",
-        lastValidatedAt: null,
-        lastRefreshAt: null,
-        lastErrorCode: null,
-        updatedAt: now,
-      },
-      { merge: true },
-    );
+    });
 
     // Stale-mark the quota snapshot.
     const snapRef = db.doc(`users/${uid}/quota_snapshots/${provider}_default`);
@@ -135,6 +107,9 @@ export const deleteProviderCredential = onCall(
       { merge: true },
     );
 
+    if (!erasure.complete) {
+      throw providerCredentialErasurePendingError(accountID, erasure);
+    }
     return { success: true, provider };
   }),
 );

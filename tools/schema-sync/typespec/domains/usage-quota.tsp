@@ -29,6 +29,8 @@ model UsageEventDoc {
   recordedAt: string;
   eventKind?: string;
   idempotencyKey?: string;
+  pricingSource?: string;
+  tokenConfidence?: string;
 }
 
 /** Firestore: users/{uid}/usage_rollups/{windowKey} */

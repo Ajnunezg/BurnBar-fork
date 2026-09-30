@@ -59,7 +59,7 @@ Files that define the current state (read these before doing anything):
 - `AgentLens/Services/IrohRelay/` — Mac host (`HermesIrohRelayHostClient`, fanout, key publisher, request handler).
 - `OpenBurnBarMobile/Services/IrohRelay/` — iOS dialer (`HermesIrohRelayTransport`, public key reader, pairing directory reader).
 - `OpenBurnBarMobile/Services/HermesService.swift` — `HermesCompositeRelayTransport` (iroh → WSS → Firestore cascade, gated by `UserDefaults` key `hermes_iroh_transport_enabled`).
-- `functions/src/types.ts` — schema (`IrohPairingRecordDoc`, `IrohPairingPublicKeyDoc`, `IrohTransportAuditEventDoc`, AAD prefix `openburnbar.iroh.pairing.v1`).
+- `packages/functions-shared/src/types.ts` — schema (`IrohPairingRecordDoc`, `IrohPairingPublicKeyDoc`, `IrohTransportAuditEventDoc`, AAD prefix `openburnbar.iroh.pairing.v1`).
 - `firestore.rules` — gates `iroh_pairing/*`, `iroh_pairing_keys/*`, `iroh_audit_events/*`.
 - `docs/HERMES_IROH_TRANSPORT.md` — architecture overview.
 - `docs/HERMES_IROH_RETIREMENT.md` — Phase 7 retirement gates.

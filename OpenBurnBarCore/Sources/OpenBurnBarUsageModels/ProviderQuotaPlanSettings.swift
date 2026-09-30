@@ -42,18 +42,16 @@ public enum FactoryQuotaPlanTier: String, CaseIterable, Codable, Identifiable, S
         }
     }
 
-    private var tokenCaps: (fiveHour: Double, sevenDay: Double, monthly: Double)? {
+    /// Factory publishes only a monthly token cap per plan; there are no
+    /// per-window (5h / 7d) caps to model.
+    public var monthlyTokenCap: Double? {
         switch self {
         case .unknown: return nil
-        case .pro: return (500_000, 5_000_000, 20_000_000)
-        case .plus: return (2_500_000, 25_000_000, 100_000_000)
-        case .max: return (5_000_000, 50_000_000, 200_000_000)
+        case .pro: return 20_000_000
+        case .plus: return 100_000_000
+        case .max: return 200_000_000
         }
     }
-
-    public var fiveHourTokenCap: Double? { tokenCaps?.fiveHour }
-    public var sevenDayTokenCap: Double? { tokenCaps?.sevenDay }
-    public var monthlyTokenCap: Double? { tokenCaps?.monthly }
 }
 
 public enum XAIQuotaPlanTier: String, CaseIterable, Codable, Identifiable, Sendable {

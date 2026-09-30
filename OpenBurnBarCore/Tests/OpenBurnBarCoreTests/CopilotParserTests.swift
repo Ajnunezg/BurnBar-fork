@@ -55,7 +55,10 @@ final class CopilotParserTests: XCTestCase {
 
         XCTAssertEqual(usage.inputTokens, 100)
         XCTAssertEqual(usage.outputTokens, 60)
-        XCTAssertEqual(usage.provenanceConfidence, .exact)
+        XCTAssertEqual(usage.tokenConfidence, .exact)
+        // No model is named, so the dollars come from the fallback rates.
+        XCTAssertEqual(usage.pricingSource, .fallback)
+        XCTAssertEqual(usage.provenanceConfidence, .lowConfidenceEstimate)
     }
 
     func testShutdownSummaryIsUsedWhenTurnUsageIsAbsent() async throws {

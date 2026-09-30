@@ -932,6 +932,52 @@ final class UsageSyncRoundTripTests: XCTestCase {
         XCTAssertEqual(bySession["session-api-routed"], .api)
     }
 
+    /// A fallback-priced estimate over exact token counts must reach a peer as
+    /// an estimate: the pricing source and the token confidence both travel,
+    /// so the receiver never rebuilds it as unknown pricing over exact tokens.
+    func test_usageRoundTrip_preservesPricingProvenance() async throws {
+        // Recent: the downloader only reads the last 90 days.
+        let start = Date()
+        let fallbackPriced = TokenUsage(
+            provider: .claudeCode,
+            sessionId: "session-fallback-priced",
+            projectName: "PricingProvenance",
+            model: "unlisted-model",
+            inputTokens: 300,
+            outputTokens: 90,
+            costUSD: 0.42,
+            pricingSource: .fallback,
+            startTime: start,
+            endTime: start.addingTimeInterval(60),
+            provenanceConfidence: .exact
+        )
+        XCTAssertEqual(fallbackPriced.provenanceConfidence, .lowConfidenceEstimate)
+        try await dataStore.insert(fallbackPriced)
+
+        await usageSync.sync()
+
+        let path = "users/test-uid-1/usage/test-device-1_\(fallbackPriced.id.uuidString)"
+        var uploaded = try XCTUnwrap(fakeGateway.documentData(at: path))
+        XCTAssertEqual(uploaded["pricingSource"] as? String, "fallback")
+        XCTAssertEqual(uploaded["tokenConfidence"] as? String, "exact")
+
+        let peerDeviceId = "peer-device-pricing"
+        uploaded["deviceId"] = peerDeviceId
+        fakeGateway.setDocumentData(uploaded, at: path)
+        fakeGateway.setDocumentData([
+            "deviceName": "Peer MacBook",
+            "platform": "macOS"
+        ], at: "users/test-uid-1/devices/\(peerDeviceId)")
+
+        await downloadSync.sync()
+
+        let remoteRows = try await dataStore.fetchAllUsage().filter { $0.isRemote }
+        let downloaded = try XCTUnwrap(remoteRows.first)
+        XCTAssertEqual(downloaded.pricingSource, .fallback)
+        XCTAssertEqual(downloaded.tokenConfidence, .exact)
+        XCTAssertEqual(downloaded.provenanceConfidence, .lowConfidenceEstimate)
+    }
+
     /// Peer documents uploaded before `billingKind` existed carry no field. The
     /// receiver must classify them exactly as the local v60 backfill would
     /// rather than storing a permanent `unknown`.

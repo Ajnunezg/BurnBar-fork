@@ -245,6 +245,7 @@ public final class AugmentParser: LogParser, Sendable {
                 cacheCreationTokens: summary.cacheCreationTokens,
                 cacheReadTokens: summary.cacheReadTokens,
                 costUSD: cost,
+                pricingSource: pricing.source,
                 startTime: summary.startTime ?? modifiedAt,
                 endTime: summary.endTime ?? modifiedAt,
                 provenanceMethod: .providerLog,

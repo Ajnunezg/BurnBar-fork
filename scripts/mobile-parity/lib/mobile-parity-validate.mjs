@@ -46,8 +46,21 @@ function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function sha256File(filePath) {
-  return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+function sha256(bytes) {
+  return crypto.createHash('sha256').update(bytes).digest('hex');
+}
+
+/**
+ * One descriptor for the type check, placeholder scan, and digest, so all three
+ * see the same bytes; null when not a regular file. O_NONBLOCK: a FIFO can't hang the open.
+ */
+function readRegularFile(filePath) {
+  const fd = fs.openSync(filePath, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
+  try {
+    return fs.fstatSync(fd).isFile() ? fs.readFileSync(fd) : null;
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 function uniqueStrings(values) {
@@ -185,16 +198,16 @@ function validateEvidencePointers(repoRoot, pointers, fail, rowId, { requirePhys
       fail(`evidence file does not exist: ${pointer.path}`, rowId);
       continue;
     }
-    const stat = fs.statSync(resolved.path);
-    if (!stat.isFile()) {
+    const bytes = readRegularFile(resolved.path);
+    if (bytes === null) {
       fail(`evidence path must be a regular file: ${pointer.path}`, rowId);
       continue;
     }
-    if (stat.size === 0) {
+    if (bytes.length === 0) {
       fail(`empty evidence file cannot prove a row: ${pointer.path}`, rowId);
       continue;
     }
-    const text = fs.readFileSync(resolved.path, 'utf8');
+    const text = bytes.toString('utf8');
     if (looksLikePlaceholder(text)) {
       fail(`placeholder evidence cannot prove a row: ${pointer.path}`, rowId);
       continue;
@@ -205,7 +218,7 @@ function validateEvidencePointers(repoRoot, pointers, fail, rowId, { requirePhys
     if (pointer.sha256 !== undefined) {
       if (!SHA256_PATTERN.test(pointer.sha256)) {
         fail(`evidence pointer has invalid sha256: ${pointer.path}`, rowId);
-      } else if (sha256File(resolved.path) !== pointer.sha256) {
+      } else if (sha256(bytes) !== pointer.sha256) {
         fail(`evidence pointer sha256 mismatch: ${pointer.path}`, rowId);
       }
     }

@@ -33,7 +33,7 @@ Stream G assembles it into `launch-evidence/`. Nothing below requires code.
 
 ## H2. API-key restrictions? (GCP Console → APIs & Services → Credentials)
 
-- [ ] Find the public web key used by `website/src/lib/firebaseClient.ts`.
+- [ ] Find the public web key in `config/firebase-web-public.json` (used by the website and console).
 - [ ] Confirm HTTP-referrer and/or API restrictions are set (not an unrestricted key).
 - [ ] Paste: restriction summary (redact the key itself).
 

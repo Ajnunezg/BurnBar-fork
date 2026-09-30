@@ -1,0 +1,16 @@
+{
+  "$comment": "Public Firebase web client identifiers for the production \"burnbar\" project, read by website/src/lib/firebaseClient.ts and apps/console/lib/firebaseClient.ts. Not secrets: every browser bundle ships them, and access is enforced by App Check, Firestore/Storage rules and the API key's restrictions. This file is the one place to rotate them; PUBLIC_* / NEXT_PUBLIC_* env overrides them for staging and preview builds.",
+  "projectId": "burnbar",
+  "apiKey": "AIzaSyBiAIHwf1MKZ6LN5HrsaPYsAR3UTe8hyw4",
+  "messagingSenderId": "246956661961",
+  "appId": "1:246956661961:web:2e267f5d3a84a525480118",
+  "recaptchaEnterpriseSiteKey": "6Ld3bAktAAAAAABiZujpMLmUcvSMUPiJk6qENbOg",
+  "website": {
+    "authDomain": "burnbar.firebaseapp.com",
+    "storageBucket": "burnbar.appspot.com"
+  },
+  "console": {
+    "authDomain": "app.burnbar.ai",
+    "storageBucket": "burnbar.firebasestorage.app"
+  }
+}

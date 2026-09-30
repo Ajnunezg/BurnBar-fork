@@ -100,7 +100,7 @@ allow up to five minutes for long model replies.
 Each executed panel, judge, and synthesis subcall has a distinct idempotency key
 and shared `parentRequestID`. Token usage and cost are aggregated without
 collapsing same-model calls. Hosted search entitlement and allowance enforcement
-remains in `functions/src/elderWandHostedSearch.ts`.
+remains in `functions-sync/src/domains/search/elderWandHostedSearch.ts`.
 
 ## Pareto Wand behavior
 

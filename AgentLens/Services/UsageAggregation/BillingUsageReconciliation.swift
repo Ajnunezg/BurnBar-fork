@@ -63,6 +63,7 @@ enum BillingUsageReconciliation {
                 cacheCreationTokens: missingCacheWrite,
                 cacheReadTokens: missingCacheRead,
                 costUSD: missingCost,
+                pricingSource: record.pricingSource,
                 startTime: windowStart,
                 endTime: windowStart,
                 usageSource: .billingAPI,

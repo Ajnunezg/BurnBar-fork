@@ -123,6 +123,11 @@ async function retrieveAccountSecret(
   if (!snap.exists) {
     throw new Error(`No private secret reference for account ${accountID}`);
   }
+  // The owner asked for this credential to be erased; Secret Manager cleanup
+  // may still be retrying, but it must never be served again.
+  if (snap.get("erasureScope") === "all_versions") {
+    throw new Error(`Credential erasure is pending for account ${accountID}`);
+  }
   const data = parseProviderAccountSecretRefDoc(snap.data());
   if (!data) {
     throw new Error(`Invalid private secret reference for account ${accountID}`);
@@ -157,6 +162,7 @@ export async function refreshUserProviderQuota(
   if (!connDoc.exists) {
     throw new Error(`No connection doc found for ${provider}`);
   }
+  const replacedFetchedAt = connDoc.data()?.quotaSnapshotFetchedAt;
   const conn = parseProviderConnectionDoc(connDoc.data());
   if (!conn) {
     throw new Error(`Connection doc for ${provider} is invalid`);
@@ -205,7 +211,7 @@ export async function refreshUserProviderQuota(
       ...quotaAccountRefreshMetadata(snapshot, new Date(now)),
     });
   });
-  emitQuotaSnapshotWritten(snapshot, new Date(now));
+  emitQuotaSnapshotWritten(snapshot, new Date(now), replacedFetchedAt);
 
   return snapshot;
 }
@@ -225,6 +231,7 @@ export async function refreshUserProviderAccountQuota(
   }
 
   const accountData = accountSnap.data();
+  const replacedFetchedAt = accountData?.quotaSnapshotFetchedAt;
   if (isDemoProviderAccountRecord(accountData, accountID)) {
     return null;
   }
@@ -244,7 +251,7 @@ export async function refreshUserProviderAccountQuota(
     throw new Error(`No adapter for provider ${account.providerID}`);
   }
   if (account.storageScope === "server_private" && HOSTED_RUNNER_PROVIDERS.has(provider)) {
-    return refreshHostedQuotaAccount(db, uid, account, provider);
+    return refreshHostedQuotaAccount(db, uid, account, provider, replacedFetchedAt);
   }
   if (account.storageScope !== "cloud_refreshable") {
     throw new Error(`Provider account ${accountID} is not cloud-refreshable`);
@@ -298,7 +305,7 @@ export async function refreshUserProviderAccountQuota(
       ...quotaAccountRefreshMetadata(snapshot, new Date(now)),
     });
   });
-  emitQuotaSnapshotWritten(snapshot, new Date(now));
+  emitQuotaSnapshotWritten(snapshot, new Date(now), replacedFetchedAt);
 
   return snapshot;
 }
@@ -308,6 +315,7 @@ async function refreshHostedQuotaAccount(
   uid: string,
   account: ProviderAccountDoc,
   provider: Provider,
+  replacedFetchedAt: unknown,
 ): Promise<QuotaSnapshotDoc | null> {
   await requireHostedQuotaEntitlement(db, uid);
   await consumeHostedRefreshBudget(db, uid, account.id);
@@ -329,7 +337,7 @@ async function refreshHostedQuotaAccount(
         ...quotaAccountRefreshMetadata(snapshot, new Date(now)),
       });
     });
-    emitQuotaSnapshotWritten(snapshot, new Date(now));
+    emitQuotaSnapshotWritten(snapshot, new Date(now), replacedFetchedAt);
     return snapshot;
   } catch (err) {
     await db.doc(`users/${uid}/provider_accounts/${account.id}`).update({

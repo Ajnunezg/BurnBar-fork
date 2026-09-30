@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 
-import { Timestamp } from "firebase-admin/firestore";
+// The triggers under test ship from the functions-sync deploy codebase, which
+// has its own firebase-admin install. parseNotificationEvent checks
+// `instanceof Timestamp`, so fixtures must use functions-sync's Timestamp class:
+// functions/'s copy is a different class and every event would parse as invalid.
+const { Timestamp } = createRequire(new URL("../../functions-sync/package.json", import.meta.url))(
+  "firebase-admin/firestore",
+);
 
 import {
   buildFcmMessage,

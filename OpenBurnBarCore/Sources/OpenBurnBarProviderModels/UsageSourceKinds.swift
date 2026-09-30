@@ -26,6 +26,33 @@ public enum UsageProvenanceConfidence: String, Codable, Hashable, CaseIterable, 
     }
 }
 
+// MARK: - Usage Pricing Source
+
+/// Where a usage row's dollar cost came from — independent of how its tokens
+/// were counted (`UsageProvenanceMethod`, token confidence).
+public enum UsagePricingSource: String, Codable, Hashable, CaseIterable, Sendable {
+    /// Priced locally at a rate the bundled catalog lists for the model.
+    case catalog
+    /// Priced locally at the catalog's default rates because no rate is
+    /// listed for the model. An estimate, never exact.
+    case fallback
+    /// Reported by the source itself (the tool's own log, a provider billing
+    /// API, the daemon ledger), not priced locally.
+    case reported
+    /// Not recorded: rows written before pricing provenance existed.
+    case unknown
+
+    /// True when the dollar figure is a default-rate guess.
+    public var isEstimated: Bool { self == .fallback }
+
+    /// A row's overall confidence given the confidence of its token counts:
+    /// a fallback-priced dollar figure is at best a low-confidence estimate,
+    /// however exact the tokens are.
+    public func rowConfidence(tokenConfidence: UsageProvenanceConfidence) -> UsageProvenanceConfidence {
+        isEstimated ? min(tokenConfidence, .lowConfidenceEstimate) : tokenConfidence
+    }
+}
+
 // MARK: - Usage Source
 
 public enum UsageSource: String, Codable, Hashable, CaseIterable, Sendable {

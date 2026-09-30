@@ -339,6 +339,32 @@ final class UsageAggregatorParsersMattersTests: XCTestCase {
         XCTAssertEqual(parser.provider, .zai)
     }
 
+    /// ParserRegistry passes comma-separated alternatives ("zai,glm,zhipu,chatglm");
+    /// a session matches when its model contains any one of them. Matching the
+    /// whole string meant no Z.ai or MiniMax session was ever counted.
+    func testModelFilterParserMatchesAnyCommaSeparatedModelPattern() async throws {
+        let root = uniqueTempURL()
+        let sessionsURL = root.appendingPathComponent("sessions", isDirectory: true)
+        let projectURL = sessionsURL.appendingPathComponent("-Users-alberto-patterns", isDirectory: true)
+        try FileManager.default.createDirectory(at: projectURL, withIntermediateDirectories: true)
+        let session = projectURL.appendingPathComponent("glm-session.jsonl")
+        try Data().write(to: session)
+        try Data(#"{"model":"glm-4.5","tokenUsage":{"input_tokens":100,"output_tokens":10}}"#.utf8)
+            .write(to: session.deletingPathExtension().appendingPathExtension("settings.json"))
+
+        let parser = ModelFilterParser(
+            modelPattern: "zai,glm,zhipu,chatglm",
+            provider: .zai,
+            sessionsOverride: sessionsURL,
+            fileManager: .default,
+            appPaths: OpenBurnBarAppPaths(applicationSupportRoot: root.appendingPathComponent("support", isDirectory: true))
+        )
+        let result = try await parser.parse(options: .usageAccounting())
+
+        XCTAssertEqual(result.usages.map(\.inputTokens), [100])
+        XCTAssertEqual(result.usages.map(\.outputTokens), [10])
+    }
+
     func testModelFilterParserSkipsSessionsOlderThanIncrementalCutoff() async throws {
         let root = uniqueTempURL()
         let sessionsURL = root.appendingPathComponent("sessions", isDirectory: true)
@@ -472,8 +498,12 @@ final class UsageAggregatorParsersMattersTests: XCTestCase {
             metrics: cacheHitMetrics
         ))
 
-        XCTAssertEqual(cached.usages.map(\.sessionId), ["cached-session"])
-        XCTAssertEqual(cached.conversations.first?.sessionId, "cached-session")
+        // Known, unchanged inputs were committed by the last checkpoint: a
+        // tracked (indexing) pass emits nothing for them, and indexing drops
+        // parse usages by design. Serving a cached conversation here would
+        // require persisting transcript bodies to the parser cache.
+        XCTAssertTrue(cached.usages.isEmpty)
+        XCTAssertTrue(cached.conversations.isEmpty)
         XCTAssertEqual(cacheHitTracker.discoveredFiles.map(\.path), expectedPaths)
         XCTAssertFalse(cacheHitTracker.hasAdmittedFiles, "an unchanged cache hit is observed but does not consume admission")
         XCTAssertEqual(cacheHitMetrics.snapshot().contentReadCount, 0)
@@ -522,7 +552,7 @@ final class UsageAggregatorParsersMattersTests: XCTestCase {
             metrics: knownBodyMetrics
         ))
 
-        XCTAssertEqual(knownBodyRequest.usages.map(\.sessionId), ["body-request-session"])
+        XCTAssertTrue(knownBodyRequest.usages.isEmpty, "known inputs are skipped whole in a tracked pass")
         XCTAssertTrue(knownBodyRequest.conversations.isEmpty)
         XCTAssertEqual(knownBodyTracker.discoveredFiles.map(\.path), expectedPaths)
         XCTAssertFalse(knownBodyTracker.hasAdmittedFiles)
@@ -581,10 +611,13 @@ final class UsageAggregatorParsersMattersTests: XCTestCase {
         )
         XCTAssertTrue(tracker.partialCheckpointFiles.isEmpty)
         XCTAssertFalse(tracker.hasAdmittedFiles)
+        // The Core parser caches beside a `sessionsOverride` root; the old
+        // support-directory path is never written, so checking it proved nothing.
         XCTAssertFalse(
             FileManager.default.fileExists(
-                atPath: appPaths.supportDirectory.appendingPathComponent("model_filter_parser_zai.json").path
-            )
+                atPath: sessionsURL.appendingPathComponent(".obb-zai-parser-cache.plist").path
+            ),
+            "a deferred session must not leave a cache entry"
         )
     }
 
@@ -633,10 +666,13 @@ final class UsageAggregatorParsersMattersTests: XCTestCase {
         )
         XCTAssertTrue(tracker.partialCheckpointFiles.isEmpty)
         XCTAssertFalse(tracker.hasAdmittedFiles)
+        // The Core parser caches beside a `sessionsOverride` root; the old
+        // support-directory path is never written, so checking it proved nothing.
         XCTAssertFalse(
             FileManager.default.fileExists(
-                atPath: appPaths.supportDirectory.appendingPathComponent("model_filter_parser_zai.json").path
-            )
+                atPath: sessionsURL.appendingPathComponent(".obb-zai-parser-cache.plist").path
+            ),
+            "a deferred session must not leave a cache entry"
         )
     }
 

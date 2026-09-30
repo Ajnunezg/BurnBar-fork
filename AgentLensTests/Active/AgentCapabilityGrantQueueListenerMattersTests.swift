@@ -63,7 +63,10 @@ final class AgentCapabilityGrantQueueListenerMattersTests: XCTestCase {
         static let request = "users/uid-1/agent_capability_grant_requests/req-42"
     }
 
-    private func makeListener(writer: CaptureWriter) -> AgentCapabilityGrantQueueListener {
+    private func makeListener(
+        writer: CaptureWriter,
+        cloudSyncEnabled: @escaping @MainActor () -> Bool = { true }
+    ) -> AgentCapabilityGrantQueueListener {
         AgentCapabilityGrantQueueListener(
             // Provider must never be touched on the receipt-write path: a write
             // resolves through the injected writer, not Firestore.
@@ -81,7 +84,8 @@ final class AgentCapabilityGrantQueueListenerMattersTests: XCTestCase {
                     denialReason: receipt?["denialReason"] as? String
                 )
                 try await writer.record(capture)
-            }
+            },
+            cloudSyncEnabled: cloudSyncEnabled
         )
     }
 
@@ -122,6 +126,26 @@ final class AgentCapabilityGrantQueueListenerMattersTests: XCTestCase {
             AgentGrantDenialReason.signatureFailure.rawValue,
             "verification failures map to a signature_failure denial"
         )
+    }
+
+    // MARK: - Cloud sync consent
+
+    func test_process_writesNoReceiptWhileCloudSyncIsOff() async throws {
+        let writer = CaptureWriter(shouldThrow: false)
+        var cloudSyncEnabled = false
+        let listener = makeListener(writer: writer, cloudSyncEnabled: { cloudSyncEnabled })
+
+        await listener.process(data: requestData(), requestPath: FixturePath.request, uid: "uid-1")
+        let blocked = await writer.snapshot()
+        XCTAssertTrue(blocked.isEmpty, "a queued request is left untouched while Cloud sync is off")
+
+        // Control: the same unsigned request is answered with a denial once
+        // consent is granted, so the zero above comes from the gate.
+        cloudSyncEnabled = true
+        await listener.process(data: requestData(), requestPath: FixturePath.request, uid: "uid-1")
+        let answered = await writer.snapshot()
+        XCTAssertEqual(answered.count, 1)
+        XCTAssertEqual(answered.first?.status, AgentGrantDecisionStatus.denied.rawValue)
     }
 
     // MARK: - A failing write degrades gracefully, never fails open

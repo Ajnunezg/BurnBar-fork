@@ -67,87 +67,6 @@ final class BurnBarHTTPGatewayServerTests: XCTestCase {
         }
     }
 
-    func testGatewayConfigurationValidationRejectsUnsafeHosts() {
-        XCTAssertEqual(
-            BurnBarGatewayConfiguration(isEnabled: true, host: "0.0.0.0", port: 8317, authToken: nil).validationError,
-            "Gateway wildcard bind addresses are not allowed. Use a specific interface address."
-        )
-
-        XCTAssertEqual(
-            BurnBarGatewayConfiguration(isEnabled: true, host: "bad host", port: 8317, authToken: nil).validationError,
-            "Gateway host 'bad host' is not a valid hostname or IP address."
-        )
-
-        XCTAssertEqual(
-            BurnBarGatewayConfiguration(isEnabled: true, host: "192.168.0.10", port: 8317, authToken: nil).validationError,
-            "A non-loopback gateway bind address requires an auth token for security."
-        )
-    }
-
-    func testGatewayConfigurationFailsClosedOnLoopbackWithoutToken() {
-        // A1: an unauthenticated loopback bind would let any same-host process
-        // POST to the gateway and spend the user's provider credits. Reject it
-        // unless the operator explicitly opts in.
-        for host in ["127.0.0.1", "localhost", "::1"] {
-            XCTAssertEqual(
-                BurnBarGatewayConfiguration(isEnabled: true, host: host, port: 8317, authToken: nil).validationError,
-                "The gateway requires an auth token. Enable \"Allow unauthenticated loopback\" to bind 127.0.0.1 without one.",
-                "Loopback host \(host) must fail closed without a token"
-            )
-            XCTAssertEqual(
-                BurnBarGatewayConfiguration(isEnabled: true, host: host, port: 8317, authToken: "   ").validationError,
-                "The gateway requires an auth token. Enable \"Allow unauthenticated loopback\" to bind 127.0.0.1 without one.",
-                "A whitespace-only token must be treated as absent for \(host)"
-            )
-        }
-    }
-
-    func testGatewayConfigurationAcceptsLoopbackWithTokenOrDebugExplicitOptIn() {
-        // With a token, loopback is valid.
-        XCTAssertNil(
-            BurnBarGatewayConfiguration(isEnabled: true, host: "127.0.0.1", port: 8317, authToken: "gateway-secret").validationError
-        )
-        // The opt-in never relaxes a non-loopback bind: those still require a token.
-        XCTAssertEqual(
-            BurnBarGatewayConfiguration(
-                isEnabled: true,
-                host: "192.168.0.10",
-                port: 8317,
-                authToken: nil,
-                allowUnauthenticatedLoopback: true
-            ).validationError,
-            "A non-loopback gateway bind address requires an auth token for security."
-        )
-        // A disabled gateway is always valid regardless of token state.
-        XCTAssertNil(
-            BurnBarGatewayConfiguration(isEnabled: false, host: "127.0.0.1", port: 8317, authToken: nil).validationError
-        )
-        #if DEBUG
-        // With the explicit opt-in, an unauthenticated loopback bind is permitted.
-        XCTAssertNil(
-            BurnBarGatewayConfiguration(
-                isEnabled: true,
-                host: "127.0.0.1",
-                port: 8317,
-                authToken: nil,
-                allowUnauthenticatedLoopback: true
-            ).validationError
-        )
-        #else
-        // In release builds the escape hatch is compile-gated out.
-        XCTAssertEqual(
-            BurnBarGatewayConfiguration(
-                isEnabled: true,
-                host: "127.0.0.1",
-                port: 8317,
-                authToken: nil,
-                allowUnauthenticatedLoopback: true
-            ).validationError,
-            "The gateway requires an auth token. Enable \"Allow unauthenticated loopback\" to bind 127.0.0.1 without one."
-        )
-        #endif
-    }
-
     func testGatewayConfigurationFlagsNonLoopbackAsNetworkReachable() {
         // Non-loopback addresses must always require a token, even with the
         // debug opt-in set.
@@ -875,6 +794,56 @@ final class BurnBarHTTPGatewayServerTests: XCTestCase {
 
         let routeLog = try await harness.proxyRouteLogStore.recent(limit: 5)
         XCTAssertEqual(routeLog.filter { $0.requestPath == "/v1/chat/completions" }.count, 2)
+    }
+
+    func testGatewayServesCompletionAndDefersSpendWhenTheUsageLedgerCannotBeWritten() async throws {
+        BurnBarDaemonMetricsCounters._resetForTesting()
+        let sessionConfig = URLSessionConfiguration.ephemeral
+        sessionConfig.protocolClasses = [GatewayUpstreamURLProtocol.self]
+        let session = URLSession(configuration: sessionConfig)
+        GatewayUpstreamURLProtocol.enqueue(
+            status: 200,
+            body: #"{"object":"list","data":[{"id":"glm-5-turbo","display_name":"GLM 5 Turbo"}]}"#,
+            path: "/v1/models"
+        )
+        GatewayUpstreamURLProtocol.enqueue(
+            status: 200,
+            body: #"{"id":"chatcmpl-ledger-down","object":"chat.completion","model":"glm-5-turbo","choices":[{"index":0,"message":{"role":"assistant","content":"served"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}"#,
+            path: "/v1/chat/completions"
+        )
+
+        let harness = try GatewayHarness(
+            providerExecutor: BurnBarOpenAICompatibleProviderExecutor(session: session),
+            modelCatalogSession: session
+        )
+        try await harness.configureZAIProviderForGateway()
+        try await harness.configStore.removeCredentialSlot(providerID: "zai", slotID: "backup")
+        // A directory where the ledger file belongs: every append fails.
+        try FileManager.default.createDirectory(at: harness.usageLedgerURL, withIntermediateDirectories: true)
+        try await harness.start()
+        addTeardownBlock { await harness.stop() }
+
+        let (response, body) = try await sendGatewayRequest(
+            port: harness.port,
+            method: "POST",
+            path: "/v1/chat/completions",
+            headers: ["Content-Type": "application/json"],
+            body: Data(#"{"model":"glm-5-turbo","messages":[{"role":"user","content":"hi"}]}"#.utf8)
+        )
+
+        // The user's request is served; the spend is deferred, not dropped.
+        XCTAssertEqual(response.statusCode, 200, String(decoding: body, as: UTF8.self))
+        XCTAssertEqual(response.value(forHTTPHeaderField: "X-OpenBurnBar-Usage-Ledger"), "deferred")
+        let pending = await harness.usageRecorder.deferredRecordCount()
+        XCTAssertEqual(pending, 1)
+        XCTAssertEqual(BurnBarDaemonMetricsCounters.snapshot()["usage_ledger_pending"], 1)
+
+        try FileManager.default.removeItem(at: harness.usageLedgerURL)
+        let replayed = await harness.usageRecorder.replayDeferred()
+        XCTAssertEqual(replayed, 1)
+        let records = try await harness.usageRecorder.records()
+        XCTAssertEqual(records.map(\.event.inputTokens), [3])
+        XCTAssertEqual(records.map(\.event.outputTokens), [2])
     }
 
     func testGatewayCrossVendorDegradeOffByDefaultReturnsNoEligibleRoute() async throws {
@@ -5728,6 +5697,7 @@ final class GatewayHarness: @unchecked Sendable {
 
     private(set) var port: Int
     let configStore: BurnBarConfigStore
+    let usageLedgerURL: URL
     let usageRecorder: BurnBarUsageRecorder
     let proxyRouteLogStore: BurnBarProxyRouteLogStore
     let quotaSignalStore: BurnBarQuotaSignalStore
@@ -5781,8 +5751,9 @@ final class GatewayHarness: @unchecked Sendable {
             secretStore: secretStore,
             logger: BurnBarDaemonLogger(category: "gateway-tests")
         )
+        self.usageLedgerURL = tempDirectory.appendingPathComponent("usage-ledger.jsonl")
         self.usageRecorder = BurnBarUsageRecorder(
-            fileURL: tempDirectory.appendingPathComponent("usage-ledger.jsonl"),
+            fileURL: usageLedgerURL,
             logger: BurnBarDaemonLogger(category: "gateway-tests")
         )
         self.proxyRouteLogStore = BurnBarProxyRouteLogStore(

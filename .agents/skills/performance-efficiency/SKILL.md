@@ -96,7 +96,7 @@ Rules:
 - Treat `refreshIfNeeded` as the single staleness source of truth.
 - Parse new bytes only. Checkpoint after a successful scan.
 - Keep hosted secrets in Secret Manager. Local default tracking reads usage logs, not API keys.
-- New provider HTTP in `functions/src` goes through `providerFetch` from `functions/src/providers/httpClient.ts`.
+- New provider HTTP in the Functions codebases goes through `providerFetch` from `packages/functions-shared/src/providers/httpClient.ts`.
 
 ## Validation
 

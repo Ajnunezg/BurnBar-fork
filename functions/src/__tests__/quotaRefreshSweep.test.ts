@@ -19,6 +19,9 @@
  *      per run (zero extra collection-group queries).
  *   2. The refresh pass itself runs through a bounded concurrency pool
  *      instead of strictly serial awaits.
+ *   3. Selection is oldest-snapshot-first across every refreshable status,
+ *      so a backlog of `connected` accounts cannot starve older `stale` or
+ *      `error` ones.
  *
  * The fakes below intentionally reproduce Firestore's `== null` /
  * orderBy-missing-field semantics so the orphaning failure mode stays
@@ -30,6 +33,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   LEGACY_LAST_REFRESH_AT_BACKFILL_SENTINEL,
   LAST_REFRESH_AT_BACKFILL_MARKER_PATH,
+  QUOTA_SWEEP_DUE_GRACE_MS,
   isQuotaSweepAccountDue,
   mapWithConcurrency,
   resetQuotaRefreshSweepCachesForTests,
@@ -200,7 +204,12 @@ class FakeQuery implements SweepQuery<FakeSweepDoc> {
 
     if (this.startAfterPath !== undefined) {
       const cursorPath = this.startAfterPath;
-      rows = rows.filter(({ path }) => path > cursorPath);
+      if (orderField === undefined) {
+        rows = rows.filter(({ path }) => path > cursorPath);
+      } else {
+        // An ordered query resumes after the cursor's position in that order.
+        rows = rows.slice(rows.findIndex(({ path }) => path === cursorPath) + 1);
+      }
     }
     if (this.limitCount !== undefined) {
       rows = rows.slice(0, this.limitCount);
@@ -441,7 +450,7 @@ describe("runQuotaRefreshSweep refresh pass", () => {
     expect(result.refreshedAccountPaths).toEqual([realPath]);
   });
 
-  it("respects the batch budget across statuses, stale-first", async () => {
+  it("spends the batch budget oldest-snapshot-first across statuses, not status by status", async () => {
     const db = new FakeSweepDb();
     seedAccount(db, "u1", "a1", { lastRefreshAt: "2026-06-01T00:00:00.000Z" });
     seedAccount(db, "u2", "a2", { lastRefreshAt: "2026-06-02T00:00:00.000Z" });
@@ -451,13 +460,69 @@ describe("runQuotaRefreshSweep refresh pass", () => {
     const calls: SweepCalls = { refreshedAccounts: [], refreshedLegacy: [] };
     await runQuotaRefreshSweep(asSweepDb(db), sweepOptions(db, calls, 3));
 
-    expect(calls.refreshedAccounts).toHaveLength(3);
-    // Status pass order is connected -> stale -> error; budget exhausts at 3.
+    // The older stale and error accounts go first; the budget runs out on the
+    // newest connected one instead of on the oldest error one.
     expect(calls.refreshedAccounts).toEqual([
-      accountPath("u1", "a1"),
-      accountPath("u2", "a2"),
       accountPath("u3", "a3"),
+      accountPath("u4", "a4"),
+      accountPath("u1", "a1"),
     ]);
+  });
+
+  it("a backlog of connected accounts larger than the batch cannot starve an older error account", async () => {
+    const db = new FakeSweepDb();
+    for (let i = 0; i < 6; i += 1) {
+      seedAccount(db, `busy-${i}`, "acct", { lastRefreshAt: `2026-06-0${i + 2}T00:00:00.000Z` });
+    }
+    const starved = seedAccount(db, "starved", "acct", { status: "error", lastRefreshAt: "2026-06-01T00:00:00.000Z" });
+    const staleNewer = seedAccount(db, "stale-newer", "acct", {
+      status: "stale",
+      lastRefreshAt: "2026-06-30T00:00:00.000Z",
+    });
+
+    const calls: SweepCalls = { refreshedAccounts: [], refreshedLegacy: [] };
+    await runQuotaRefreshSweep(asSweepDb(db), sweepOptions(db, calls, 2));
+
+    expect(calls.refreshedAccounts).toEqual([starved, accountPath("busy-0", "acct")]);
+    expect(calls.refreshedAccounts).not.toContain(staleNewer);
+  });
+
+  it("skips a head that is not due yet and still merges the rest in snapshot order", async () => {
+    const db = new FakeSweepDb();
+    const notDue = seedAccount(db, "u1", "not-due", {
+      lastRefreshAt: "2026-07-04T09:00:00.000Z",
+      quotaNextRefreshAt: "2026-07-04T11:00:00.000Z",
+    });
+    const connectedDue = seedAccount(db, "u2", "connected-due", { lastRefreshAt: "2026-07-04T09:30:00.000Z" });
+    const staleDue = seedAccount(db, "u3", "stale-due", {
+      status: "stale",
+      lastRefreshAt: "2026-07-04T09:10:00.000Z",
+    });
+
+    const calls: SweepCalls = { refreshedAccounts: [], refreshedLegacy: [] };
+    await runQuotaRefreshSweep(asSweepDb(db), {
+      ...sweepOptions(db, calls, 2),
+      now: new Date("2026-07-04T10:05:00.000Z"),
+    });
+
+    expect(calls.refreshedAccounts).toEqual([staleDue, connectedDue]);
+    expect(calls.refreshedAccounts).not.toContain(notDue);
+  });
+
+  it("merges Firestore timestamps and ISO strings in Firestore's cross-type order", async () => {
+    const db = new FakeSweepDb();
+    const isoOld = seedAccount(db, "u1", "iso", { lastRefreshAt: "2020-01-01T00:00:00.000Z" });
+    const timestampNew = seedAccount(db, "u2", "ts", {
+      status: "stale",
+      lastRefreshAt: { toMillis: () => Date.parse("2026-07-04T00:00:00.000Z") },
+    });
+
+    const calls: SweepCalls = { refreshedAccounts: [], refreshedLegacy: [] };
+    await runQuotaRefreshSweep(asSweepDb(db), sweepOptions(db, calls, 1));
+
+    // Firestore sorts every timestamp before every string, whatever the dates.
+    expect(calls.refreshedAccounts).toEqual([timestampNew]);
+    expect(calls.refreshedAccounts).not.toContain(isoOld);
   });
 
   it("skips provider accounts whose adaptive quota refresh window is still fresh", async () => {
@@ -484,6 +549,26 @@ describe("runQuotaRefreshSweep refresh pass", () => {
     expect(calls.refreshedAccounts).toEqual([duePath, unknownPath]);
   });
 
+  it("takes an account due just after this tick instead of leaving it a whole extra interval", async () => {
+    const tick = new Date("2026-07-04T10:30:00.000Z");
+    const db = new FakeSweepDb();
+    // Fetched 20 s after the 10:00 tick with a 30-minute TTL: due 20 s after 10:30.
+    const justAfterTick = seedAccount(db, "u1", "just-after", {
+      lastRefreshAt: "2026-07-04T10:00:20.000Z",
+      quotaNextRefreshAt: "2026-07-04T10:30:20.000Z",
+    });
+    const nextTick = seedAccount(db, "u2", "next-tick", {
+      lastRefreshAt: "2026-07-04T10:05:00.000Z",
+      quotaNextRefreshAt: new Date(tick.getTime() + QUOTA_SWEEP_DUE_GRACE_MS + 1_000).toISOString(),
+    });
+
+    const calls: SweepCalls = { refreshedAccounts: [], refreshedLegacy: [] };
+    await runQuotaRefreshSweep(asSweepDb(db), { ...sweepOptions(db, calls, 5), now: tick });
+
+    expect(calls.refreshedAccounts).toEqual([justAfterTick]);
+    expect(calls.refreshedAccounts).not.toContain(nextTick);
+  });
+
   it("bounds stale-selection scans when many older accounts are not due yet", async () => {
     const db = new FakeSweepDb();
     for (let i = 0; i < 12; i += 1) {
@@ -507,7 +592,9 @@ describe("runQuotaRefreshSweep refresh pass", () => {
     expect(calls.refreshedAccounts).toEqual([]);
     expect(calls.refreshedAccounts).not.toContain(duePath);
     const orderedAccountQueries = db.queryLog.filter((entry) => entry.group === "provider_accounts" && entry.ordered);
-    expect(orderedAccountQueries).toHaveLength(3);
+    // One probe each for the empty stale and error streams, then connected
+    // pages of 2 + 2 + 1 until the 5-doc scan budget is spent.
+    expect(orderedAccountQueries).toHaveLength(5);
   });
 
   it("runs refreshes through the concurrency pool, not serially", async () => {

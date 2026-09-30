@@ -453,6 +453,11 @@ final class UsageSyncService: CloudSyncDomain, Sendable {
             // collection rule is `ownerWritableNonSecret` (no field allowlist,
             // <80 keys), so this key needs no firestore.rules change.
             "billingKind": usage.billingKind.rawValue,
+            // Pricing provenance travels too: without it a peer rebuilds the
+            // row as unknown pricing over exact tokens, so a fallback-priced
+            // estimate would show as exact spend.
+            "pricingSource": usage.pricingSource.rawValue,
+            "tokenConfidence": usage.tokenConfidence.rawValue,
             "executionSourceID": usage.executionSourceID,
             "executionSourceName": usage.executionSourceName,
             "executionSourceKind": usage.executionSourceKind.rawValue,

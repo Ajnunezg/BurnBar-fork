@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.openburnbar.data.db.AppDatabase
 import com.openburnbar.data.db.TextExpansionSnippetEntity
+import com.openburnbar.data.text.TextExpansionCloudSyncPreference
 import com.openburnbar.data.text.TextExpansionSyncManager
 import com.openburnbar.data.text.TextExpansionSyncWorker
 import com.openburnbar.data.text.TextExpansionTrigger
@@ -168,10 +169,11 @@ private fun rememberTextExpansionSnippetData(context: Context): TextExpansionSni
     val prefs = remember(context) {
         context.getSharedPreferences("text_expansion_settings", Context.MODE_PRIVATE)
     }
-    var cloudSyncEnabled by remember { mutableStateOf(prefs.getBoolean("cloud_sync_enabled", true)) }
+    var cloudSyncEnabled by remember { mutableStateOf(TextExpansionCloudSyncPreference.storedOrOff(prefs)) }
 
     suspend fun reload() {
         snippets = textExpansionReload(context)
+        cloudSyncEnabled = TextExpansionCloudSyncPreference.resolveInBackground(prefs) { AppDatabase.getDatabase(context).textExpansionDao() }
     }
     LaunchedEffect(Unit) { reload() }
 

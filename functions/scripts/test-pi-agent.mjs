@@ -125,8 +125,12 @@ for (const collection of ["pi_agent_pairings", "pi_agent_audit_events"]) {
   assert.doesNotMatch(rules, /match \/users\/\{userId\}\/pi_agent_relay_requests\/\{requestId\}[\s\S]*relayRequestWrite\(userId, requestId\)/);
 }
 {
-  const indexSource = readFileSync(new URL("../src/index.ts", import.meta.url), "utf8");
-  const piAgentSource = readFileSync(new URL("../src/callables/piAgent.ts", import.meta.url), "utf8");
+  // The Pi agent pairing callables ship from the functions-identity deploy codebase.
+  const indexSource = readFileSync(new URL("../../functions-identity/src/index.ts", import.meta.url), "utf8");
+  const piAgentSource = readFileSync(
+    new URL("../../functions-identity/src/domains/identity/piAgent.ts", import.meta.url),
+    "utf8",
+  );
   for (const exportedName of [
     "createPiAgentPairing",
     "completePiAgentPairing",
@@ -136,7 +140,7 @@ for (const collection of ["pi_agent_pairings", "pi_agent_audit_events"]) {
   ]) {
     assert.match(indexSource, new RegExp(`\\b${exportedName}\\b`), `${exportedName} must be exported from index`);
     const start = piAgentSource.indexOf(`export const ${exportedName}`);
-    assert.notEqual(start, -1, `${exportedName} must exist in callables/piAgent.ts`);
+    assert.notEqual(start, -1, `${exportedName} must exist in functions-identity/src/domains/identity/piAgent.ts`);
     const block = callableExportBlock(piAgentSource, exportedName);
     assert.match(block, /await assertActiveHostedQuotaEntitlement\(uid\);/, `${exportedName} must be premium-gated`);
   }

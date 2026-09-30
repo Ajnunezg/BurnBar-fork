@@ -1,75 +1,43 @@
 #!/usr/bin/env node
 /**
- * Creates user-defined log metrics required by ops-alert-policy-definitions.mjs.
- * Idempotent: skips metrics that already exist.
+ * Reconciles the user-defined log metrics required by ops-alert-policy-definitions.mjs
+ * (definitions: ops-log-metric-definitions.mjs). Idempotent: creates missing
+ * metrics and UPDATES any whose live filter or description drifted — a live
+ * metric is never skipped just because it exists.
+ *
+ *   node functions/scripts/create-ops-log-metrics.mjs           # apply
+ *   node functions/scripts/create-ops-log-metrics.mjs --check   # report drift, exit 1 if any
+ *
+ * env GCLOUD_PROJECT / GOOGLE_CLOUD_PROJECT (default: burnbar)
  */
 import { execFileSync } from "node:child_process";
 
+import { OPS_LOG_METRICS, planOpsLogMetricReconcile } from "./ops-log-metric-definitions.mjs";
+
 const project = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "burnbar";
+const checkOnly = process.argv.includes("--check");
 
-const METRICS = [
-  {
-    name: "openburnbar_callable_error",
-    description: "Cloud Functions callable_error structured logs",
-    filter: 'resource.type="cloud_function" AND jsonPayload.event="callable_error"',
-  },
-  {
-    name: "openburnbar_circuit_breaker_tripped",
-    description: "Resilience circuit breaker open events",
-    filter: 'jsonPayload.event="circuit_breaker_tripped"',
-  },
-  {
-    name: "openburnbar_hosted_mcp_5xx",
-    description: "Hosted MCP 5xx responses",
-    filter:
-      'resource.type="cloud_run_revision" AND resource.labels.service_name="openburnbar-hosted-mcp" AND httpRequest.status>=500',
-  },
-  // Rollup full-rebuild health (P0-7). The pre-existing "Circuit breaker open"
-  // policy watches the cockatiel resilience breakers (circuit_breaker_tripped),
-  // a DIFFERENT family — the 2026-06-11 review found rollup breaker events had
-  // no metric and no alert. Event keys must match functions/src exactly.
-  {
-    name: "openburnbar_rollup_breaker_open",
-    description: "Per-user rollup full-rebuild circuit breaker opened/skipped",
-    filter: 'jsonPayload.event="rollup.full_rebuild_circuit_open"',
-  },
-  {
-    name: "openburnbar_rollup_rebuild_failed",
-    description: "Rollup full-rebuild failures (in-process or stale attempt marker)",
-    filter: 'jsonPayload.event="rollup.rebuild_failed"',
-  },
-  {
-    name: "openburnbar_rollup_delta_drain_capped",
-    description: "Pending-delta drains stopped by the per-invocation page cap (queue backlog)",
-    filter: 'jsonPayload.event="rollup.delta_drain_capped"',
-  },
-  {
-    name: "openburnbar_alert_delivery_drill",
-    description: "Synthetic alert-delivery drill log events used to prove human notification receipt",
-    filter: 'jsonPayload.event="alert_delivery_drill"',
-  },
-];
-
-function listMetrics() {
-  try {
-    const out = execFileSync(
-      "gcloud",
-      ["logging", "metrics", "list", `--project=${project}`, "--format=json"],
-      { encoding: "utf8" },
-    );
-    return JSON.parse(out || "[]");
-  } catch {
-    return [];
-  }
+function listLiveMetrics() {
+  // A failed listing must stop the run: treating it as "no metrics" would try to
+  // re-create every metric and, in --check mode, report a false plan.
+  const out = execFileSync("gcloud", ["logging", "metrics", "list", `--project=${project}`, "--format=json"], {
+    encoding: "utf8",
+  });
+  return JSON.parse(out || "[]");
 }
 
-const existing = new Set(listMetrics().map((m) => m.name?.split("/").pop()));
+const plan = planOpsLogMetricReconcile(listLiveMetrics(), OPS_LOG_METRICS);
+for (const metric of plan.unchanged) console.error(`ok: ${metric.name}`);
+for (const metric of plan.create) console.error(`missing: ${metric.name}`);
+for (const metric of plan.update) {
+  console.error(`drifted: ${metric.name}\n  live:    ${metric.liveFilter}\n  desired: ${metric.filter}`);
+}
 
-for (const metric of METRICS) {
-  if (existing.has(metric.name)) {
-    console.error(`skip (exists): ${metric.name}`);
-    continue;
-  }
+if (checkOnly) {
+  process.exit(plan.create.length + plan.update.length > 0 ? 1 : 0);
+}
+
+for (const metric of plan.create) {
   console.error(`create: ${metric.name}`);
   execFileSync(
     "gcloud",
@@ -77,6 +45,22 @@ for (const metric of METRICS) {
       "logging",
       "metrics",
       "create",
+      metric.name,
+      `--description=${metric.description}`,
+      `--log-filter=${metric.filter}`,
+      `--project=${project}`,
+    ],
+    { stdio: "inherit" },
+  );
+}
+for (const metric of plan.update) {
+  console.error(`update: ${metric.name}`);
+  execFileSync(
+    "gcloud",
+    [
+      "logging",
+      "metrics",
+      "update",
       metric.name,
       `--description=${metric.description}`,
       `--log-filter=${metric.filter}`,

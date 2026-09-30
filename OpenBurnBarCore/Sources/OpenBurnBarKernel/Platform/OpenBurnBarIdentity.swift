@@ -59,6 +59,13 @@ public enum OpenBurnBarIdentity {
 
     /// Wave 0.5 consent: master cloud-sync switch. Absent = never chose = off.
     public static let cloudSyncEnabledKey = "com.openburnbar.cloudSyncEnabled"
+
+    /// The persisted master switch, for background code that has no account
+    /// manager to ask. Every background uploader checks it before any cloud
+    /// write; a missing key reads as off.
+    public static func isCloudSyncEnabled(defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: cloudSyncEnabledKey)
+    }
 }
 
 public struct OpenBurnBarAppPaths: Sendable {

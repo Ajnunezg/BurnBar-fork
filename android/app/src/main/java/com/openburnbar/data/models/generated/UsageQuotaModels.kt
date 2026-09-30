@@ -36,6 +36,8 @@ data class FirestoreUsageEventDoc(
     val recordedAt: String = "",
     val eventKind: String? = null,
     val idempotencyKey: String? = null,
+    val pricingSource: String? = null,
+    val tokenConfidence: String? = null,
 )
 
 data class FirestoreQuotaBucket(

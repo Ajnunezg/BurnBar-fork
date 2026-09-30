@@ -300,7 +300,7 @@ struct CloudSyncStatusDetailView: View {
                         Text("Cloud sync")
                             .font(DesignSystem.Typography.body)
                             .foregroundStyle(DesignSystem.Colors.textPrimary)
-                        Text(accountManager.isCloudSyncEnabled ? "On — usage metadata syncs to Firebase" : "Off — everything stays on this Mac")
+                        Text(accountManager.isCloudSyncEnabled ? "On — usage, devices and the features you enable sync through Firebase" : "Off — nothing syncs from this Mac in the background")
                             .font(DesignSystem.Typography.caption)
                             .foregroundStyle(DesignSystem.Colors.textSecondary)
                     }

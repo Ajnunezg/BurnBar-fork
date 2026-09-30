@@ -9,6 +9,18 @@ import OpenBurnBarMedia
 
 @MainActor
 final class MacFileTransferSecurityTests: XCTestCase {
+    // Inbound receive lands through MacAttachmentLandingService's process-wide
+    // digest/pending tables; keep them from leaking across tests.
+    override func setUp() {
+        super.setUp()
+        MacAttachmentLandingService.resetForTests()
+    }
+
+    override func tearDown() {
+        MacAttachmentLandingService.resetForTests()
+        super.tearDown()
+    }
+
     func testInboundAdvertiseQuarantinesFetchedFileAndClearsActiveTransferCount() async throws {
         MacMediaActiveSessionRegistry.shared.resetForTesting()
 
@@ -16,6 +28,7 @@ final class MacFileTransferSecurityTests: XCTestCase {
         let temp = FileManager.default.temporaryDirectory
             .appendingPathComponent("mac-file-transfer-security-\(UUID().uuidString)", isDirectory: true)
         let inboxURL = temp.appendingPathComponent("inbox", isDirectory: true)
+        let attachmentsRoot = temp.appendingPathComponent("attachments", isDirectory: true)
         let service = MediaFileTransferService(
             backend: backend,
             configuration: .init(
@@ -24,39 +37,27 @@ final class MacFileTransferSecurityTests: XCTestCase {
                 secretKeyProvider: { Data(repeating: 0x42, count: 32) }
             )
         )
+        // #2362 — inbound receive requires a session key (no-key is refused).
+        let sessionKey = SymmetricKey(data: Self.sessionKeyBytes)
         let adapter = MacFileTransferService(
             service: service,
-            settingsProvider: { true }
+            settingsProvider: { true },
+            frameSealKeyProvider: { _, _ in sessionKey },
+            attachmentsRootURL: attachmentsRoot
         )
-        let manifest = HermesRealtimeRelayAttachmentManifest(
-            manifestId: "att_quarantine",
-            blobHash: "blob_quarantine_hash",
-            filename: "payload.txt",
-            mime: "text/plain",
-            size: 12,
-            peerDeviceId: "iphone-1",
-            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
-        )
-        let frame = HermesRealtimeRelayFrame(
-            type: .mediaBlobAdvertise,
-            uid: "uid-1",
-            connectionId: "connection-1",
-            requestId: manifest.manifestId,
-            media: HermesRealtimeRelayMediaPayload(
-                streamClass: MediaStreamClass.blobAdvertise.rawValue,
-                attachment: manifest,
-                blobTicket: "blob1ticket"
-            )
-        )
+        let manifest = Self.manifest()
+        let frame = Self.advertiseFrame(manifest: manifest)
         var acks: [HermesRealtimeRelayFrame] = []
 
         await adapter.handleAdvertise(frame: frame) { ack in
             acks.append(ack)
         }
 
-        let downloaded = inboxURL.appendingPathComponent("blob_quarantine_hash.txt")
+        let downloaded = Self.inboxFile(in: inboxURL, for: manifest)
         XCTAssertTrue(FileManager.default.fileExists(atPath: downloaded.path))
         XCTAssertTrue(try quarantineValue(at: downloaded).contains("OpenBurnBar"))
+        // The plaintext landing copy is quarantined too.
+        XCTAssertNoThrow(try quarantineValue(at: attachmentsRoot.appendingPathComponent("payload.txt")))
         XCTAssertEqual(acks.count, 1)
         XCTAssertEqual(acks.first?.media?.ack?.status, .received)
         let fetchedTickets = await backend.fetchedTickets
@@ -335,11 +336,12 @@ final class MacFileTransferSecurityTests: XCTestCase {
                 secretKeyProvider: { Data(repeating: 0x42, count: 32) }
             )
         )
-        let sessionKey = SymmetricKey(data: Data(repeating: 0x5A, count: 32))
+        let sessionKey = SymmetricKey(data: Self.sessionKeyBytes)
         let adapter = MacFileTransferService(
             service: service,
             settingsProvider: { true },
-            frameSealKeyProvider: { _, _ in sessionKey }
+            frameSealKeyProvider: { _, _ in sessionKey },
+            attachmentsRootURL: temp.appendingPathComponent("attachments", isDirectory: true)
         )
         let manifest = Self.manifest()
         let frame = Self.advertiseFrame(manifest: manifest)
@@ -349,11 +351,16 @@ final class MacFileTransferSecurityTests: XCTestCase {
             acks.append(ack)
         }
 
-        let downloaded = inboxURL.appendingPathComponent("blob_quarantine_hash.txt")
+        let downloaded = Self.inboxFile(in: inboxURL, for: manifest)
         XCTAssertTrue(FileManager.default.fileExists(atPath: downloaded.path))
         let onDisk = try Data(contentsOf: downloaded)
-        // RR-18 — the bytes on disk are a sealed OBMFA1 envelope, not plaintext.
-        XCTAssertTrue(MediaFrameAEAD.isSealedEnvelope(onDisk), "received file must be sealed at rest")
+        // RR-18 — the bytes on disk are an OBFS1 stream seal (#2362), not
+        // plaintext: they authenticate under the session key and open to the payload.
+        XCTAssertEqual(
+            try Self.openSealedAtRest(downloaded, manifest: manifest, plaintextSize: 10, scratch: temp),
+            Data("downloaded".utf8),
+            "received file must be sealed at rest under the session key"
+        )
         XCTAssertFalse(onDisk.contains(Data("downloaded".utf8)), "plaintext must not remain on disk")
         // Quarantine xattr is still applied to the sealed file.
         XCTAssertTrue(try quarantineValue(at: downloaded).contains("OpenBurnBar"))
@@ -381,13 +388,17 @@ final class MacFileTransferSecurityTests: XCTestCase {
                 secretKeyProvider: { Data(repeating: 0x42, count: 32) }
             )
         )
-        let sessionKey = SymmetricKey(data: Data(repeating: 0x5A, count: 32))
+        let sessionKey = SymmetricKey(data: Self.sessionKeyBytes)
         let adapter = MacFileTransferService(
             service: service,
             settingsProvider: { true },
-            frameSealKeyProvider: { _, _ in sessionKey }
+            frameSealKeyProvider: { _, _ in sessionKey },
+            attachmentsRootURL: temp.appendingPathComponent("attachments", isDirectory: true)
         )
-        let manifest = Self.manifest(size: Int64(forgedPlaintext.count))
+        let manifest = Self.manifest(
+            size: Int64(forgedPlaintext.count),
+            blobHash: ContentBlake3.hash(forgedPlaintext)
+        )
         let frame = Self.advertiseFrame(manifest: manifest)
         var acks: [HermesRealtimeRelayFrame] = []
 
@@ -395,10 +406,21 @@ final class MacFileTransferSecurityTests: XCTestCase {
             acks.append(ack)
         }
 
-        let downloaded = inboxURL.appendingPathComponent("blob_quarantine_hash.txt")
+        let downloaded = Self.inboxFile(in: inboxURL, for: manifest)
         XCTAssertTrue(FileManager.default.fileExists(atPath: downloaded.path))
         let onDisk = try Data(contentsOf: downloaded)
-        XCTAssertTrue(MediaFrameAEAD.isSealedEnvelope(onDisk), "received file must be sealed at rest")
+        // The forged OBMFA1 magic did not short-circuit sealing: the file was
+        // re-sealed as OBFS1 and only opens under the session key.
+        XCTAssertEqual(
+            try Self.openSealedAtRest(
+                downloaded,
+                manifest: manifest,
+                plaintextSize: forgedPlaintext.count,
+                scratch: temp
+            ),
+            forgedPlaintext,
+            "received file must be sealed at rest"
+        )
         XCTAssertFalse(
             onDisk.contains(Data("attacker plaintext after public magic".utf8)),
             "public magic bytes must not let attacker-controlled plaintext bypass at-rest sealing"
@@ -409,10 +431,12 @@ final class MacFileTransferSecurityTests: XCTestCase {
         MacMediaActiveSessionRegistry.shared.resetForTesting()
     }
 
-    func testInboundAdvertiseRejectsOversizedFileInsteadOfInMemorySealing() async throws {
+    func testInboundAdvertiseRejectsFileAboveStreamingSealCapBeforeFetch() async throws {
         MacMediaActiveSessionRegistry.shared.resetForTesting()
 
-        let plaintextBytes = Int64(64 * 1024 * 1024 + 1)
+        // #2362 replaced the 64MiB in-memory seal with a 2GiB streaming OBFS1
+        // seal; anything above the cap is refused before the backend runs.
+        let plaintextBytes = Int64(IrohBlobTransferLimits.maxExpectedFetchBytes) + 1
         let backend = OversizedSparseBlobBackend(byteCount: plaintextBytes)
         let temp = FileManager.default.temporaryDirectory
             .appendingPathComponent("mac-file-transfer-seal-large-\(UUID().uuidString)", isDirectory: true)
@@ -425,11 +449,12 @@ final class MacFileTransferSecurityTests: XCTestCase {
                 secretKeyProvider: { Data(repeating: 0x42, count: 32) }
             )
         )
-        let sessionKey = SymmetricKey(data: Data(repeating: 0x5A, count: 32))
+        let sessionKey = SymmetricKey(data: Self.sessionKeyBytes)
         let adapter = MacFileTransferService(
             service: service,
             settingsProvider: { true },
-            frameSealKeyProvider: { _, _ in sessionKey }
+            frameSealKeyProvider: { _, _ in sessionKey },
+            attachmentsRootURL: temp.appendingPathComponent("attachments", isDirectory: true)
         )
         let manifest = Self.manifest(size: plaintextBytes)
         let frame = Self.advertiseFrame(manifest: manifest)
@@ -439,7 +464,7 @@ final class MacFileTransferSecurityTests: XCTestCase {
             acks.append(ack)
         }
 
-        let downloaded = inboxURL.appendingPathComponent("blob_quarantine_hash.txt")
+        let downloaded = Self.inboxFile(in: inboxURL, for: manifest)
         XCTAssertFalse(FileManager.default.fileExists(atPath: downloaded.path))
         let fetchedTickets = await backend.fetchedTickets
         XCTAssertEqual(fetchedTickets, [])
@@ -470,11 +495,12 @@ final class MacFileTransferSecurityTests: XCTestCase {
                 secretKeyProvider: { Data(repeating: 0x42, count: 32) }
             )
         )
-        let sessionKey = SymmetricKey(data: Data(repeating: 0x5A, count: 32))
+        let sessionKey = SymmetricKey(data: Self.sessionKeyBytes)
         let adapter = MacFileTransferService(
             service: service,
             settingsProvider: { true },
-            frameSealKeyProvider: { _, _ in sessionKey }
+            frameSealKeyProvider: { _, _ in sessionKey },
+            attachmentsRootURL: temp.appendingPathComponent("attachments", isDirectory: true)
         )
         let underreportedManifest = Self.manifest(size: 12)
         let frame = Self.advertiseFrame(manifest: underreportedManifest)
@@ -484,7 +510,7 @@ final class MacFileTransferSecurityTests: XCTestCase {
             acks.append(ack)
         }
 
-        let downloaded = inboxURL.appendingPathComponent("blob_quarantine_hash.txt")
+        let downloaded = Self.inboxFile(in: inboxURL, for: underreportedManifest)
         XCTAssertFalse(
             FileManager.default.fileExists(atPath: downloaded.path),
             "seal failure after fetch must not leave attacker-supplied plaintext in the inbox"
@@ -502,13 +528,14 @@ final class MacFileTransferSecurityTests: XCTestCase {
         MacMediaActiveSessionRegistry.shared.resetForTesting()
     }
 
-    func testInboundAdvertiseKeepsPlaintextWhenNoSessionKey() async throws {
+    func testInboundAdvertiseRefusesPlaintextLandingWithoutSessionKey() async throws {
         MacMediaActiveSessionRegistry.shared.resetForTesting()
 
         let backend = QuarantineBlobBackend()
         let temp = FileManager.default.temporaryDirectory
             .appendingPathComponent("mac-file-transfer-nokey-\(UUID().uuidString)", isDirectory: true)
         let inboxURL = temp.appendingPathComponent("inbox", isDirectory: true)
+        let attachmentsRoot = temp.appendingPathComponent("attachments", isDirectory: true)
         let service = MediaFileTransferService(
             backend: backend,
             configuration: .init(
@@ -517,27 +544,41 @@ final class MacFileTransferSecurityTests: XCTestCase {
                 secretKeyProvider: { Data(repeating: 0x42, count: 32) }
             )
         )
-        // No seal key negotiated — pre-F7 behaviour: quarantine xattr only.
+        // No seal key negotiated — #2362 fails closed before any fetch instead
+        // of landing plaintext in the inbox (plan 2026-08-19 Task B3 step 1).
         let adapter = MacFileTransferService(
             service: service,
-            settingsProvider: { true }
+            settingsProvider: { true },
+            attachmentsRootURL: attachmentsRoot
         )
-        let frame = Self.advertiseFrame(manifest: Self.manifest())
-        await adapter.handleAdvertise(frame: frame) { _ in }
+        let manifest = Self.manifest()
+        var acks: [HermesRealtimeRelayFrame] = []
+        await adapter.handleAdvertise(frame: Self.advertiseFrame(manifest: manifest)) { ack in
+            acks.append(ack)
+        }
 
-        let downloaded = inboxURL.appendingPathComponent("blob_quarantine_hash.txt")
-        let onDisk = try Data(contentsOf: downloaded)
-        XCTAssertFalse(MediaFrameAEAD.isSealedEnvelope(onDisk))
-        XCTAssertEqual(String(decoding: onDisk, as: UTF8.self), "downloaded")
+        let fetchedTickets = await backend.fetchedTickets
+        XCTAssertTrue(fetchedTickets.isEmpty, "no-key receive must not fetch peer bytes")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: Self.inboxFile(in: inboxURL, for: manifest).path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: attachmentsRoot.path), "nothing may land")
+        XCTAssertEqual(acks.count, 1)
+        XCTAssertEqual(acks.first?.media?.ack?.status, .rejected)
+        XCTAssertEqual(acks.first?.media?.ack?.reason, "refusing plaintext landing without a file/session key")
+        XCTAssertEqual(MacMediaActiveSessionRegistry.shared.count(for: .fileTransfer), 0)
 
         try? FileManager.default.removeItem(at: temp)
         MacMediaActiveSessionRegistry.shared.resetForTesting()
     }
 
-    private static func manifest(size: Int64 = 12) -> HermesRealtimeRelayAttachmentManifest {
+    private static let sessionKeyBytes = Data(repeating: 0x5A, count: 32)
+
+    private static func manifest(
+        size: Int64 = 12,
+        blobHash: String = ContentBlake3.hash(Data("downloaded".utf8))
+    ) -> HermesRealtimeRelayAttachmentManifest {
         HermesRealtimeRelayAttachmentManifest(
             manifestId: "att_quarantine",
-            blobHash: "blob_quarantine_hash",
+            blobHash: blobHash,
             filename: "payload.txt",
             mime: "text/plain",
             size: size,
@@ -560,6 +601,33 @@ final class MacFileTransferSecurityTests: XCTestCase {
                 blobTicket: "blob1ticket"
             )
         )
+    }
+
+    /// Mirrors `MediaFileTransferService.inboxURL(for:)`: `<blobHash>.<ext>`.
+    private static func inboxFile(
+        in inboxURL: URL,
+        for manifest: HermesRealtimeRelayAttachmentManifest
+    ) -> URL {
+        inboxURL.appendingPathComponent("\(manifest.blobHash).txt")
+    }
+
+    /// Opens the receiver's OBFS1 at-rest seal; throws unless it authenticates
+    /// under the session key with the manifest-bound header.
+    private static func openSealedAtRest(
+        _ url: URL,
+        manifest: HermesRealtimeRelayAttachmentManifest,
+        plaintextSize: Int,
+        scratch: URL
+    ) throws -> Data {
+        let header = FileSealAEAD.Header(
+            attachmentId: manifest.manifestId,
+            totalChunks: 1,
+            plaintextSize: Int64(plaintextSize),
+            contentBlake3: manifest.blobHash
+        )
+        let opened = scratch.appendingPathComponent("opened-\(UUID().uuidString)")
+        try FileSealAEAD.openFile(from: url, to: opened, contentKey: sessionKeyBytes, header: header)
+        return try Data(contentsOf: opened)
     }
 
     private func quarantineValue(at url: URL) throws -> String {
@@ -643,9 +711,10 @@ private actor QuarantineBlobBackend: IrohBlobBackend {
             withIntermediateDirectories: true
         )
         try payload.write(to: url)
+        // Like the iroh backend: the verified BLAKE3 of the fetched bytes.
         return BlobTransferStats(
-            bytesTotal: 10,
-            blake3Hash: String(repeating: "aa", count: 32),
+            bytesTotal: UInt64(payload.count),
+            blake3Hash: ContentBlake3.hash(payload),
             durationMillis: 5,
             didResume: false
         )

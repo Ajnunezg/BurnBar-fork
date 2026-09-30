@@ -8,9 +8,9 @@ description: >-
   same lane's open issue, re-arming the alarm. Per-lane dedupe keys (a
   `lane:<name>` label) guarantee a standing red in one lane can never suppress a
   new red in a different lane. On a genuine P0 ops failure it pages
-  out-of-band via an optional Slack Incoming Webhook; dedupe is the persistent
+  out-of-band via a Slack Incoming Webhook; dedupe is the persistent
   `paged:ops` label so a flapping lane pages once and retries only if the
-  webhook was missing or failed. Lanes that set `repage-until-green` page on
+  webhook was missing or failed. Undelivered paging fails the job loudly. Lanes that set `repage-until-green` page on
   every red run until a green run closes the issue.
 
 inputs:
@@ -51,12 +51,14 @@ inputs:
     default: ${{ github.token }}
   paging-slack-webhook:
     description: >-
-      Optional Slack Incoming Webhook URL for out-of-band paging on a genuine
-      P0 ops failure. If unset, paging is silently skipped — issue
-      creation/closure behavior is unaffected. This is a dedicated ops-paging
-      secret (NOT SLACK_SECURITY_WEBHOOK, which is the security-review lane's
-      alert channel and is not monitored for ops failures). Alberto must
-      configure this as the repo secret OPS_PAGING_SLACK_WEBHOOK (A6).
+      Slack Incoming Webhook URL for out-of-band paging on a genuine P0 ops
+      failure (the repo secret OPS_PAGING_SLACK_WEBHOOK; NOT
+      SLACK_SECURITY_WEBHOOK, which is the security-review lane's channel).
+      Required for P0 lanes: when it is unset, or a due page gets a non-2xx or
+      network error, the ops job FAILS, the issue is labelled
+      `paging:undelivered`, and the first failure of a streak comments on the
+      issue. Issue creation/closure still happens first. Non-P0 lanes do not
+      page and may omit it. Drill: docs/runbooks/alert-delivery-drill.md.
     required: false
     default: ""
   repage-until-green:
@@ -92,7 +94,9 @@ runs:
             ESCALATED_LABEL,
             REPAGE_LABEL,
             PAGED_LABEL,
+            UNDELIVERED_LABEL,
             evaluateP0Escalation,
+            evaluatePagingDelivery,
             evaluateSevenDayRepage,
             shouldPageP0,
           } = require(`${process.env.GITHUB_WORKSPACE || require('node:process').cwd()}/.github/actions/ops-failure-issue/escalation.cjs`);
@@ -195,6 +199,7 @@ runs:
             [ESCALATED_LABEL, 'P0 remained open beyond the 72-hour recovery SLO and was escalated.'],
             [REPAGE_LABEL, 'P0 remained open for seven days and was re-paged once.'],
             [PAGED_LABEL, 'P0 ops failure was paged out-of-band via Slack. Suppresses repeat paging on recurring/flapping failures.'],
+            [UNDELIVERED_LABEL, 'A due P0 page could not be delivered (webhook unset or failing). The ops job fails until paging works.'],
           ]);
           const labelColor = (name) => {
             if (name.startsWith('lane:')) return 'd0e0ff';
@@ -205,6 +210,7 @@ runs:
             if (name === 'P3 - Low') return '0075ca';
             if (name === ESCALATED_LABEL) return 'd73a4a';
             if (name === PAGED_LABEL) return 'd73a4a';
+            if (name === UNDELIVERED_LABEL) return 'b60205';
             if (name === BLOCKER_LABEL) return '5319e7';
             if (name.startsWith('area:')) return 'd0e0ff';
             return 'ededed';
@@ -290,6 +296,8 @@ runs:
           // webhook leaves the issue unpaged so a later run can retry.
           // Lanes with repage-until-green bypass the dedupe and page on
           // every red run (subsuming the seven-day tier).
+          // Undelivered paging is loud (evaluatePagingDelivery): the job
+          // fails and the issue is labelled `paging:undelivered`.
           const pageP0IfEligible = async (issueNumber, issueLabels, createdAt) => {
             const repageUntilGreen = process.env.OPS_REPAGE_UNTIL_GREEN === 'true';
             const paging = shouldPageP0({ mode, labels: issueLabels, repageUntilGreen });
@@ -303,44 +311,77 @@ runs:
             // otherwise one unpaged issue would alert once as both tiers.
             const shouldRepage = !paging.shouldPage && repaging.shouldRepage;
             const isRepageUntilGreen = paging.reason === 'p0-repage-until-green';
-            if (!paging.shouldPage && !shouldRepage) {
-              if (paging.reason === 'p0-unpaged') return; // unreachable guard
-              core.info(`Lane '${lane}': issue #${issueNumber} not paged (${paging.reason}; ${repaging.reason}).`);
-              return;
-            }
+            const pageDue = paging.shouldPage || shouldRepage;
             const webhook = process.env.OPS_PAGING_SLACK_WEBHOOK;
-            if (!webhook) {
-              core.warning(`Lane '${lane}': P0 issue #${issueNumber} eligible for ${shouldRepage ? 'seven-day re-page' : isRepageUntilGreen ? 're-page until green' : 'initial paging'} but OPS_PAGING_SLACK_WEBHOOK is not configured (A6 blocker). Issue behavior unaffected; will retry on next failure.`);
-              return;
-            }
-            const repoSlug = `${context.repo.owner}/${context.repo.repo}`;
-            const issueUrl = `${context.serverUrl}/${repoSlug}/issues/${issueNumber}`;
-            const slackText = shouldRepage
-              ? `🚨 *P0 ops failure re-page* — ${oneLine(repoSlug, 'repo')} lane \`${lane}\` has been red for seven days: ${summary}\nIssue: ${issueUrl}\nRun: ${runUrl}`
-              : isRepageUntilGreen
-                ? `🚨 *P0 ops failure re-page (still red)* — ${oneLine(repoSlug, 'repo')} lane \`${lane}\`: ${summary}\nIssue: ${issueUrl}\nRun: ${runUrl}`
-                : `🚨 *P0 ops failure* — ${oneLine(repoSlug, 'repo')} lane \`${lane}\`: ${summary}\nIssue: ${issueUrl}\nRun: ${runUrl}`;
-            try {
-              const pageResponse = await fetch(webhook, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: slackText }),
-                signal: AbortSignal.timeout(10000),
-              });
-              if (!pageResponse.ok) {
-                core.warning(`Lane '${lane}': Slack webhook returned HTTP ${pageResponse.status} for issue #${issueNumber}. Not paged — will retry on next failure.`);
-                return;
+            let delivery = null;
+            if (!pageDue) {
+              core.info(`Lane '${lane}': issue #${issueNumber} not paged (${paging.reason}; ${repaging.reason}).`);
+            } else if (webhook) {
+              const repoSlug = `${context.repo.owner}/${context.repo.repo}`;
+              const issueUrl = `${context.serverUrl}/${repoSlug}/issues/${issueNumber}`;
+              const slackText = shouldRepage
+                ? `🚨 *P0 ops failure re-page* — ${oneLine(repoSlug, 'repo')} lane \`${lane}\` has been red for seven days: ${summary}\nIssue: ${issueUrl}\nRun: ${runUrl}`
+                : isRepageUntilGreen
+                  ? `🚨 *P0 ops failure re-page (still red)* — ${oneLine(repoSlug, 'repo')} lane \`${lane}\`: ${summary}\nIssue: ${issueUrl}\nRun: ${runUrl}`
+                  : `🚨 *P0 ops failure* — ${oneLine(repoSlug, 'repo')} lane \`${lane}\`: ${summary}\nIssue: ${issueUrl}\nRun: ${runUrl}`;
+              try {
+                const pageResponse = await fetch(webhook, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text: slackText }),
+                  signal: AbortSignal.timeout(10000),
+                });
+                delivery = { ok: pageResponse.ok, status: pageResponse.status };
+              } catch (pageError) {
+                // Only the error class leaves this block: a URL-parse error
+                // message would carry the webhook path into the issue text.
+                delivery = { ok: false, status: null, errorName: oneLine(pageError?.name, 'Error') };
               }
-              await ensureIssueLabels([shouldRepage ? REPAGE_LABEL : PAGED_LABEL]);
+              if (delivery.ok) {
+                await ensureIssueLabels([shouldRepage ? REPAGE_LABEL : PAGED_LABEL]);
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  labels: [shouldRepage ? REPAGE_LABEL : PAGED_LABEL],
+                });
+                core.notice(`Lane '${lane}': ${shouldRepage || isRepageUntilGreen ? 're-paged' : 'paged'} P0 issue #${issueNumber} to Slack out-of-band.`);
+              }
+            }
+            const verdict = evaluatePagingDelivery({
+              mode,
+              labels: issueLabels,
+              webhookConfigured: Boolean(webhook),
+              pageDue,
+              delivery,
+            });
+            if (verdict.removeUndeliveredLabel) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: UNDELIVERED_LABEL,
+              }).catch(() => {});
+            }
+            if (verdict.addUndeliveredLabel) {
+              await ensureIssueLabels([UNDELIVERED_LABEL]);
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                labels: [shouldRepage ? REPAGE_LABEL : PAGED_LABEL],
+                labels: [UNDELIVERED_LABEL],
               });
-              core.notice(`Lane '${lane}': ${shouldRepage || isRepageUntilGreen ? 're-paged' : 'paged'} P0 issue #${issueNumber} to Slack out-of-band.`);
-            } catch (pageError) {
-              core.warning(`Lane '${lane}': Slack webhook POST failed for issue #${issueNumber}: ${oneLine(pageError.message, 'error')}. Not paged — will retry on next failure.`);
+            }
+            if (verdict.comment) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `${verdict.comment}\n\nRun: ${runUrl}`,
+              });
+            }
+            if (verdict.failJob) {
+              core.setFailed(`Lane '${lane}': P0 issue #${issueNumber} paging not delivered (${verdict.reason}): ${verdict.detail}`);
             }
           };
 

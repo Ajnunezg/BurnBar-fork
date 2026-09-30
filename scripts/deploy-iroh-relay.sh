@@ -3,7 +3,7 @@
 #
 # Phase 3 deployment: ships the Firestore security-rules updates that gate
 # `/users/{uid}/iroh_pairing/*` and `/users/{uid}/iroh_audit_events/*`, plus
-# the TypeScript schema changes in `functions/src/types.ts`. Owner-side
+# the TypeScript schema changes in `packages/functions-shared/src/types/`. Owner-side
 # (Mac) and reader-side (iOS / iPadOS) clients pick up the new collections
 # automatically once the rules + functions are live.
 #
@@ -63,8 +63,8 @@ if ! grep -q 'iroh_pairing' firestore.rules; then
   exit 1
 fi
 
-if ! grep -q 'IrohPairingRecordDoc' functions/src/types.ts; then
-  echo "deploy-iroh-relay: functions/src/types.ts has no IrohPairingRecordDoc schema — refusing to deploy without it" >&2
+if ! grep -rq 'IrohPairingRecordDoc' packages/functions-shared/src/types; then
+  echo "deploy-iroh-relay: packages/functions-shared/src/types has no IrohPairingRecordDoc schema — refusing to deploy without it" >&2
   exit 1
 fi
 

@@ -102,13 +102,15 @@ final class MacFileTransferService: ObservableObject {
     /// session count. Optional so loopback/dev builds without a wired gate keep
     /// working (they pass `AlwaysAllowMediaCapabilityGate`).
     private let capabilityGate: any MediaCapabilityGate
-    /// RR-18 — when a media-seal session key exists for the receiving
-    /// connection, received blob bytes are sealed at rest (AES-256-GCM under the
-    /// same F7 session key the screen lane uses, manifest-bound AAD) instead of
-    /// landing as plaintext in the sandbox Caches inbox. Returns nil when no
-    /// session key is negotiated; in that case the file keeps only the
-    /// quarantine xattr, matching pre-F7 behaviour.
+    /// RR-18 — received blob bytes are stream-sealed at rest (OBFS1 under the
+    /// connection's media-seal session key) instead of staying plaintext in the
+    /// Caches inbox. Returns nil when no session key is negotiated; the inbound
+    /// transfer is then refused before any fetch (fail closed, plan
+    /// 2026-08-19-remote-agent-control-and-file-share Task B3 step 1).
     private let frameSealKeyProvider: @MainActor (_ uid: String, _ connectionID: String) -> SymmetricKey?
+    /// Where verified inbound attachments land (`~/.burnbar/attachments` in
+    /// production). Injectable so tests never write into the real home directory.
+    private let attachmentsRootURL: URL
     private let frameSealAEAD = MediaFrameAEAD()
     private let advertiseTimeout: TimeInterval
     private var advertiseSenderOverride: AdvertiseSender?
@@ -129,6 +131,8 @@ final class MacFileTransferService: ObservableObject {
         controlStreams: MediaControlStreamRegistry? = nil,
         capabilityGate: any MediaCapabilityGate = AlwaysAllowMediaCapabilityGate(),
         frameSealKeyProvider: @escaping @MainActor (_ uid: String, _ connectionID: String) -> SymmetricKey? = { _, _ in nil },
+        attachmentsRootURL: URL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".burnbar/attachments", isDirectory: true),
         advertiseTimeout: TimeInterval = 6.0
     ) {
         self.service = service
@@ -136,6 +140,7 @@ final class MacFileTransferService: ObservableObject {
         self.controlStreams = controlStreams
         self.capabilityGate = capabilityGate
         self.frameSealKeyProvider = frameSealKeyProvider
+        self.attachmentsRootURL = attachmentsRootURL
         self.advertiseTimeout = advertiseTimeout
     }
 
@@ -485,22 +490,20 @@ final class MacFileTransferService: ObservableObject {
             fetchedDestinationURL = result.destinationURL
             try Self.applyInboundQuarantine(to: result.destinationURL, manifest: manifest)
             let verified = try ContentBlake3.parse(result.stats.blake3Hash)
-            // RR-18 — seal the received bytes at rest under the media session
-            // key when one is negotiated, so the file is not plaintext in the
-            // sandbox Caches inbox. No key ⇒ keep the prior quarantine-only
-            // behaviour rather than failing the transfer. Apply quarantine
-            // before sealing so an oversized or malformed plaintext fetch is
-            // quarantined even if sealing fails, then re-apply after the atomic
-            // replace so the sealed file carries the xattr that survives.
+            // RR-18 — land the digest-verified plaintext, then seal the inbox
+            // copy at rest under the media session key so it is not plaintext
+            // in the Caches inbox (no key never reaches here: refused above).
+            // Apply quarantine before sealing so an oversized or malformed
+            // plaintext fetch is quarantined even if sealing fails, then
+            // re-apply after the atomic replace so the sealed file carries the
+            // xattr that survives.
             if let sealKey {
-                let attachmentsRoot = FileManager.default.homeDirectoryForCurrentUser
-                    .appendingPathComponent(".burnbar/attachments", isDirectory: true)
-                try FileManager.default.createDirectory(at: attachmentsRoot, withIntermediateDirectories: true)
+                try FileManager.default.createDirectory(at: attachmentsRootURL, withIntermediateDirectories: true)
                 _ = try MacAttachmentLandingService.land(
                     plaintextURL: result.destinationURL,
                     declaredContentBlake3: manifest.blobHash,
                     filename: manifest.filename,
-                    roots: [attachmentsRoot],
+                    roots: [attachmentsRootURL],
                     contentKey: PlatformCrypto.symmetricKeyData(sealKey),
                     verifiedDigest: verified
                 )

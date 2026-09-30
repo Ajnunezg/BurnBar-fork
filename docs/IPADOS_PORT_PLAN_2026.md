@@ -598,7 +598,7 @@ Before shipping, verify every token from macOS `DesignSystem.swift` exists in `M
 
 - `AGENTS.md` — Agent coding standards (boil the ocean)
 - `DESIGN.md` — Design system (colors, typography, motion)
-- `docs/research_ipados_porting_2026.md` — iPadOS constraints research
+- `docs/archive/2026-09/research_ipados_porting_2026.md` — iPadOS constraints research
 - `docs/IOS_APP_ARCHITECTURE.md` — Existing mobile architecture
 - `AgentLens/Views/` — macOS view source (copy from here)
 - `OpenBurnBarMobile/` — Existing mobile source (extend from here)

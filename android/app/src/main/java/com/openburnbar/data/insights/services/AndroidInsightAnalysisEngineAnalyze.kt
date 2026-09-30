@@ -11,6 +11,9 @@ import com.openburnbar.data.repos.InsightAnalysisCacheRepository
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 internal fun androidInsightPromptHash(prompt: String): String = MessageDigest.getInstance("SHA-256")
     .digest(prompt.toByteArray(Charsets.UTF_8))
@@ -120,20 +123,26 @@ internal suspend fun maybeStoreAndroidInsightCache(cache: InsightAnalysisCacheRe
     }
 }
 
-internal suspend fun recordAndroidInsightPaywallFailure(
-    auditLog: InsightAnalysisAuditLogRepository?,
-    startedEntry: InsightAnalysisAuditEntry,
-    error: BurnBarProSubscriptionRequiredException,
-) {
+/**
+ * Settle a STARTED audit row after the run failed: CANCELLED when the coroutine
+ * was cancelled, FAILED for every other error. The write runs NonCancellable so
+ * the terminal row still lands from inside a cancelled coroutine.
+ */
+internal suspend fun recordAndroidInsightFailure(auditLog: InsightAnalysisAuditLogRepository?, startedEntry: InsightAnalysisAuditEntry, failure: Throwable) {
     val failedAt = Instant.now().toString()
-    val failed =
+    val settled =
         startedEntry.copy(
-            status = InsightAnalysisAuditEntry.Status.FAILED,
+            status =
+            if (failure is CancellationException) {
+                InsightAnalysisAuditEntry.Status.CANCELLED
+            } else {
+                InsightAnalysisAuditEntry.Status.FAILED
+            },
             completedAt = failedAt,
-            errorDescription = error.message ?: error.javaClass.simpleName,
+            errorDescription = failure.message ?: failure.javaClass.simpleName,
             ranAt = failedAt,
         )
-    auditLog?.upsertLatest(failed)
+    withContext(NonCancellable) { auditLog?.upsertLatest(settled) }
 }
 
 internal fun newAndroidInsightAuditId(): String = UUID.randomUUID().toString()

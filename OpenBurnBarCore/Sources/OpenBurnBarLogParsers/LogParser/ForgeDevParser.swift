@@ -595,6 +595,7 @@ public final class ForgeDevParser: LogParser, Sendable {
             outputTokens: outputTokens,
             cacheReadTokens: cacheReadTokens,
             costUSD: cost,
+            pricingSource: pricing.source,
             startTime: startTime,
             endTime: endTime,
             provenanceMethod: .providerLog,

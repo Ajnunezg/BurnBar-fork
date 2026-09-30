@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://burnbar.ai/schemas/rollback-drill-receipt.schema.json",
   "title": "OpenBurnBar Cloud Run rollback drill receipt",
-  "description": "Redaction-safe receipt for a Cloud Run revision-pin rollback drill. Project IDs, resource paths, service URLs, and operator identities are intentionally not part of this contract.",
+  "description": "Redaction-safe receipt for a Cloud Run revision-pin rollback drill. A live receipt proves the full round trip: the target's image was present, 100% traffic was pinned to it and read back, it answered a health probe with 2xx, and the pre-drill traffic was restored and read back. Project IDs, resource paths, image references, service URLs, and operator identities are intentionally not part of this contract.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -77,6 +77,66 @@
             "passed",
             "warning"
           ]
+        },
+        "imagePreflight": {
+          "const": "verified",
+          "description": "The target revision's image (by the digest Cloud Run pulls) was found in Artifact Registry before any traffic change."
+        },
+        "previousServing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "latest",
+                "revision"
+              ],
+              "description": "latest: 100% followed the LATEST revision before the drill; revision: 100% was pinned to one revision."
+            },
+            "revision": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,62}$",
+              "description": "Revision name serving 100% before the drill."
+            }
+          },
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "revision"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "required": [
+              "revision"
+            ]
+          }
+        },
+        "restore": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "confirmed"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "latest",
+                "revision"
+              ]
+            },
+            "confirmed": {
+              "const": true,
+              "description": "A live traffic readback after the restore matched the pre-drill serving mode."
+            }
+          }
         }
       }
     },
@@ -96,6 +156,12 @@
           "type": "boolean"
         },
         "liveGcloudSession": {
+          "type": "boolean"
+        },
+        "imageVerified": {
+          "type": "boolean"
+        },
+        "trafficRestored": {
           "type": "boolean"
         }
       }
@@ -125,6 +191,12 @@
               },
               "trafficPinned": {
                 "const": false
+              },
+              "imageVerified": {
+                "const": false
+              },
+              "trafficRestored": {
+                "const": false
               }
             }
           }
@@ -147,12 +219,34 @@
           "liveDrill": {
             "const": true
           },
+          "drill": {
+            "required": [
+              "imagePreflight",
+              "previousServing",
+              "restore"
+            ],
+            "properties": {
+              "healthProbe": {
+                "const": "passed"
+              }
+            }
+          },
           "checks": {
+            "required": [
+              "imageVerified",
+              "trafficRestored"
+            ],
             "properties": {
               "liveGcloudSession": {
                 "const": true
               },
               "trafficPinned": {
+                "const": true
+              },
+              "imageVerified": {
+                "const": true
+              },
+              "trafficRestored": {
                 "const": true
               }
             }

@@ -260,7 +260,7 @@
           "model" : "cursor-agent-pro",
           "outputTokens" : 41,
           "projectName" : "Cursor Agent",
-          "provenanceConfidence" : "exact",
+          "provenanceConfidence" : "low_confidence_estimate",
           "provenanceMethod" : "provider_log",
           "provider" : "Cursor Agent",
           "reasoningTokens" : 0,

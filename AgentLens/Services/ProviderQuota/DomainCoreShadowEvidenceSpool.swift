@@ -20,6 +20,7 @@ enum DomainCoreShadowEvidenceError: Error {
     case oversizedSample
     case invalidCallableResponse
     case signedOut
+    case cloudSyncOff
 }
 
 struct DomainCoreEvidenceLoadedIdentity: Codable, Equatable, Sendable {
@@ -1017,6 +1018,9 @@ final class FirebaseDomainCoreShadowSampleSubmitter: DomainCoreShadowSampleSubmi
         guard FirebaseApp.app() != nil, Auth.auth().currentUser != nil else {
             throw DomainCoreShadowEvidenceError.signedOut
         }
+        guard OpenBurnBarIdentity.isCloudSyncEnabled() else {
+            throw DomainCoreShadowEvidenceError.cloudSyncOff
+        }
         let encodedSamples = try JSONEncoder().encode(samples)
         let sampleObjects = try JSONSerialization.jsonObject(with: encodedSamples)
         let result = try await Functions.functions(region: "us-central1")
@@ -1033,8 +1037,12 @@ final class MacDomainCoreShadowEvidenceRecorder: Sendable {
     private let writer: DomainCoreShadowEvidenceWriter?
     private let coordinator: DomainCoreShadowEvidenceUploadCoordinator?
     private let loadedIdentity: @Sendable () -> DomainCoreEvidenceLoadedIdentity?
+    /// Evidence is uploaded under the signed-in uid, so it is neither recorded
+    /// nor submitted while the master Cloud sync switch is off.
+    private let cloudSyncEnabled: @Sendable () -> Bool
 
     init(
+        cloudSyncEnabled: @escaping @Sendable () -> Bool = { OpenBurnBarIdentity.isCloudSyncEnabled() },
         profile: DomainCoreBuildProfile = DomainCoreBuildProfileResolver.current(),
         directory: URL? = nil,
         submitter: (any DomainCoreShadowSampleSubmitting)? = nil,
@@ -1047,6 +1055,7 @@ final class MacDomainCoreShadowEvidenceRecorder: Sendable {
         self.channel = resolvedChannel
         self.candidate = resolvedCandidate
         self.loadedIdentity = loadedIdentity
+        self.cloudSyncEnabled = cloudSyncEnabled
         let resolvedSpool: DomainCoreShadowEvidenceSpool?
         do {
             let resolvedDirectory: URL
@@ -1144,7 +1153,7 @@ final class MacDomainCoreShadowEvidenceRecorder: Sendable {
     }
 
     func record(_ comparison: DomainCoreQuotaShadowComparison) {
-        guard let channel, let candidate, let writer,
+        guard cloudSyncEnabled(), let channel, let candidate, let writer,
               let sample = DomainCoreShadowSampleV3(
                   comparison: comparison,
                   channel: channel,
@@ -1161,7 +1170,7 @@ final class MacDomainCoreShadowEvidenceRecorder: Sendable {
     }
 
     private func record(_ comparison: DomainCoreShadowComparison) {
-        guard let channel, let candidate, let writer,
+        guard cloudSyncEnabled(), let channel, let candidate, let writer,
               let sample = DomainCoreShadowSampleV3(
                   comparison: comparison,
                   channel: channel,

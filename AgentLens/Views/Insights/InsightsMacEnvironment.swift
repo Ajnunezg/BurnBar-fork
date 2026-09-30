@@ -261,7 +261,8 @@ final class InsightsMacEnvironment {
         )
         await analysisEngine.updateConfiguration(.init(
             privacyModeRestrictsToLocal: privacyMode,
-            failWhenSelectedGatewayUnavailable: true
+            failWhenSelectedGatewayUnavailable: true,
+            allowsHostedFallback: OpenBurnBarIdentity.isCloudSyncEnabled()
         ))
         let result = try await analysisEngine.analyze(request)
         Analytics.shared.track(.insightsAnalysisCompleted, [

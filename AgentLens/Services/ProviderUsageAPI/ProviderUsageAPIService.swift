@@ -36,6 +36,9 @@ struct ProviderUsageRecord: Sendable, Equatable {
     let cacheCreationTokens: Int
     let costUSD: Double
     let requestCount: Int
+    /// `.reported` when the provider's API returned the cost; the catalog or
+    /// fallback source when the adapter had to price the tokens itself.
+    var pricingSource: UsagePricingSource = .reported
 
     /// Convert to a TokenUsage for storage/display alongside log-parsed data.
     func toTokenUsage(provider: AgentProvider) -> TokenUsage {
@@ -49,6 +52,7 @@ struct ProviderUsageRecord: Sendable, Equatable {
             cacheCreationTokens: cacheCreationTokens,
             cacheReadTokens: cacheReadTokens,
             costUSD: costUSD,
+            pricingSource: pricingSource,
             startTime: date,
             endTime: date,
             usageSource: .billingAPI,

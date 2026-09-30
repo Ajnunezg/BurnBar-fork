@@ -31,6 +31,8 @@ struct ChartFactRow: Sendable, Equatable {
     let totalTokens: Int
     let provenanceConfidence: UsageProvenanceConfidence
     let isRemote: Bool
+    /// Where the row's dollars came from; `.fallback` rows are estimates.
+    var pricingSource: UsagePricingSource = .unknown
 }
 
 extension ChartFactRow: ChartWindowRow {
@@ -51,6 +53,7 @@ extension ChartFactRow: ChartWindowRow {
         totalTokens = usage.totalTokens
         provenanceConfidence = usage.provenanceConfidence
         isRemote = usage.isRemote
+        pricingSource = usage.pricingSource
     }
 
     func intersects(dateRange: ClosedRange<Date>) -> Bool {
@@ -58,4 +61,22 @@ extension ChartFactRow: ChartWindowRow {
         let e = max(startTime, endTime)
         return s <= dateRange.upperBound && e >= dateRange.lowerBound
     }
+}
+
+/// All-time Charts inputs aggregated in SQL (`UsageStore.fetchChartAggregates`).
+///
+/// Each fact sums the rows sharing a 15-minute UTC slot and every dimension a
+/// chart splits by (project, model, provider, billing, source, provenance,
+/// remote, pricing source, 31-day window membership). Every IANA offset in use is a multiple
+/// of 15 minutes, so a slot never straddles a local hour or day boundary and
+/// the builder buckets a fact exactly where it would bucket each row. The
+/// fact count is bounded by elapsed time × active dimensions, not by how many
+/// sessions or requests the ledger holds. `sessionId` is empty on facts: the
+/// session cards read `sessions`.
+struct ChartAggregates: Sendable {
+    /// Every slot fact — the all-time window.
+    let facts: [ChartFactRow]
+    /// Facts whose rows intersect the trailing 31-day window.
+    let recentFacts: [ChartFactRow]
+    let sessions: ChartSessionTotals
 }

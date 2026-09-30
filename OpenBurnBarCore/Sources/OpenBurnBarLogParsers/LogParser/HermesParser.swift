@@ -933,6 +933,7 @@ public final class HermesParser: LogParser, Sendable {
             cacheCreationTokens: cacheCreationTokens,
             cacheReadTokens: cacheReadTokens,
             costUSD: cost,
+            pricingSource: costOverride == nil ? pricing.source : .reported,
             startTime: startTime,
             endTime: endTime,
             provenanceMethod: .providerLog,

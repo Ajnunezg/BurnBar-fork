@@ -622,6 +622,128 @@ final class BurnBarUsageRecorderTests: XCTestCase {
         XCTAssertEqual(restartedRetainedRecordCount, 0)
     }
 
+    /// The app asks for recent usage on every refresh tick and the ledger is
+    /// never rotated, so time-bounded reads must not re-decode it. Probe: make
+    /// an old record unreadable after the index is built. Recent reads still
+    /// answer (they never read those bytes); the full recount, which must
+    /// read every line, fails — so the damage is real.
+    func testTimeBoundedReadsDecodeOnlyTheRecordsTheyReturn() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("openburnbar-usage-recency-probe-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: rootURL) }
+        let ledgerURL = rootURL.appendingPathComponent("usage-events.jsonl")
+        let recordCount = 5_000
+        let base: TimeInterval = 1_750_000_000
+        let encoder = JSONEncoder()
+        var ledger = Data()
+        var damagedRange = 0..<0
+        for index in 0..<recordCount {
+            let line = try encoder.encode(BurnBarUsageRecord(
+                idempotencyKey: "recency-\(index)",
+                event: makeEvent(cost: Double(index % 8) / 8, recordedAt: Date(timeIntervalSince1970: base + Double(index)))
+            )) + Data([0x0A])
+            if index == 100 { damagedRange = ledger.count..<(ledger.count + line.count - 1) }
+            ledger.append(line)
+        }
+        try ledger.write(to: ledgerURL)
+        let recorder = BurnBarUsageRecorder(
+            fileURL: ledgerURL,
+            logger: BurnBarDaemonLogger(category: "usage-recency-tests"),
+            now: { Date(timeIntervalSince1970: base + Double(recordCount)) }
+        )
+        let signature = try await recorder.signature()
+        XCTAssertEqual(signature.recordCount, recordCount)
+
+        ledger.replaceSubrange(damagedRange, with: Data(repeating: UInt8(ascii: "#"), count: damagedRange.count))
+        try ledger.write(to: ledgerURL)
+
+        let recent = try await recorder.recentUsage(limit: 20)
+        XCTAssertEqual(
+            recent.map(\.recordedAt),
+            (0..<20).map { Date(timeIntervalSince1970: base + Double(recordCount - 1 - $0)) }
+        )
+        let window = try await recorder.records(
+            in: DateInterval(
+                start: Date(timeIntervalSince1970: base + 4_900),
+                end: Date(timeIntervalSince1970: base + 4_950)
+            ),
+            limit: 25
+        )
+        XCTAssertEqual(window.map(\.idempotencyKey), (4_926...4_950).map { "recency-\($0)" })
+        let spend = try await recorder.sumCost(since: Date(timeIntervalSince1970: base + 4_000)) { _ in true }
+        XCTAssertEqual(spend, (4_000..<recordCount).reduce(0.0) { $0 + Double($1 % 8) / 8 })
+
+        do {
+            _ = try await recorder.recountProjection()
+            XCTFail("A full recount must read the damaged record")
+        } catch is DecodingError {
+            // Expected: the damaged bytes are real; the bounded reads never touched them.
+        }
+    }
+
+    /// Recency answers match a full scan: newest first with ties in ledger
+    /// order, through out-of-order appends (deferred re-sort) and a restart.
+    func testTimeBoundedReadsMatchFullScanOracleForOutOfOrderAndTiedTimestamps() async throws {
+        let fixture = try makeRecorderFixture(now: Date(timeIntervalSince1970: 1_800_000_000))
+        var generator = SplitMix64(seed: 0x5EED)
+        func appendBatch(_ range: Range<Int>) async throws {
+            for index in range {
+                // 40 distinct timestamps across 300 records: many ties, arbitrary order.
+                let second = Double(generator.next() % 40)
+                _ = try await fixture.recorder.record(
+                    makeEvent(cost: Double(index % 5) / 4, recordedAt: Date(timeIntervalSince1970: 1_750_000_000 + second)),
+                    idempotencyKey: "oracle-\(index)"
+                )
+            }
+        }
+        func assertMatchesFullScan(
+            _ recorder: BurnBarUsageRecorder,
+            file: StaticString = #filePath,
+            line: UInt = #line
+        ) async throws {
+            let ledgerOrder = try await recorder.records()
+            let newestFirst = ledgerOrder.enumerated().sorted {
+                $0.element.event.recordedAt != $1.element.event.recordedAt
+                    ? $0.element.event.recordedAt > $1.element.event.recordedAt
+                    : $0.offset < $1.offset
+            }.map(\.element)
+            for limit in [1, 7, 50, 1_000] {
+                let recent = try await recorder.recentUsage(limit: limit)
+                XCTAssertEqual(recent, newestFirst.prefix(limit).map(\.event), "limit \(limit)", file: file, line: line)
+            }
+            let interval = DateInterval(
+                start: Date(timeIntervalSince1970: 1_750_000_010),
+                end: Date(timeIntervalSince1970: 1_750_000_020)
+            )
+            let windowed = try await recorder.records(in: interval, limit: 30)
+            XCTAssertEqual(
+                windowed,
+                Array(newestFirst.filter { interval.contains($0.event.recordedAt) }.prefix(30).reversed()),
+                file: file,
+                line: line
+            )
+            let since = Date(timeIntervalSince1970: 1_750_000_025)
+            let spend = try await recorder.sumCost(since: since) { $0.cost > 0.25 }
+            let scanned = ledgerOrder
+                .filter { $0.event.recordedAt >= since && $0.event.cost > 0.25 }
+                .reduce(0.0) { $0 + $1.event.cost }
+            XCTAssertEqual(spend, scanned, file: file, line: line)
+        }
+
+        try await appendBatch(0..<200)
+        try await assertMatchesFullScan(fixture.recorder)
+        try await appendBatch(200..<300)
+        try await assertMatchesFullScan(fixture.recorder)
+
+        let restarted = BurnBarUsageRecorder(
+            fileURL: fixture.ledgerURL,
+            logger: BurnBarDaemonLogger(category: "usage-recency-tests"),
+            now: { Date(timeIntervalSince1970: 1_800_000_000) }
+        )
+        try await assertMatchesFullScan(restarted)
+    }
+
     func testProjectionFailsClosedOnAggregateIntegerOverflow() async throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let fixture = try makeRecorderFixture(now: now)
@@ -711,5 +833,20 @@ final class BurnBarUsageRecorderTests: XCTestCase {
         } catch {
             XCTFail("Unexpected error: \(error)", file: file, line: line)
         }
+    }
+}
+
+/// Deterministic generator so the out-of-order fixture is identical per run.
+private struct SplitMix64 {
+    private var state: UInt64
+
+    init(seed: UInt64) { state = seed }
+
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var value = state
+        value = (value ^ (value >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        value = (value ^ (value >> 27)) &* 0x94D0_49BB_1331_11EB
+        return value ^ (value >> 31)
     }
 }

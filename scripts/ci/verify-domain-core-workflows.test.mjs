@@ -548,7 +548,7 @@ test("Functions preparation is uncredentialed and deploy consumes only a verifie
   assert.match(prepare, /--portable-functions-source/u);
   assert.match(
     prepare,
-    /node scripts\/ci\/prepare-functions-runtime-package\.mjs[\s\S]*--functions-dir "\$stage\/functions"/u,
+    /for codebase in "\$\{codebases\[@\]\}"; do[\s\S]*node scripts\/ci\/prepare-functions-runtime-package\.mjs[\s\S]*--functions-dir "\$stage\/\$codebase"/u,
   );
   const prepareRuntimePackage = prepare.indexOf(
     "node scripts/ci/prepare-functions-runtime-package.mjs",

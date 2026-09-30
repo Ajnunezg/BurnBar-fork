@@ -247,6 +247,10 @@ final class MacAgentReplyNotificationListener: NSObject {
         !(FirebaseApp.allApps ?? [:]).isEmpty
     }
 
+    /// Presence heartbeats, reply listeners and reply acks are all cloud
+    /// traffic, so none of them run while the master Cloud sync switch is off.
+    private var isCloudSyncEnabled: Bool { accountManager?.isCloudSyncEnabled == true }
+
     nonisolated private static var currentFirebaseUID: String? {
         guard hasConfiguredFirebaseApp else { return nil }
         return Auth.auth().currentUser?.uid
@@ -280,6 +284,9 @@ final class MacAgentReplyNotificationListener: NSObject {
                 self?.restart(uid: user?.uid)
             }
         }
+        accountManager.observeCloudSyncConsentChanges { [weak self] _ in
+            self?.restart(uid: Self.currentFirebaseUID)
+        }
         restart(uid: Self.currentFirebaseUID)
 
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -312,7 +319,7 @@ final class MacAgentReplyNotificationListener: NSObject {
         processedReplyIDs.removeAll()
         Task { await persistDeviceState(uid: uid) }
 
-        guard FirebaseApp.app() != nil, let uid else { return }
+        guard FirebaseApp.app() != nil, let uid, isCloudSyncEnabled else { return }
         listener = Firestore.firestore()
             .collection("users").document(uid)
             .collection("agent_notification_events")
@@ -413,7 +420,7 @@ final class MacAgentReplyNotificationListener: NSObject {
     }
 
     private func persistDeviceState(uid: String?) async {
-        guard FirebaseApp.app() != nil, let uid else { return }
+        guard FirebaseApp.app() != nil, let uid, isCloudSyncEnabled else { return }
         let runtime = chatController?.chatBackend.rawValue
         let threadID = chatController?.activeThreadID
         var payload: [String: Any] = [
@@ -509,7 +516,8 @@ final class MacAgentReplyNotificationListener: NSObject {
     }
 
     private func handleReplyCommand(documentID: String, data: [String: Any]) {
-        guard let uid = Self.currentFirebaseUID,
+        guard isCloudSyncEnabled,
+              let uid = Self.currentFirebaseUID,
               let command = MacAgentNotificationReplyCommand(documentID: documentID, data: data),
               !processedReplyIDs.contains(command.id) else { return }
         processedReplyIDs.insert(command.id)

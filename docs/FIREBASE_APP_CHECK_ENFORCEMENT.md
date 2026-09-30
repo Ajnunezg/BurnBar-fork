@@ -40,6 +40,15 @@ covered by `scripts/ops/verify-firestore-app-check-enforcement.test.sh`. Set
 `OPENBURNBAR_SKIP_LIVE_APP_CHECK_GATE=1` only for offline dry-runs that cannot call
 `gcloud` (never for production launch).
 
+For the launch packet, one command probes and records the result; a receipt is
+written only when every service is `ENFORCED` and the DeviceCheck key is present
+(step 6 of [the launch packet checklist](runbooks/LAUNCH_PACKET_CHECKLIST.md)):
+
+```bash
+GCLOUD_PROJECT=burnbar bash scripts/ops/verify-firestore-app-check-enforcement.sh \
+  --receipt "launch-evidence/app-check-enforcement-$(date -u +%F).json"
+```
+
 ## Callable attestation binding (Computer Use / grants)
 
 High-risk Cloud Functions require **both** platform `enforceAppCheck` on the callable

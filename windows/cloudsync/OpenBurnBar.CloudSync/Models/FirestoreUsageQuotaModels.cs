@@ -31,6 +31,8 @@ public sealed record FirestoreUsageEventDoc
     [JsonPropertyName("recordedAt")] public required string RecordedAt { get; init; }
     [JsonPropertyName("eventKind")] public string? EventKind { get; init; }
     [JsonPropertyName("idempotencyKey")] public string? IdempotencyKey { get; init; }
+    [JsonPropertyName("pricingSource")] public string? PricingSource { get; init; }
+    [JsonPropertyName("tokenConfidence")] public string? TokenConfidence { get; init; }
 }
 
 public sealed record FirestoreQuotaBucket

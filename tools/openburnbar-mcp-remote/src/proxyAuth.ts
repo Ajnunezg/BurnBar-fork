@@ -85,7 +85,9 @@ function bearerToken(authorization: string | undefined): string | undefined {
   if (!authorization) {
     return undefined;
   }
-  const match = /^Bearer\s+(.+)$/iu.exec(authorization);
+  // `\S` pins where the token starts, so the whitespace run has exactly one
+  // split and a long run of spaces cannot backtrack quadratically.
+  const match = /^Bearer\s+(\S.*)$/iu.exec(authorization);
   const provided = match?.[1]?.trim();
   return provided ? provided : undefined;
 }

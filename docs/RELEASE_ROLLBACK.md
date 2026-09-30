@@ -206,6 +206,10 @@ Bad release detected
 
 ## Rollback Drill
 
+This drill rehearses the desktop release path. The Cloud Functions fast
+rollback (Cloud Run revision pin) has its own drill and receipt:
+[Revision-Pin Drill](runbooks/rollback-automation.md#revision-pin-drill-the-rollback-receipt).
+
 Run this drill quarterly to maintain confidence in the rollback procedure:
 
 1. **Tag and push a test release** (use a `-test` suffix tag)

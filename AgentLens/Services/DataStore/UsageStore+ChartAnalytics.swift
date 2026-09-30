@@ -33,7 +33,159 @@ extension UsageStore {
         )
     }
 
+    func fetchChartAggregates(recentRange: ClosedRange<Date>) async throws -> ChartAggregates {
+        try await dbQueue.read { db in
+            try Self.fetchChartAggregates(db: db, recentRange: recentRange)
+        }
+    }
+
+    /// Bucket width of an aggregated all-time fact; see `ChartAggregates`.
+    static let chartAggregateSlotSeconds = 900
+
+    /// `ChartFactCol` layout, summed per slot, plus the billed total summed per
+    /// row (`billedTotalTokens` clamps each row, so it cannot be derived from
+    /// the summed token columns).
+    static let chartAggregateSelectColumns = [
+        "MIN(startTime)",
+        "MAX(endTime)",
+        "SUM(cost)",
+        "''",
+        "projectName",
+        "model",
+        "provider",
+        "billingKind",
+        "usageSource",
+        "SUM(inputTokens)",
+        "SUM(outputTokens)",
+        "SUM(cacheCreationTokens)",
+        "SUM(cacheReadTokens)",
+        "SUM(reasoningTokens)",
+        "provenanceConfidence",
+        "isRemote",
+        "pricingSource",
+        """
+        SUM(MAX(inputTokens, 0) + MAX(outputTokens, 0) + MAX(cacheCreationTokens, 0) \
+        + MAX(cacheReadTokens, 0) + MAX(reasoningTokens, 0))
+        """
+    ]
+    static let chartAggregateBilledTotalColumn = ChartFactCol.pricingSource.rawValue + 1
+    static let chartAggregateRecentWindowColumn = ChartFactCol.pricingSource.rawValue + 2
+
+    /// All-time Charts inputs aggregated in SQL instead of one `ChartFactRow`
+    /// per ledger row plus a full-table sort (see `ChartAggregates`). Rows are
+    /// the ones `fetchChartFactRows(in: nil)` decodes; the recent window uses
+    /// the `fetchUsage(in:)` intersection per row. That window ends at `now`,
+    /// so its key also keeps a future-stamped row out of the facts that feed
+    /// the forecast's month-to-date cut.
+    static func fetchChartAggregates(
+        db: Database,
+        recentRange: ClosedRange<Date>
+    ) throws -> ChartAggregates {
+        let decodable = try chartDecodableRowsPredicate(db: db)
+        var arguments = intersectionArguments(recentRange)
+        arguments += decodable.arguments
+        let statement = try db.cachedStatement(sql: """
+            SELECT \(chartAggregateSelectColumns.joined(separator: ", ")),
+                   \(intersectionSQL) AS inRecentWindow
+            FROM token_usage
+            WHERE \(decodable.sql)
+            GROUP BY CAST(strftime('%s', startTime) AS INTEGER) / \(chartAggregateSlotSeconds),
+                     projectName, model, provider, billingKind, usageSource,
+                     provenanceConfidence, isRemote, pricingSource, inRecentWindow
+            """)
+        var facts: [ChartFactRow] = []
+        var recentFacts: [ChartFactRow] = []
+        let cursor = try Row.fetchCursor(statement, arguments: arguments)
+        while let row = try cursor.next() {
+            guard let fact = decodeChartFact(row, billedTotalColumn: chartAggregateBilledTotalColumn) else {
+                continue
+            }
+            facts.append(fact)
+            if intValue(indexed(row, chartAggregateRecentWindowColumn)) != 0 {
+                recentFacts.append(fact)
+            }
+        }
+        return ChartAggregates(
+            facts: facts,
+            recentFacts: recentFacts,
+            sessions: try fetchChartSessionTotals(db: db, decodable: decodable)
+        )
+    }
+
+    /// The rows `decodeChartFactRow` keeps — parseable timestamps and a
+    /// provider `AgentProvider.resolve` accepts — so SQL aggregates drop
+    /// exactly what the per-row scan's `compactMap` drops.
+    static func chartDecodableRowsPredicate(
+        db: Database
+    ) throws -> (sql: String, arguments: StatementArguments) {
+        let providers = try String.fetchAll(db, sql: "SELECT DISTINCT provider FROM token_usage")
+        let resolvable = providers.filter { AgentProvider.resolve($0) != nil }
+        let timestamps = "julianday(startTime) IS NOT NULL AND julianday(endTime) IS NOT NULL"
+        guard resolvable.count < providers.count else {
+            return (timestamps, StatementArguments())
+        }
+        return (
+            "\(timestamps) AND provider IN (\(OpenBurnBarDatabase.sqlPlaceholders(count: resolvable.count)))",
+            StatementArguments(resolvable)
+        )
+    }
+
+    /// One `GROUP BY sessionId` scan: the session count, one cost per session,
+    /// and the costliest sessions labeled from their newest row (SQLite takes
+    /// bare columns from the `MAX(startTime)` row). Only top-five candidates
+    /// decode their label strings.
+    static func fetchChartSessionTotals(
+        db: Database,
+        decodable: (sql: String, arguments: StatementArguments)
+    ) throws -> ChartSessionTotals {
+        let statement = try db.cachedStatement(sql: """
+            SELECT SUM(cost), MAX(startTime), sessionId, projectName, model, provider
+            FROM token_usage
+            WHERE \(decodable.sql)
+            GROUP BY sessionId
+            """)
+        var costs: [Double] = []
+        var outliers: [ChartsSnapshot.OutlierSession] = []
+        let cursor = try Row.fetchCursor(statement, arguments: decodable.arguments)
+        while let row = try cursor.next() {
+            let cost = doubleValue(indexed(row, 0))
+            costs.append(cost)
+            guard let sessionId = indexed(row, 2) as? String else { continue }
+            if outliers.count == ChartSessionTotals.outlierLimit, let floor = outliers.last,
+               !ChartSessionTotals.ranksAbove((cost, sessionId), (floor.cost, floor.sessionId)) {
+                continue
+            }
+            guard let projectName = indexed(row, 3) as? String,
+                  let model = indexed(row, 4) as? String,
+                  let providerRaw = indexed(row, 5) as? String,
+                  let provider = AgentProvider.resolve(providerRaw) else {
+                continue
+            }
+            outliers.insert(
+                ChartsSnapshot.OutlierSession(
+                    sessionId: sessionId,
+                    projectName: projectName,
+                    model: model,
+                    provider: provider,
+                    cost: cost
+                ),
+                at: outliers.firstIndex { ChartSessionTotals.ranksAbove((cost, sessionId), ($0.cost, $0.sessionId)) }
+                    ?? outliers.endIndex
+            )
+            if outliers.count > ChartSessionTotals.outlierLimit {
+                outliers.removeLast()
+            }
+        }
+        return ChartSessionTotals(count: costs.count, costs: costs, outlierSessions: outliers)
+    }
+
     static func decodeChartFactRow(_ row: Row) -> ChartFactRow? {
+        decodeChartFact(row, billedTotalColumn: nil)
+    }
+
+    /// `billedTotalColumn` holds an aggregate row's pre-summed billed total;
+    /// nil derives it from the row's own token columns.
+    private static func decodeChartFact(_ row: Row, billedTotalColumn: Int?) -> ChartFactRow? {
         guard let startTime = OpenBurnBarDatabase.parseDateValue(indexed(row, ChartFactCol.startTime.rawValue)),
               let endTime = OpenBurnBarDatabase.parseDateValue(indexed(row, ChartFactCol.endTime.rawValue)),
               let sessionId = indexed(row, ChartFactCol.sessionId.rawValue) as? String,
@@ -64,7 +216,7 @@ extension UsageStore {
             cacheCreationTokens: cacheCreationTokens,
             cacheReadTokens: cacheReadTokens,
             reasoningTokens: reasoningTokens,
-            totalTokens: TokenUsage.billedTotalTokens(
+            totalTokens: billedTotalColumn.map { intValue(indexed(row, $0)) } ?? TokenUsage.billedTotalTokens(
                 input: inputTokens,
                 output: outputTokens,
                 cacheCreation: cacheCreationTokens,
@@ -73,7 +225,9 @@ extension UsageStore {
             ),
             provenanceConfidence: (indexed(row, ChartFactCol.provenanceConfidence.rawValue) as? String)
                 .flatMap(UsageProvenanceConfidence.init(rawValue:)) ?? .unknown,
-            isRemote: intValue(indexed(row, ChartFactCol.isRemote.rawValue)) != 0
+            isRemote: intValue(indexed(row, ChartFactCol.isRemote.rawValue)) != 0,
+            pricingSource: (indexed(row, ChartFactCol.pricingSource.rawValue) as? String)
+                .flatMap(UsagePricingSource.init(rawValue:)) ?? .unknown
         )
     }
 

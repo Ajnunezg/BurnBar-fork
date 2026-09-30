@@ -114,8 +114,20 @@ export function validateMobileA11yPerformance(options = {}) {
     }
   }
 
-  const theme = resolveConfinedPath(root, 'OpenBurnBarMobile/Theme/MobileTheme.swift');
-  if (theme.exists) {
+  // On the real tree a named source file that is missing means it moved and
+  // the check below would silently stop running (the Pulse policy moved out of
+  // OpenBurnBarKernel in the 2026-09-26 split and went unchecked). Fixture
+  // roots in the tests carry only what each case needs.
+  const requireSource = (resolved, relative) => {
+    if (!resolved.exists && root === repoRoot) {
+      failures.push(`${relative} does not exist; update this check's path`);
+    }
+    return resolved.exists;
+  };
+
+  const themePath = 'OpenBurnBarMobile/Theme/MobileTheme.swift';
+  const theme = resolveConfinedPath(root, themePath);
+  if (requireSource(theme, themePath)) {
     const text = fs.readFileSync(theme.path, 'utf8');
     if (!text.includes('MobileScaledFont')) {
       failures.push('MobileTheme.Typography must use MobileScaledFont for Dynamic Type');
@@ -167,11 +179,9 @@ export function validateMobileA11yPerformance(options = {}) {
     }
   }
 
-  const pulseSwift = resolveConfinedPath(
-    root,
-    'OpenBurnBarCore/Sources/OpenBurnBarKernel/SharedModels/MobilePulseWindowPolicy.swift'
-  );
-  if (pulseSwift.exists) {
+  const pulsePath = 'OpenBurnBarCore/Sources/OpenBurnBarMobilePolicy/MobilePulseWindowPolicy.swift';
+  const pulseSwift = resolveConfinedPath(root, pulsePath);
+  if (requireSource(pulseSwift, pulsePath)) {
     const text = fs.readFileSync(pulseSwift.path, 'utf8');
     if (!text.includes('usages.filter')) {
       failures.push('Pulse window metrics must remain a single pass over usages');

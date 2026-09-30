@@ -1,4 +1,5 @@
 import XCTest
+import os
 @testable import OpenBurnBarCore
 @testable import OpenBurnBarTextExpansion
 
@@ -298,5 +299,101 @@ final class TextExpansionTests: XCTestCase {
         // Rank now: Gamma and Beta have count 1, but Gamma is newer, so Gamma, Beta, Alpha
         let ranked3 = TextExpansionUsageStore.rank(snippets, using: log)
         XCTAssertEqual(ranked3.map(\.title), ["Gamma", "Beta", "Alpha"])
+    }
+
+    // MARK: - Cloud sync consent
+
+    func testOnlyCloudDecodedSnippetsCountAsArrivedThroughCloudSync() {
+        XCTAssertFalse(snippet(source: nil).arrivedThroughCloudSync)
+        XCTAssertFalse(snippet(source: "").arrivedThroughCloudSync)
+        XCTAssertFalse(snippet(source: TextExpansionKeyboardComposer.keyboardSourceDeviceID).arrivedThroughCloudSync)
+        XCTAssertTrue(snippet(source: "mac-device-1").arrivedThroughCloudSync)
+    }
+
+    func testFreshInstallResolvesSnippetSyncOffAndStoresTheDecision() {
+        let defaults = isolatedDefaults()
+        let local = [snippet(source: nil), snippet(source: TextExpansionKeyboardComposer.keyboardSourceDeviceID)]
+
+        XCTAssertFalse(TextExpansionCloudSyncPreference.resolve(localSnippets: local, defaults: defaults))
+        XCTAssertEqual(defaults.object(forKey: TextExpansionCloudSyncPreference.key) as? Bool, false)
+        // Decided once: a cloud snippet showing up later does not turn sync on.
+        XCTAssertFalse(TextExpansionCloudSyncPreference.resolve(localSnippets: [snippet(source: "mac-device-1")], defaults: defaults))
+    }
+
+    func testUpgradeThatWasAlreadySyncingKeepsSnippetSyncOn() {
+        let defaults = isolatedDefaults()
+
+        XCTAssertTrue(TextExpansionCloudSyncPreference.resolve(localSnippets: [snippet(source: "mac-device-1")], defaults: defaults))
+        XCTAssertEqual(defaults.object(forKey: TextExpansionCloudSyncPreference.key) as? Bool, true)
+    }
+
+    func testStoredSnippetSyncChoiceAlwaysWins() {
+        let optedOut = isolatedDefaults()
+        optedOut.set(false, forKey: TextExpansionCloudSyncPreference.key)
+        XCTAssertFalse(TextExpansionCloudSyncPreference.resolve(localSnippets: [snippet(source: "mac-device-1")], defaults: optedOut))
+
+        let optedIn = isolatedDefaults()
+        optedIn.set(true, forKey: TextExpansionCloudSyncPreference.key)
+        XCTAssertTrue(TextExpansionCloudSyncPreference.resolve(localSnippets: nil, defaults: optedIn))
+    }
+
+    func testUnreadableLocalSnippetsKeepSyncOffWithoutDeciding() {
+        let defaults = isolatedDefaults()
+
+        XCTAssertFalse(TextExpansionCloudSyncPreference.resolve(localSnippets: nil, defaults: defaults))
+        XCTAssertNil(defaults.object(forKey: TextExpansionCloudSyncPreference.key))
+    }
+
+    func testConsentObserverReportsEverySnippetSyncToggleAndNothingElse() {
+        let defaults = isolatedDefaults()
+        defaults.set(true, forKey: TextExpansionCloudSyncPreference.key)
+        let changes = LockedCounter()
+        let observer = TextExpansionCloudSyncConsentObserver(defaults: defaults) { changes.increment() }
+
+        defaults.set("unrelated", forKey: "textExpansion.someOtherSetting")
+        XCTAssertEqual(changes.value, 0)
+        defaults.set(false, forKey: TextExpansionCloudSyncPreference.key)
+        XCTAssertEqual(changes.value, 1, "switching sync off must reach a running store")
+        defaults.set(false, forKey: TextExpansionCloudSyncPreference.key)
+        XCTAssertEqual(changes.value, 1)
+        defaults.set(true, forKey: TextExpansionCloudSyncPreference.key)
+        XCTAssertEqual(changes.value, 2, "switching sync back on must reach a running store")
+        withExtendedLifetime(observer) {}
+    }
+
+    func testConsentObserverDistinguishesUnsetAndStopsObservingAfterRelease() {
+        let defaults = isolatedDefaults()
+        defaults.set(false, forKey: TextExpansionCloudSyncPreference.key)
+        let changes = LockedCounter()
+        do {
+            let observer = TextExpansionCloudSyncConsentObserver(defaults: defaults) { changes.increment() }
+            defaults.removeObject(forKey: TextExpansionCloudSyncPreference.key)
+            XCTAssertEqual(changes.value, 1, "removing a stored opt-out is a distinct consent choice")
+            defaults.removeObject(forKey: TextExpansionCloudSyncPreference.key)
+            XCTAssertEqual(changes.value, 1, "repeated unset notifications must not duplicate changes")
+            withExtendedLifetime(observer) {}
+        }
+        defaults.set(true, forKey: TextExpansionCloudSyncPreference.key)
+        XCTAssertEqual(changes.value, 1, "a released observer must stop notifying its store")
+    }
+
+    private func snippet(source: String?) -> TextExpansionSnippet {
+        TextExpansionSnippet(title: "Greeting", trigger: "hello", body: "Hi there", sourceDeviceID: source)
+    }
+
+    private func isolatedDefaults() -> UserDefaults {
+        let suiteName = "com.openburnbar.tests.text-expansion-sync.\(UUID().uuidString)"
+        addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        return UserDefaults(suiteName: suiteName)!
+    }
+}
+
+private final class LockedCounter: Sendable {
+    private let count = OSAllocatedUnfairLock(initialState: 0)
+
+    var value: Int { count.withLock { $0 } }
+
+    func increment() {
+        count.withLock { $0 += 1 }
     }
 }

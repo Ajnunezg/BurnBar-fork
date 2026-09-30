@@ -138,6 +138,29 @@ final class FactoryQuotaCacheTests: XCTestCase {
         XCTAssertFalse(cacheBucket.isDisplayableQuotaSignal)
     }
 
+    /// Factory publishes only a monthly cap, so every rolling window divides
+    /// by it: no invented per-window limits.
+    func test_fetch_measuresRollingWindowsAgainstThePublishedMonthlyCap() async throws {
+        let root = try makeTemporaryDirectory("factory-quota-monthly-cap")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let sessions = root.appendingPathComponent("sessions", isDirectory: true)
+        try writeSession(name: "recent", in: sessions, prompt: "p", inputTokens: 900_000, outputTokens: 100_000, hoursAgo: 1)
+        try writeSession(name: "week", in: sessions, prompt: "p", inputTokens: 1_500_000, outputTokens: 500_000, hoursAgo: 72)
+
+        let adapter = FactoryQuotaAdapter(
+            sessionsDirectoryOverride: sessions,
+            cacheURLOverride: root.appendingPathComponent("factory-cache.plist")
+        )
+        let snapshot = try await adapter.fetch(context: makeContext(root: root))
+
+        let fiveHour = try XCTUnwrap(fiveHourBucket(in: snapshot))
+        XCTAssertEqual(fiveHour.limitValue, 20_000_000)
+        XCTAssertEqual(try XCTUnwrap(fiveHour.usedPercent), 5, accuracy: 0.001)
+        let sevenDay = try XCTUnwrap(sevenDayBucket(in: snapshot))
+        XCTAssertEqual(sevenDay.limitValue, 20_000_000)
+        XCTAssertEqual(try XCTUnwrap(sevenDay.usedPercent), 15, accuracy: 0.001)
+    }
+
     private func fiveHourBucket(in snapshot: ProviderQuotaSnapshot) -> ProviderQuotaBucket? {
         snapshot.buckets.first { $0.key == "factory-5h" }
     }

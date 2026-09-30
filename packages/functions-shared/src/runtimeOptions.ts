@@ -9,7 +9,7 @@
  * literal under `functions/src`.
  *
  * Single-region is the documented, accepted GA decision; the flip-triggers and
- * rationale live in `docs/ARCHITECTURE/region-strategy.md`.
+ * rationale live in `docs/architecture/region-strategy.md`.
  */
 
 import { defineInt } from "firebase-functions/params";

@@ -116,7 +116,10 @@ public struct CachedUsageTotals: Codable, Equatable, Sendable {
     public let startTime: Date
     public let endTime: Date
     public let costUSD: Double
+    public let pricingSource: UsagePricingSource
     public let provenanceMethod: UsageProvenanceMethod
+    /// Confidence in the token counts; `makeUsage` re-derives the row's
+    /// overall confidence from it and `pricingSource`.
     public let provenanceConfidence: UsageProvenanceConfidence
     public let estimatorVersion: String
 
@@ -131,8 +134,9 @@ public struct CachedUsageTotals: Codable, Equatable, Sendable {
         self.startTime = usage.startTime
         self.endTime = usage.endTime
         self.costUSD = usage.costUSD
+        self.pricingSource = usage.pricingSource
         self.provenanceMethod = usage.provenanceMethod
-        self.provenanceConfidence = usage.provenanceConfidence
+        self.provenanceConfidence = usage.tokenConfidence
         self.estimatorVersion = usage.estimatorVersion
     }
 
@@ -148,6 +152,7 @@ public struct CachedUsageTotals: Codable, Equatable, Sendable {
             cacheReadTokens: cacheReadTokens,
             reasoningTokens: reasoningTokens,
             costUSD: costUSD,
+            pricingSource: pricingSource,
             startTime: startTime,
             endTime: endTime,
             provenanceMethod: provenanceMethod,
@@ -207,14 +212,47 @@ public struct CompositeFileSignature<Signature: Codable & Equatable & Sendable>:
 }
 
 public struct ParserDiskCache<Entry: Codable & Equatable & Sendable>: Codable, Equatable, Sendable {
+    /// Bumped when every parser's cached rows must be re-derived at once —
+    /// a row field all parsers now stamp. Per-parser changes bump the
+    /// store's own `schemaVersion` instead.
+    /// 1: rows carry `pricingSource` (listed rate vs fallback vs reported).
+    public static var currentRowFormatEpoch: Int { 1 }
+
     public var schemaVersion: Int
+    /// Missing (0) on caches written before row-format epochs existed.
+    public var rowFormatEpoch: Int
     public var fileEntries: [String: Entry]
     public var lastUpdatedAt: Date?
 
-    public init(schemaVersion: Int, fileEntries: [String: Entry], lastUpdatedAt: Date? = nil) {
+    public init(
+        schemaVersion: Int,
+        fileEntries: [String: Entry],
+        lastUpdatedAt: Date? = nil,
+        rowFormatEpoch: Int = Self.currentRowFormatEpoch
+    ) {
         self.schemaVersion = schemaVersion
+        self.rowFormatEpoch = rowFormatEpoch
         self.fileEntries = fileEntries
         self.lastUpdatedAt = lastUpdatedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, rowFormatEpoch, fileEntries, lastUpdatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        rowFormatEpoch = try container.decodeIfPresent(Int.self, forKey: .rowFormatEpoch) ?? 0
+        guard rowFormatEpoch == Self.currentRowFormatEpoch else {
+            // Entries written under another row format may not decode (or
+            // would decode with a field defaulted); load as empty.
+            fileEntries = [:]
+            lastUpdatedAt = nil
+            return
+        }
+        fileEntries = try container.decode([String: Entry].self, forKey: .fileEntries)
+        lastUpdatedAt = try container.decodeIfPresent(Date.self, forKey: .lastUpdatedAt)
     }
 
     public static func empty(schemaVersion: Int) -> Self {
@@ -253,7 +291,8 @@ public struct ParserDiskCacheStore<Entry: Codable & Equatable & Sendable>: Senda
         do {
             let data = try Data(contentsOf: cacheURL)
             let cache = try Self.decode(cache: data)
-            guard cache.schemaVersion == schemaVersion else {
+            guard cache.schemaVersion == schemaVersion,
+                  cache.rowFormatEpoch == ParserDiskCache<Entry>.currentRowFormatEpoch else {
                 return .empty(schemaVersion: schemaVersion)
             }
             return cache

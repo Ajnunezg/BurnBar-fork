@@ -312,7 +312,7 @@ Trust pipeline (every entitlement write flows through it):
      - `AppleRootCA-G2.cer` — RSA root for cross-signed chains
      - `AppleIncRootCertificate.cer` — legacy chain
    Fingerprints are checked at cold start. Mismatch refuses to start the
-   function — see `functions/src/appstore/verifier.ts` (`ROOT_CERT_FILES`).
+   function — see `functions-identity/src/domains/billing/appstore/verifier.ts` (`ROOT_CERT_FILES`).
 2. **Bundle / app id assertion.** The decoded JWS payload's `bundleId`
    must match `appStore.bundleId`. Production webhooks must additionally
    match the configured `appAppleId`.
@@ -447,7 +447,7 @@ export APP_STORE_ENABLE_ONLINE_CHECKS=true                  # OCSP/expiration ch
 ```
 
 The three secrets are declared in
-`functions/src/appstore/config.ts` and bound to every Apple-aware
+`functions-identity/src/domains/billing/appstore/config.ts` and bound to every Apple-aware
 callable via `APP_STORE_SECRETS`. Cold start re-reads them once per
 instance.
 
@@ -461,9 +461,9 @@ swapping a root file without updating the pin fails cold start with
 ### Important Files
 
 - `functions/src/index.ts`
-- `functions/src/quota.ts`
-- `functions/src/config.ts`
-- `functions/src/types.ts`
+- `packages/functions-shared/src/quota.ts`
+- `packages/functions-shared/src/config.ts`
+- `packages/functions-shared/src/types.ts`
 - `functions/src/appstore/`
   - `verifier.ts` — `AppleJWSVerifier` (cert pinning, environment
     auto-fallback, stable error codes)
@@ -683,7 +683,7 @@ warnings are not test failures.
 - StoreKit product exists in App Store Connect.
 - Server-side Apple JWS verification is wired with `@apple/app-store-server-library`
   v3 against pinned AppleRootCA-G3/G2/AppleInc roots. The pin SHA-256s in
-  `functions/src/appstore/verifier.ts:ROOT_CERT_FILES` match the
+  `functions-identity/src/domains/billing/appstore/verifier.ts:ROOT_CERT_FILES` match the
   vendored `.cer` files.
 - `beginEntitlementBinding`, `verifyHostedQuotaEntitlement`, and
   `restoreHostedQuotaEntitlement` callables are deployed; the

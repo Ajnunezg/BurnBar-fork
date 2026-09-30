@@ -307,4 +307,101 @@ if ! grep -Fq "is not an ancestor of live source commit" "${TMP_DIR}/print-forwa
   exit 1
 fi
 
+# Wave 3.5: a target tag whose firebase.json names several codebases must
+# install/build every codebase over packages/functions-shared and write each
+# codebase's production env, not just functions/.
+build_codebase_fixture_repo() {
+  local name="$1"
+  local repo="${TMP_DIR}/${name}"
+  local origin="${TMP_DIR}/${name}.git"
+  mkdir -p "${repo}/scripts/ci" "${repo}/functions" "${repo}/functions-identity" "${repo}/packages/functions-shared"
+  cp scripts/rollback.sh "${repo}/scripts/rollback.sh"
+  cp scripts/ci/sentry_dsn.py "${repo}/scripts/ci/sentry_dsn.py"
+  cat >"${repo}/scripts/build-functions-all.sh" <<'SH'
+#!/usr/bin/env bash
+echo build-functions-all >>"${FAKE_NPM_LOG:?}"
+SH
+  printf '%s\n' '{"name":"@openburnbar/functions-shared"}' >"${repo}/packages/functions-shared/package.json"
+  printf '%s\n' '{"functions":[{"source":"functions","codebase":"admin"},{"source":"functions-identity","codebase":"identity"}]}' >"${repo}/firebase.json"
+  printf '%s\n' 'FIREBASE_PROJECT=burnbar-test' >"${repo}/functions/.env.burnbar.production"
+  printf '%s\n' 'FIREBASE_PROJECT=burnbar-test' 'IDENTITY_ONLY=1' >"${repo}/functions-identity/.env.burnbar.production"
+
+  git -C "${repo}" init --quiet
+  git -C "${repo}" config user.email "rollback-test@example.invalid"
+  git -C "${repo}" config user.name "Rollback Test"
+  git -C "${repo}" config commit.gpgSign false
+  git -C "${repo}" config tag.gpgSign false
+
+  make_commit "${repo}" "2026-06-21T00:00:00Z" "split-one"
+  make_tag "${repo}" "v1.0.1" "2026-06-21T00:00:00Z"
+  make_commit "${repo}" "2026-06-22T00:00:00Z" "split-two"
+  make_tag "${repo}" "v1.0.2" "2026-06-22T00:00:00Z"
+
+  git init --quiet --bare "${origin}"
+  git -C "${repo}" remote add origin "${origin}"
+  git -C "${repo}" push --quiet --tags origin HEAD
+  printf '%s\n' "${repo}"
+}
+
+codebase_repo="$(build_codebase_fixture_repo codebases)"
+codebase_bin="${TMP_DIR}/codebase-bin"
+npm_log="${TMP_DIR}/codebase-npm.log"
+mkdir -p "${codebase_bin}"
+cat >"${codebase_bin}/npm" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'npm %s\n' "$*" >>"${FAKE_NPM_LOG:?}"
+SH
+cp "${fake_bin}/firebase" "${codebase_bin}/firebase"
+chmod +x "${codebase_bin}/npm" "${codebase_bin}/firebase"
+PATH="${codebase_bin}:${PATH}" FAKE_NPM_LOG="${npm_log}" \
+  SENTRY_DSN="${valid_sentry_dsn}" \
+  run_rollback "${codebase_repo}" v1.0.1 --yes >"${TMP_DIR}/codebases.out"
+for expected in \
+  "npm ci --prefix packages/functions-shared" \
+  "npm ci --prefix functions" \
+  "npm ci --prefix functions-identity" \
+  "build-functions-all"; do
+  if ! grep -Fqx "${expected}" "${npm_log}"; then
+    echo "FAIL: multi-codebase rollback did not run: ${expected}" >&2
+    cat "${npm_log}" >&2
+    exit 1
+  fi
+done
+if grep -Fq "npm run build --prefix functions" "${npm_log}"; then
+  echo "FAIL: multi-codebase rollback fell back to the functions-only build" >&2
+  exit 1
+fi
+for codebase in functions functions-identity; do
+  if ! grep -Fqx "FUNCTION_VERSION=v1.0.1" "${codebase_repo}/${codebase}/.env.burnbar"; then
+    echo "FAIL: multi-codebase rollback did not write ${codebase}/.env.burnbar" >&2
+    exit 1
+  fi
+done
+if ! grep -Fqx "IDENTITY_ONLY=1" "${codebase_repo}/functions-identity/.env.burnbar"; then
+  echo "FAIL: functions-identity rollback env was not sourced from its own reviewed production config" >&2
+  exit 1
+fi
+
+unreviewed_repo="$(build_codebase_fixture_repo unreviewed)"
+printf '%s\n' '{"functions":[{"source":"functions"},{"source":"../escape"}]}' >"${unreviewed_repo}/firebase.json"
+git -C "${unreviewed_repo}" commit --quiet -am "unreviewed codebase"
+git -C "${unreviewed_repo}" tag -a v1.0.3 -m v1.0.3
+git -C "${unreviewed_repo}" push --quiet --tags origin HEAD
+if PATH="${codebase_bin}:${PATH}" FAKE_NPM_LOG="${TMP_DIR}/unreviewed-npm.log" \
+  SENTRY_DSN="${valid_sentry_dsn}" \
+  run_rollback "${unreviewed_repo}" v1.0.3 --yes >"${TMP_DIR}/unreviewed.out" 2>"${TMP_DIR}/unreviewed.err"; then
+  echo "FAIL: rollback accepted a target that names an unreviewed codebase dir" >&2
+  exit 1
+fi
+if ! grep -Fq "unreviewed Functions codebase dir: ../escape" "${TMP_DIR}/unreviewed.err"; then
+  echo "FAIL: unreviewed-codebase refusal did not name the dir" >&2
+  cat "${TMP_DIR}/unreviewed.err" >&2
+  exit 1
+fi
+if [[ -e "${TMP_DIR}/unreviewed-npm.log" ]]; then
+  echo "FAIL: unreviewed-codebase refusal still ran npm" >&2
+  exit 1
+fi
+
 echo "rollback target selection test: all green"

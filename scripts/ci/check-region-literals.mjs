@@ -7,7 +7,7 @@
  * `"us-central1"` literal. This guard greps every `.ts` file under
  * `functions/src` (except `runtimeOptions.ts`, which owns the literal) for the
  * bare quoted region string and exits non-zero if any are found, so a new raw
- * literal cannot land silently. See docs/ARCHITECTURE/region-strategy.md.
+ * literal cannot land silently. See docs/architecture/region-strategy.md.
  *
  * Usage: node scripts/ci/check-region-literals.mjs
  * Exit:  0 = clean, 1 = raw literals found.
@@ -76,7 +76,7 @@ async function main() {
     }
     console.error(
       `\n${hits.length} raw region literal(s). Import FUNCTIONS_REGION and reference it instead.\n` +
-        "See docs/ARCHITECTURE/region-strategy.md.",
+        "See docs/architecture/region-strategy.md.",
     );
     process.exit(1);
   }

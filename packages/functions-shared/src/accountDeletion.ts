@@ -9,6 +9,7 @@
 import { createHash } from "node:crypto";
 import { getStorage } from "firebase-admin/storage";
 import { logWarn } from "./logging.js";
+import { isSecretVersionAlreadyErased } from "./secrets.js";
 import { appendAuditEventRequired, AUDIT_ACTIONS } from "./shared/auditLog.js";
 import {
   ensureAccountErasureTombstone,
@@ -21,6 +22,7 @@ import {
 } from "./accountDeletionAudit.js";
 
 export { isAccountErasureResumable, verifyRetainedAccountErasureEvents } from "./accountDeletionAudit.js";
+export { isSecretVersionAlreadyErased } from "./secrets.js";
 
 type AccountStoragePrefixKind = "user_data" | "avatar";
 
@@ -41,7 +43,12 @@ interface AccountDeletionResult extends AccountDeletionSummary {
 }
 
 interface AccountDeletionOptions {
-  destroyCredential: (secretVersionName: string) => Promise<void>;
+  /**
+   * Destroy EVERY version of the secret holding this version (production:
+   * `destroyCredentialSecret`). Replacements add versions under one secret, so
+   * a single-version destroy would leave earlier credentials readable.
+   */
+  destroyCredentialSecret: (secretVersionName: string) => Promise<unknown>;
   logger?: Pick<typeof console, "warn">;
   /** Delete a Cloud Storage prefix (objects). Injectable for tests; defaults to the live bucket. */
   deleteStorageObjects?: (prefix: string) => Promise<void>;
@@ -319,7 +326,7 @@ export async function eraseUserCloudData(
       continue;
     }
     try {
-      await options.destroyCredential(secretVersion);
+      await options.destroyCredentialSecret(secretVersion);
       summary.destroyedSecrets += 1;
     } catch (error) {
       if (isSecretVersionAlreadyErased(error)) {
@@ -402,25 +409,6 @@ export function isFirebaseAuthUserNotFound(error: unknown): boolean {
     "errorInfo" in error && error.errorInfo && typeof error.errorInfo === "object" ? error.errorInfo : undefined;
   const nestedCode = errorInfo && "code" in errorInfo ? errorInfo.code : undefined;
   return code === "auth/user-not-found" || nestedCode === "auth/user-not-found";
-}
-
-/** Secret Manager destroy is idempotent from the erasure contract's view. */
-export function isSecretVersionAlreadyErased(error: unknown): boolean {
-  if (!isRecord(error)) return false;
-  const record = error;
-  const response = isRecord(record.response) ? record.response : undefined;
-  const responseData = response && isRecord(response.data) ? response.data : undefined;
-  const responseError = responseData && isRecord(responseData.error) ? responseData.error : undefined;
-  const errorInfo = isRecord(record.errorInfo) ? record.errorInfo : undefined;
-  const rawCode = record.code ?? response?.status;
-  const code = typeof rawCode === "string" && /^\d+$/u.test(rawCode) ? Number(rawCode) : rawCode;
-  const status = responseError?.status ?? errorInfo?.code;
-  const message = [record.message, responseError?.message, errorInfo?.message]
-    .filter((value): value is string => typeof value === "string")
-    .join(" ");
-
-  if (code === 404 || code === 5 || status === "NOT_FOUND") return true;
-  return (code === 400 || code === 9 || status === "FAILED_PRECONDITION") && /\bdestroyed\b/iu.test(message);
 }
 
 async function deleteDocumentTree(ref: AccountDeletionDocumentReference, batcher: DeleteBatcher): Promise<void> {

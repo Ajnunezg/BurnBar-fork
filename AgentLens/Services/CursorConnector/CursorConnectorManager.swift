@@ -726,7 +726,8 @@ final class CursorConnectorManager {
             let reasoningTokens = normalizedUsage.reasoningTokens
             let totalTokens = normalizedUsage.totalTokens
             let timestamp = (json["timestamp"] as? String).flatMap(Self.isoDateFormatter.date(from:)) ?? Date()
-            guard let cost = AppLogger.shared.silentlyOptional("domain_core_pricing_cost", try OpenBurnBarCore.ModelPricing.lookup(model: model).cost(
+            let pricing = OpenBurnBarCore.ModelPricing.lookup(model: model)
+            guard let cost = AppLogger.shared.silentlyOptional("domain_core_pricing_cost", try pricing.cost(
                 inputTokens: promptTokens,
                 outputTokens: completionTokens,
                 cacheCreationTokens: cacheCreationTokens,
@@ -760,6 +761,7 @@ final class CursorConnectorManager {
                 cacheReadTokens: cacheReadTokens,
                 reasoningTokens: reasoningTokens,
                 costUSD: cost,
+                pricingSource: pricing.source,
                 startTime: timestamp,
                 endTime: timestamp,
                 usageSource: .cursorBridge,

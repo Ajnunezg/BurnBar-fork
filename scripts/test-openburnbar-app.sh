@@ -510,9 +510,11 @@ populate_xcodebuild_args() {
     # process. xcodebuild only forwards env vars that begin with
     # `TEST_RUNNER_`, so callers set `OPENBURNBAR_SNAPSHOT_RECORD=all`
     # locally and we translate it to `TEST_RUNNER_SNAPSHOT_TESTING_RECORD`
-    # which the swift-snapshot-testing runtime reads on first access.
+    # which the swift-snapshot-testing runtime reads on first access. It must
+    # be exported: passed as a build setting it never reached the app-hosted
+    # runner, so record runs silently compared instead (2026-09-29).
     if [[ -n "${OPENBURNBAR_SNAPSHOT_RECORD:-}" ]]; then
-        xcodebuild_args+=("TEST_RUNNER_SNAPSHOT_TESTING_RECORD=${OPENBURNBAR_SNAPSHOT_RECORD}")
+        export TEST_RUNNER_SNAPSHOT_TESTING_RECORD="${OPENBURNBAR_SNAPSHOT_RECORD}"
     fi
     if [[ "${TEST_RUNNER_OPENBURNBAR_SKIP_SNAPSHOTS:-}" == "true" ]]; then
         # Exported TEST_RUNNER_* values are not forwarded consistently by

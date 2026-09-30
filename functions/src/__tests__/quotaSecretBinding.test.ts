@@ -35,8 +35,8 @@ import {
   providerAccountSecretRefPath,
   refreshUserProviderAccountQuota,
   refreshUserProviderQuota,
-  type QuotaFirestoreLike,
 } from "../../../packages/functions-shared/src/quota.js";
+import { quotaFirestore } from "./bola/callableBolaHarness.js";
 
 const UID = "quota-secret-user";
 const ACCOUNT_ID = "openai_default";
@@ -110,38 +110,6 @@ function quotaSnapshot() {
   };
 }
 
-function quotaTestFirestore(store: Map<string, Record<string, unknown>>): QuotaFirestoreLike {
-  const writeDoc = (path: string, data: object, merge = false) => {
-    const next = Object.fromEntries(Object.entries(data));
-    store.set(path, merge ? { ...store.get(path), ...next } : next);
-  };
-  const doc = (path: string) => ({
-    get: async () => {
-      const data = store.get(path);
-      return {
-        exists: data !== undefined,
-        data: () => data,
-        get: (field: string) => data?.[field],
-      };
-    },
-    set: async (data: object, options?: { merge: boolean }) => {
-      writeDoc(path, data, options?.merge === true);
-    },
-    update: async (data: object) => {
-      writeDoc(path, data, true);
-    },
-  });
-  return {
-    doc,
-    runTransaction: async (fn) =>
-      fn({
-        get: (ref) => ref.get(),
-        set: (ref, data, options) => ref.set(data, options),
-        update: (ref, data) => ref.update(data),
-      }),
-  };
-}
-
 describe("provider account quota secret binding", () => {
   beforeEach(() => {
     vi.stubEnv("HOSTED_QUOTA_RUNNER_URL", "https://quota-runner.test");
@@ -164,7 +132,7 @@ describe("provider account quota secret binding", () => {
     seedSecretRef(store, "kimi");
     seedEntitlement(store);
 
-    const db = quotaTestFirestore(store);
+    const db = quotaFirestore(store);
 
     await expect(refreshUserProviderAccountQuota(db, UID, ACCOUNT_ID)).rejects.toThrow(
       /Secret reference does not match provider/,
@@ -179,7 +147,7 @@ describe("provider account quota secret binding", () => {
     seedSecretRef(store, "openai");
     seedEntitlement(store);
 
-    const db = quotaTestFirestore(store);
+    const db = quotaFirestore(store);
 
     const snapshot = await refreshUserProviderAccountQuota(db, UID, ACCOUNT_ID);
 
@@ -221,7 +189,7 @@ describe("provider account quota secret binding", () => {
     seedSecretRef(store, "openai");
     seedEntitlement(store);
 
-    const db = quotaTestFirestore(store);
+    const db = quotaFirestore(store);
 
     const snapshot = await refreshUserProviderQuota(db, UID, "openai");
 
@@ -255,7 +223,7 @@ describe("provider account quota secret binding", () => {
     seedSecretRef(store, "openai");
     seedEntitlement(store, "burnbar_ultra", "com.openburnbar.ultra.monthly");
 
-    const db = quotaTestFirestore(store);
+    const db = quotaFirestore(store);
 
     const snapshot = await refreshUserProviderAccountQuota(db, UID, ACCOUNT_ID);
 
@@ -274,7 +242,7 @@ describe("provider account quota secret binding", () => {
     seedSecretRef(store, "openai");
     seedEntitlement(store, "burnbar_pro_max", "com.openburnbar.proMax.bundle.monthly");
 
-    const db = quotaTestFirestore(store);
+    const db = quotaFirestore(store);
 
     const snapshot = await refreshUserProviderAccountQuota(db, UID, ACCOUNT_ID);
 
@@ -336,7 +304,7 @@ describe("provider account quota secret binding", () => {
       }),
     });
 
-    const db = quotaTestFirestore(store);
+    const db = quotaFirestore(store);
 
     const snapshot = await refreshUserProviderAccountQuota(db, UID, CLAUDE_ACCOUNT_ID);
 
@@ -390,7 +358,7 @@ describe("provider account quota secret binding", () => {
       demo: true,
     });
 
-    const db = quotaTestFirestore(store);
+    const db = quotaFirestore(store);
 
     await expect(refreshUserProviderAccountQuota(db, UID, DEMO_ACCOUNT_ID)).resolves.toBeNull();
     expect(mocks.retrieveCredential).not.toHaveBeenCalled();

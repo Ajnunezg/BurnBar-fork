@@ -682,6 +682,8 @@ check("Rust path detector is mandatory and only a proven unchanged path may skip
     MACOS_REQUIRED: "${{ needs.classify.outputs.macos }}",
     WEB_REQUIRED: "${{ needs.classify.outputs.web }}",
     CONSOLE_REQUIRED: "${{ needs.classify.outputs.console }}",
+    // Reads this run's start time for the measured wall-clock summary line.
+    GH_TOKEN: "${{ github.token }}",
   });
 });
 

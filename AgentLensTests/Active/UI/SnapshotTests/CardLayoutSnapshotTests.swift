@@ -11,7 +11,7 @@ import GRDB
 @MainActor
 final class CardLayoutSnapshotTests: XCTestCase {
 
-    func test_insightBriefCard() {
+    func test_insightBriefCard() throws {
         let view = InsightBriefCard(
             title: "Where you left off",
             bodyText: "Working on auth module in OpenBurnBar.",
@@ -19,7 +19,7 @@ final class CardLayoutSnapshotTests: XCTestCase {
             accent: .blue,
             action: {}
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 360, height: 100),
             named: SnapshotName.insightBriefCard
@@ -30,28 +30,28 @@ final class CardLayoutSnapshotTests: XCTestCase {
         let store = try makeIsolatedStore()
         store.replaceUsages(ViewTestFixtures.makeWeekOfUsages())
         let view = NarrativeCardView(dataStore: store)
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 360, height: 120),
             named: SnapshotName.narrativeCard
         )
     }
 
-    func test_chatMessageView_assistantBubble() {
+    func test_chatMessageView_assistantBubble() throws {
         let message = ViewTestFixtures.makeAssistantMessage(content: "This is an assistant reply bubble.")
         let view = ChatMessageView(
             message: message,
             isStreaming: false,
             showViaBadge: false
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 400, height: 100),
             named: SnapshotName.chatMessageAssistant
         )
     }
 
-    func test_hermesToolCard_geometry() {
+    func test_hermesToolCard_geometry() throws {
         // Verify the tool card's UnevenRoundedRectangle, border width,
         // ultraThinMaterial background, and mercury gradient stroke.
         let view = HermesToolCard(
@@ -59,7 +59,7 @@ final class CardLayoutSnapshotTests: XCTestCase {
             detail: "Replace 'foo' with 'bar' in /src/main.swift",
             isRunning: false
         )
-        XCTAssertAdaptiveSnapshot(
+        try XCTAssertAdaptiveSnapshot(
             of: view,
             size: CGSize(width: 320, height: 70),
             named: "hermesToolCard.geometry"

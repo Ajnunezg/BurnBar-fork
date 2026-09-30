@@ -1,5 +1,5 @@
-import CryptoKit
 import Foundation
+import OpenBurnBarInsights
 import OpenBurnBarKernel
 import OpenBurnBarLogParsers
 import OpenBurnBarUI
@@ -109,25 +109,37 @@ struct OpenBurnBarDaemonRuntimeSnapshot: Equatable {
     let providerConfigurations: [OpenBurnBarDaemonProviderConfiguration]
     let recentUsage: [OpenBurnBarDaemonRecentUsage]
     let ledgerRecordCount: Int
+    /// Rows whose ledger sums changed since the last import, with full totals.
     let importedUsages: [TokenUsage]
+    /// Rows the retired RPC import keyed differently for the same events;
+    /// deleted when `importedUsages` is written.
+    let supersededUsages: [DaemonUsageLedgerImporter.SupersededRow]
 
     init(
         providerConfigurations: [OpenBurnBarDaemonProviderConfiguration],
         recentUsage: [OpenBurnBarDaemonRecentUsage],
         ledgerRecordCount: Int,
-        importedUsages: [TokenUsage] = []
+        importedUsages: [TokenUsage] = [],
+        supersededUsages: [DaemonUsageLedgerImporter.SupersededRow] = []
     ) {
         self.providerConfigurations = providerConfigurations
         self.recentUsage = recentUsage
         self.ledgerRecordCount = ledgerRecordCount
         self.importedUsages = importedUsages
+        self.supersededUsages = supersededUsages
     }
 }
 
+/// Daemon spend reaches `token_usage` one way: the append-only ledger file,
+/// read by watermark through `DaemonUsageLedgerImporter` (one identity per
+/// event — its idempotency key — and summed rows). The `daemon.usage.recent`
+/// RPC only feeds the recent-usage list; importing its newest-20 window as
+/// well collapsed same-session requests and double counted against the file.
 final class OpenBurnBarDaemonUsageSyncService {
     private let paths: OpenBurnBarDaemonRuntimePaths
     private let fileManager: FileManager
     private let decoder = JSONDecoder()
+    private let ledgerImporter = Locked(DaemonUsageLedgerImporter())
 
     init(
         paths: OpenBurnBarDaemonRuntimePaths = .live(),
@@ -137,34 +149,25 @@ final class OpenBurnBarDaemonUsageSyncService {
         self.fileManager = fileManager
     }
 
+    /// Local fallback: provider configuration and recent usage come from the
+    /// daemon's files.
     @discardableResult
     func refreshState(
         insertUsages: (([TokenUsage]) throws -> Void)? = nil,
         refreshUsageCache: (() -> Void)? = nil
     ) -> OpenBurnBarDaemonRuntimeSnapshot {
-        let usageRecords = loadUsageRecords()
-        let importedUsages = usageRecords.compactMap { tokenUsage(from: $0) }
-
-        if let insertUsages, !importedUsages.isEmpty {
-            do {
-                try insertUsages(importedUsages)
-                refreshUsageCache?()
-            } catch {
-                AppLogger.dataStore.silentFailure("insertUsages(refreshState)", error: error)
-            }
-        }
-
+        let pass = importLedger(insertUsages: insertUsages, refreshUsageCache: refreshUsageCache)
         return OpenBurnBarDaemonRuntimeSnapshot(
             providerConfigurations: providerConfigurations(from: loadProviderConfigurationSnapshot()),
-            recentUsage: Array(usageRecords
-                .compactMap { recentUsage(from: $0) }
-                .sorted { $0.recordedAt > $1.recordedAt }
-                .prefix(6)),
-            ledgerRecordCount: importedUsages.count,
-            importedUsages: importedUsages
+            recentUsage: pass.recentRecords.compactMap { recentUsage(from: $0) },
+            ledgerRecordCount: pass.recordCount,
+            importedUsages: pass.changedRows,
+            supersededUsages: pass.supersededRows
         )
     }
 
+    /// Healthy daemon: provider configuration and recent usage come over RPC;
+    /// spend is still imported from the ledger.
     @discardableResult
     func runtimeSnapshot(
         from configSnapshot: BurnBarProviderConfigurationSnapshot,
@@ -172,26 +175,40 @@ final class OpenBurnBarDaemonUsageSyncService {
         insertUsages: (([TokenUsage]) throws -> Void)? = nil,
         refreshUsageCache: (() -> Void)? = nil
     ) -> OpenBurnBarDaemonRuntimeSnapshot {
-        let importedUsages = usageEvents.compactMap { tokenUsage(from: $0) }
-
-        if let insertUsages, !importedUsages.isEmpty {
-            do {
-                try insertUsages(importedUsages)
-                refreshUsageCache?()
-            } catch {
-                AppLogger.dataStore.silentFailure("insertUsages(runtimeSnapshot)", error: error)
-            }
-        }
-
+        let pass = importLedger(insertUsages: insertUsages, refreshUsageCache: refreshUsageCache)
         return OpenBurnBarDaemonRuntimeSnapshot(
             providerConfigurations: providerConfigurations(from: configSnapshot),
             recentUsage: Array(usageEvents
                 .compactMap { recentUsage(from: $0) }
                 .sorted { $0.recordedAt > $1.recordedAt }
-                .prefix(6)),
-            ledgerRecordCount: importedUsages.count,
-            importedUsages: importedUsages
+                .prefix(DaemonUsageLedgerImporter.recentLimit)),
+            ledgerRecordCount: pass.recordCount,
+            importedUsages: pass.changedRows,
+            supersededUsages: pass.supersededRows
         )
+    }
+
+    /// The last pass's rows were not stored: rebuild every row next pass.
+    func invalidateLedgerImport() {
+        ledgerImporter.withLock { $0.invalidate() }
+    }
+
+    private func importLedger(
+        insertUsages: (([TokenUsage]) throws -> Void)?,
+        refreshUsageCache: (() -> Void)?
+    ) -> DaemonUsageLedgerImporter.Pass {
+        let ledgerURL = paths.usageLedgerURL
+        let pass = ledgerImporter.withLock { $0.importNewRecords(from: ledgerURL) }
+        if let insertUsages, !pass.changedRows.isEmpty {
+            do {
+                try insertUsages(pass.changedRows)
+                refreshUsageCache?()
+            } catch {
+                invalidateLedgerImport()
+                AppLogger.dataStore.silentFailure("insertUsages(daemonLedger)", error: error)
+            }
+        }
+        return pass
     }
 
     private func loadProviderConfigurationSnapshot() -> BurnBarProviderConfigurationSnapshot {
@@ -261,162 +278,6 @@ final class OpenBurnBarDaemonUsageSyncService {
             .sorted { providerSortOrder($0.provider) < providerSortOrder($1.provider) }
     }
 
-    private func loadUsageRecords() -> [StoredUsageRecord] {
-        guard fileManager.fileExists(atPath: paths.usageLedgerURL.path) else {
-            return []
-        }
-
-        guard let fileContents = try? String(contentsOf: paths.usageLedgerURL, encoding: .utf8) else { // try?-ok(best-effort ledger read)
-            return []
-        }
-
-        return fileContents
-            .split(whereSeparator: \.isNewline)
-            .compactMap { line in
-                // try?-ok(optional usage parse)
-                try? decoder.decode(StoredUsageRecord.self, from: Data(line.utf8))
-            }
-    }
-
-    private func tokenUsage(from event: BurnBarUsageEvent) -> TokenUsage? {
-        guard let provider = agentProvider(for: event.providerID) else {
-            return nil
-        }
-
-        let sessionID = event.sessionID
-            ?? event.runID?.rawValue
-            ?? "\(provider.rawValue.lowercased())-\(event.recordedAt.timeIntervalSince1970)"
-        let identityValue = event.sessionID
-            ?? event.runID?.rawValue
-            ?? "\(event.providerID)|\(event.modelID)|\(event.recordedAt.timeIntervalSince1970)"
-        let projectName = event.projectName ?? defaultProjectName(for: provider)
-        return TokenUsage(
-            id: deterministicUUID(for: identityValue),
-            provider: provider,
-            sessionId: sessionID,
-            projectName: projectName,
-            model: event.modelID,
-            inputTokens: event.inputTokens,
-            outputTokens: event.outputTokens,
-            cacheCreationTokens: event.cacheCreationTokens,
-            cacheReadTokens: event.cacheReadTokens,
-            reasoningTokens: event.reasoningTokens,
-            costUSD: event.cost,
-            startTime: event.recordedAt,
-            endTime: event.recordedAt,
-            usageSource: .daemon,
-            executionSourceID: event.executionSourceID,
-            executionSourceName: event.executionSourceName,
-            executionSourceKind: event.executionSourceKind,
-            executionSourceConfidence: event.executionSourceConfidence.map(provenanceConfidence(from:)),
-            // The credential slot the router picked, so daemon-routed burn is
-            // attributed to a specific account instead of the provider total.
-            providerAccountID: event.providerAccountID,
-            providerAccountLabel: event.providerAccountLabel,
-            providerAccountSource: event.providerAccountID == nil ? nil : .deviceKeychain,
-            provenanceMethod: provenanceMethod(for: provider, confidence: event.confidence),
-            provenanceConfidence: provenanceConfidence(from: event.confidence),
-            // The Elder Wand fusion linkage. It rides the daemon event directly,
-            // so imported rows carry it into the v49 `parentRequestID` column and
-            // the period fusion/normal partition becomes a real SQL query.
-            parentRequestID: event.parentRequestID,
-            // Billing provenance rides the event too. Dropping it here would let
-            // the store's write-time fallback re-derive `.api` from
-            // `usageSource == .daemon`, silently turning a subscription-routed
-            // event into real wallet spend; `effectiveKind` honours the stamp and
-            // falls back to the legacy classifier only for unstamped rows.
-            billingKind: BurnBarBillingProvenance.effectiveKind(of: event)
-        )
-    }
-
-    private func tokenUsage(from record: StoredUsageRecord) -> TokenUsage? {
-        guard let provider = agentProvider(for: record.event.providerID) else {
-            return nil
-        }
-
-        let sessionID = record.event.sessionID
-            ?? record.event.runID?.rawValue
-            ?? record.idempotencyKey
-        let projectName = record.event.projectName ?? defaultProjectName(for: provider)
-        return TokenUsage(
-            id: deterministicUUID(for: record.idempotencyKey),
-            provider: provider,
-            sessionId: sessionID,
-            projectName: projectName,
-            model: record.event.modelID,
-            inputTokens: record.event.inputTokens,
-            outputTokens: record.event.outputTokens,
-            cacheCreationTokens: record.event.cacheCreationTokens,
-            cacheReadTokens: record.event.cacheReadTokens,
-            reasoningTokens: record.event.reasoningTokens,
-            costUSD: record.event.cost,
-            startTime: record.event.recordedAt,
-            endTime: record.event.recordedAt,
-            usageSource: .daemon,
-            executionSourceID: record.event.executionSourceID,
-            executionSourceName: record.event.executionSourceName,
-            executionSourceKind: record.event.executionSourceKind,
-            executionSourceConfidence: record.event.executionSourceConfidence.map(provenanceConfidence(from:)),
-            providerAccountID: record.event.providerAccountID,
-            providerAccountLabel: record.event.providerAccountLabel,
-            providerAccountSource: record.event.providerAccountID == nil ? nil : .deviceKeychain,
-            provenanceMethod: provenanceMethod(for: provider, confidence: record.event.confidence),
-            provenanceConfidence: provenanceConfidence(from: record.event.confidence),
-            // Prefer the event's own parentRequestID; fall back to parsing it
-            // from the idempotency-key signature (`<parentRequestID>|panel|…`)
-            // on raw ledger lines that predate the explicit field.
-            parentRequestID: record.event.parentRequestID
-                ?? Self.fusionParentRequestID(fromIdempotencyKey: record.idempotencyKey),
-            // Same stamp-preserving rule as the live-event path above: a ledger
-            // line that says `.subscription` must not be imported as API dollars.
-            billingKind: BurnBarBillingProvenance.effectiveKind(of: record.event)
-        )
-    }
-
-    /// Extracts the Elder Wand fusion `parentRequestID` from a recorded
-    /// idempotency key whose signature is `<parentRequestID>|<stage>|<model>|<index>`.
-    /// Returns `nil` unless the leading segment is an `elderwand-` parent, so a
-    /// normal request's key never masquerades as a fusion row.
-    static func fusionParentRequestID(fromIdempotencyKey key: String) -> String? {
-        let head = key.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? key
-        return head.hasPrefix(FusionUsageRow.fusionParentPrefix) ? head : nil
-    }
-
-    private func defaultProjectName(for provider: AgentProvider) -> String {
-        switch provider {
-        case .hermes: return "Hermes"
-        default: return "OpenBurnBar Daemon"
-        }
-    }
-
-    private func provenanceMethod(
-        for provider: AgentProvider,
-        confidence: BurnBarUsageConfidence
-    ) -> UsageProvenanceMethod {
-        switch provider {
-        case .hermes:
-            switch confidence {
-            case .exact, .derivedExact: return .providerLog
-            case .highConfidenceEstimate, .lowConfidenceEstimate: return .heuristicEstimate
-            case .unknown: return .daemonBridge
-            }
-        default:
-            return .daemonBridge
-        }
-    }
-
-    private func provenanceConfidence(
-        from confidence: BurnBarUsageConfidence
-    ) -> UsageProvenanceConfidence {
-        switch confidence {
-        case .exact: return .exact
-        case .derivedExact: return .derivedExact
-        case .highConfidenceEstimate: return .highConfidenceEstimate
-        case .lowConfidenceEstimate: return .lowConfidenceEstimate
-        case .unknown: return .unknown
-        }
-    }
-
     private func recentUsage(from event: BurnBarUsageEvent) -> OpenBurnBarDaemonRecentUsage? {
         guard let provider = agentProvider(for: event.providerID) else {
             return nil
@@ -432,7 +293,7 @@ final class OpenBurnBarDaemonUsageSyncService {
         )
     }
 
-    private func recentUsage(from record: StoredUsageRecord) -> OpenBurnBarDaemonRecentUsage? {
+    private func recentUsage(from record: DaemonUsageLedgerImporter.LedgerRecord) -> OpenBurnBarDaemonRecentUsage? {
         guard let provider = agentProvider(for: record.event.providerID) else {
             return nil
         }
@@ -445,18 +306,6 @@ final class OpenBurnBarDaemonUsageSyncService {
             cost: record.event.cost,
             recordedAt: record.event.recordedAt
         )
-    }
-
-    private func deterministicUUID(for value: String) -> UUID {
-        let digest = Insecure.MD5.hash(data: Data(value.utf8))
-        let bytes = Array(digest)
-        return UUID(uuid: (
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5],
-            bytes[6], bytes[7],
-            bytes[8], bytes[9],
-            bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
-        ))
     }
 
     private func agentProvider(for providerID: String) -> AgentProvider? {
@@ -507,9 +356,4 @@ struct StoredProviderSettings: Codable {
         preferredCredentialSlotID = try container.decodeIfPresent(String.self, forKey: .preferredCredentialSlotID)
         credentialSlots = try container.decodeIfPresent([BurnBarProviderCredentialSlot].self, forKey: .credentialSlots) ?? []
     }
-}
-
-struct StoredUsageRecord: Codable {
-    let idempotencyKey: String
-    let event: BurnBarUsageEvent
 }

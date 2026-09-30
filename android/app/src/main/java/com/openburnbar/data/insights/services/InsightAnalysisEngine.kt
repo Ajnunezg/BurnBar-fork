@@ -17,6 +17,7 @@ import com.openburnbar.data.repos.InsightAnalysisAuditLogRepository
 import com.openburnbar.data.repos.InsightAnalysisCacheRepository
 import java.time.Instant
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -61,14 +62,18 @@ class AndroidInsightAnalysisEngine(
         val startedAt = androidInsightStartedAt()
         val startedEntry = buildStartedAndroidAuditEntry(request, auditID, startedAt)
         auditLog?.upsertLatest(startedEntry)
-        return try {
+        // Every exit settles the STARTED row: a network or HTTP failure, a
+        // local-only refusal, a paywall, or cancellation must never leave the
+        // audit trail claiming the run is still in flight.
+        return runCatching {
             completeAndroidInsightAnalysis(this, request, startedEntry, auditID, cache, auditLog)
-        } catch (t: BurnBarProSubscriptionRequiredException) {
-            recordAndroidInsightPaywallFailure(auditLog, startedEntry, t)
-            throw t
+        }.getOrElse { failure ->
+            recordAndroidInsightFailure(auditLog, startedEntry, failure)
+            throw failure
         }
     }
 
+    @Suppress("TooGenericExceptionCaught") // reason: any follow-up route failure must reach the disclosed hosted/local fallback.
     internal suspend fun executeSelectedModel(request: InsightAnalysisRequest): InsightAnalysisResult {
         if (restrictToLocalOnly && request.selectedModel.egressTier != InsightEgressTier.LOCAL_ONLY) {
             error("${request.selectedModel.displayName} cannot be used while local-only mode is enabled.")
@@ -113,8 +118,14 @@ class AndroidInsightAnalysisEngine(
             } else {
                 throw paywall
             }
-        } catch (t: BurnBarProSubscriptionRequiredException) {
-            tryHostedThenLocalFallback(request, t.message ?: t.javaClass.simpleName)
+        } catch (failure: Exception) {
+            // A follow-up whose own route fails (network, HTTP status) rides the
+            // hosted route, then disclosed local rules. A brief propagates the
+            // original failure so the caller settles it as an error.
+            if (failure is CancellationException || request.instruction != InsightAnalysisRequest.Instruction.ANSWER_FOLLOW_UP) {
+                throw failure
+            }
+            tryHostedThenLocalFallback(request, failure.message ?: failure.javaClass.simpleName)
         }
     }
 

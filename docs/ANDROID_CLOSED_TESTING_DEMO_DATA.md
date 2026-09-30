@@ -41,8 +41,8 @@ documents remain untouched.
 - Testers use their own Google accounts, so Firebase Auth/App Check/Firestore
   owner rules are exercised exactly like production.
 - No shared credentials are distributed.
-- Android screens receive realistic Firestore data shapes that match
-  `functions/src/types.ts`, the canonical schema.
+- Android screens receive realistic Firestore data shapes that match the
+  TypeSpec schema canon in `tools/schema-sync/typespec/`.
 - The demo can be reloaded idempotently if a tester needs to reset their sample
   workspace.
 

@@ -32,6 +32,28 @@ final class ConversationRetentionTests: XCTestCase {
         )
     }
 
+    /// `chunk_embeddings.embeddingVersionID` references `embedding_versions(id)`
+    /// (which references `embedding_models(id)`), and GRDB enforces foreign
+    /// keys, so the embedding lineage must exist before any embedding row.
+    private func insertEmbeddingLineage(_ db: Database, versionID: String) throws {
+        let now = Date()
+        try db.execute(
+            sql: """
+                INSERT INTO embedding_models (id, provider, modelName, dimensions, distanceMetric, createdAt, updatedAt)
+                VALUES ('model-retention', 'test', 'test-embedding', 1, 'cosine', ?, ?)
+                """,
+            arguments: [now, now]
+        )
+        try db.execute(
+            sql: """
+                INSERT INTO embedding_versions (
+                    id, modelID, versionTag, chunkerVersion, normalizationVersion, promptVersion, isActive, createdAt, updatedAt
+                ) VALUES (?, 'model-retention', 'v1', 'chunker', 'normalizer', 'prompt', 1, ?, ?)
+                """,
+            arguments: [versionID, now, now]
+        )
+    }
+
     private func insertSearchRows(_ db: Database, conversationID: String, chunkID: String, docID: String) throws {
         let now = Date()
         try db.execute(
@@ -78,6 +100,7 @@ final class ConversationRetentionTests: XCTestCase {
         let young = now.addingTimeInterval(-10 * 24 * 60 * 60)
 
         try await dbQueue.write { db in
+            try self.insertEmbeddingLineage(db, versionID: "v1")
             try self.insertConversation(db, id: "old", indexedAt: old)
             try self.insertConversation(db, id: "young", indexedAt: young)
             try self.insertSearchRows(db, conversationID: "old", chunkID: "chunk-old", docID: "doc-old")

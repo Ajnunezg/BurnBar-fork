@@ -37,7 +37,7 @@ two authored here).
   Option A/B engine decision. The parser touches neither. Spending Phase-0 CI and
   review budget on it would not move the G0 go/no-go.
 - **Architecturally isolated + low risk.** Per
-  [`docs/ARCHITECTURE/010-project-code-static-parser.md`](../../ARCHITECTURE/010-project-code-static-parser.md)
+  [`docs/architecture/010-project-code-static-parser.md`](../../architecture/010-project-code-static-parser.md)
   it is a stateless stdin/stdout executable with **no** database, network, auth,
   or write path — a pure `bin`, not a `cdylib`/`staticlib` consumed over FFI. It
   has no foreign-binding surface to port and no shared-artifact byte-compat

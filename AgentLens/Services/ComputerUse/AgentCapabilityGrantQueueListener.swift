@@ -27,6 +27,9 @@ final class AgentCapabilityGrantQueueListener {
     private let receiptWriter: ReceiptPayloadWriter
     private let validator = PhoneControlAuthorityValidator()
     private let daemonPinProvisioner: DaemonPinProvisioner
+    /// Receipts are cloud writes, so queued requests are left untouched while
+    /// the master Cloud sync switch is off.
+    private let cloudSyncEnabled: @MainActor () -> Bool
     private var authHandle: AuthStateDidChangeListenerHandle?
     private var listener: ListenerRegistration?
     private var activeUID: String?
@@ -34,9 +37,11 @@ final class AgentCapabilityGrantQueueListener {
     init(
         firestoreProvider: @escaping @Sendable () -> Firestore = { Firestore.firestore() },
         receiptWriter: ReceiptPayloadWriter? = nil,
-        daemonPinProvisioner: DaemonPinProvisioner? = nil
+        daemonPinProvisioner: DaemonPinProvisioner? = nil,
+        cloudSyncEnabled: @escaping @MainActor () -> Bool = { OpenBurnBarIdentity.isCloudSyncEnabled() }
     ) {
         self.firestoreProvider = firestoreProvider
+        self.cloudSyncEnabled = cloudSyncEnabled
         self.daemonPinProvisioner = daemonPinProvisioner ?? { request in
             _ = try await OpenBurnBarDaemonManager.shared.provisionPhoneControlPin(request)
         }
@@ -89,13 +94,18 @@ final class AgentCapabilityGrantQueueListener {
 
     private func process(document: QueryDocumentSnapshot, uid: String) async {
         let requestPath = document.reference.path
+        await process(data: document.data(), requestPath: requestPath, uid: uid)
+    }
+
+    func process(data: UntypedJSONObject, requestPath: String, uid: String) async {
+        guard cloudSyncEnabled() else { return }
         do {
-            let wireRequest = try decodeWireRequest(from: document.data())
+            let wireRequest = try decodeWireRequest(from: data)
             let receipt = try await verifiedReceipt(for: wireRequest, uid: uid)
             try await write(receipt: receipt, to: requestPath)
         } catch {
             await writeDenialReceipt(
-                forData: document.data(),
+                forData: data,
                 message: error.localizedDescription,
                 to: requestPath
             )

@@ -30,6 +30,7 @@ extension TokenUsage {
             cacheReadTokens: cacheReadTokens,
             reasoningTokens: reasoningTokens,
             costUSD: cost,
+            pricingSource: pricingSource,
             startTime: startTime,
             endTime: endTime,
             createdAt: createdAt,
@@ -51,7 +52,7 @@ extension TokenUsage {
             eventKind: eventKind,
             idempotencyKey: idempotencyKey,
             provenanceMethod: provenanceMethod,
-            provenanceConfidence: provenanceConfidence,
+            provenanceConfidence: tokenConfidence,
             estimatorVersion: estimatorVersion,
             parentRequestID: parentRequestID,
             billingKind: billingKind
