@@ -76,7 +76,7 @@ Every candidate was checked for references before removal: its full path, and
 every path suffix down to its file name, across all tracked files
 (`git grep -F`), plus the gates that read the directory.
 
-Removed (41 files, about 41 MB of checkout):
+Removed (39 files, about 41 MB of checkout):
 
 | Path | Why it could go |
 | --- | --- |
@@ -84,7 +84,6 @@ Removed (41 files, about 41 MB of checkout):
 | `.appstore-screenshots/insights-editorial/` (12 PNG, 2.8 MB) | Output of `IntelligenceBriefSnapshotTests` (iOS) and `IntelligenceBriefScreenTest` (Android); rewritten on every run and read by nothing. Now ignored. |
 | `.playwright-cli/` (13 files, 2.0 MB) | Playwright CLI session snapshots from July; already in `.gitignore`. |
 | `test/fixtures/ios-fix/` (9 files, 14.6 MB) | Pre-fix device captures of a Mercury bug, including personal device names. No test reads them. Retrievable from history at `1ac238efc5`. |
-| `docs/linux-port/evidence/mission-002-reanchor/smoke/*.log` (2 files) | Regenerable output of `scripts/linux-port/smoke-linux-packages.mjs`; no ledger, manifest, or gate cites them, and they violated the existing `*.log` ignore rule. The JSON summaries beside them stay. |
 
 The root-inventory ratchet (`governance/root-inventory.json`) was lowered from
 64 to 62 directories in the same change, because `.playwright-cli/` and `test/`
@@ -95,6 +94,7 @@ Kept on purpose:
 | Path | Why it stays |
 | --- | --- |
 | 308 logs under `docs/windows-port/evidence/` and 2 ledger-cited logs under `docs/linux-port/evidence/` | Every one is referenced from inside its own evidence bundle: hashed in `SHA256SUMS`, listed in a receipt, manifest, or evidence summary, or cited by the bundle's evidence documents (the two Linux logs back parity-ledger rows VAL-OPS-002 and VAL-EXTENSION-001). Deleting a hashed log breaks `node scripts/windows-port/validate-release-certification-evidence.mjs <bundle>` for that bundle and erases part of a recorded failure. `.gitignore` already ignores every other `*.log`. |
+| `docs/linux-port/evidence/mission-002-reanchor/smoke/*.log` (2 files) | Removed in the first pass, restored in review: they are the point-in-time capture behind the recorded blocked-rollback verdict. Frozen evidence is superseded by a dated record, never deleted, even when no gate cites it. |
 | The rest of `docs/windows-port/` and `docs/linux-port/` | Parity-ledger gates (`scripts/ci/verify-windows-parity-ledger.py`, `scripts/linux-port/validate-parity-ledger.mjs`) require the cited evidence files to exist. |
 | `Vendor/*.aar` (95 MB at HEAD) | Android build inputs, verified by `Vendor/CHECKSUMS.sha256`. |
 | `.appstore-screenshots/*.png`, `.appstore-screenshots/review-final/` | Upload inputs for `tools/app-store-connect/`. |
