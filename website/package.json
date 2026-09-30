@@ -100,7 +100,10 @@
     "fast-uri": "3.1.8",
     "brace-expansion": "^5.0.9",
     "minimatch": "^10.0.3",
-    "devalue": "5.9.2"
+    "devalue": "5.9.2",
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.13.6"
+    }
   },
   "engines": {
     "node": ">=22.19.0"

@@ -69,7 +69,10 @@
     "postcss": "8.5.28",
     "sharp": "0.35.4",
     "brace-expansion": "^5.0.9",
-    "minimatch": "^10.0.3"
+    "minimatch": "^10.0.3",
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.13.6"
+    }
   },
   "license": "AGPL-3.0-only"
 }
