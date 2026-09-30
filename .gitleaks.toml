@@ -227,7 +227,7 @@ description = "Firebase web client config is public by design (it ships in every
 condition = "AND"
 regexTarget = "match"
 regexes = [
-  '''AIza[0-9A-Za-z_-]{35}''',
+  '''AIzaSyBiAIHwf1MKZ6LN5HrsaPYsAR3UTe8hyw4''',
 ]
 paths = [
   '''config/firebase-web-public\.json''',
