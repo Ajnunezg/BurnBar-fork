@@ -28,6 +28,8 @@ public struct FirestoreUsageEventDoc: Codable, Sendable, Equatable {
     public var recordedAt: String
     public var eventKind: String?
     public var idempotencyKey: String?
+    public var pricingSource: String?
+    public var tokenConfidence: String?
 }
 
 public struct FirestoreQuotaBucket: Codable, Sendable, Equatable {

@@ -26,6 +26,8 @@ export interface UsageEventDoc {
   recordedAt: string;
   eventKind?: string;
   idempotencyKey?: string;
+  pricingSource?: string;
+  tokenConfidence?: string;
 }
 
 export interface QuotaSnapshotDoc {

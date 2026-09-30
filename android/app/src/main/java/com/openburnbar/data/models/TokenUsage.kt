@@ -80,6 +80,12 @@ data class TokenUsage(
     val cost: Double? = null,
     @PropertyName("provenanceConfidence")
     val provenanceConfidence: String? = null,
+    /** Where the cost came from (catalog, fallback, reported, unknown). Absent on legacy docs. */
+    @PropertyName("pricingSource")
+    val pricingSource: String? = null,
+    /** Confidence in the token counts alone. Absent on legacy docs. */
+    @PropertyName("tokenConfidence")
+    val tokenConfidence: String? = null,
     @PropertyName("provenanceMethod")
     val provenanceMethod: String? = null,
     @PropertyName("user_display_id")

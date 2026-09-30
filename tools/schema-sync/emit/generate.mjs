@@ -43,6 +43,8 @@ const domains = {
   recordedAt: string;
   eventKind?: string;
   idempotencyKey?: string;
+  pricingSource?: string;
+  tokenConfidence?: string;
 }`,
         swift: `/// Firestore: users/{uid}/usage/{docId}
 public struct FirestoreUsageEventDoc: Codable, Sendable, Equatable {
@@ -69,6 +71,8 @@ public struct FirestoreUsageEventDoc: Codable, Sendable, Equatable {
     public var recordedAt: String
     public var eventKind: String?
     public var idempotencyKey: String?
+    public var pricingSource: String?
+    public var tokenConfidence: String?
 }`,
         kotlin: `@Keep
 @IgnoreExtraProperties
@@ -99,6 +103,8 @@ data class FirestoreUsageEventDoc(
     val recordedAt: String = "",
     val eventKind: String? = null,
     val idempotencyKey: String? = null,
+    val pricingSource: String? = null,
+    val tokenConfidence: String? = null,
 )`,
       },
       QuotaSnapshotDoc: {

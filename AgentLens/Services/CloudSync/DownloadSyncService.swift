@@ -507,6 +507,13 @@ final class DownloadSyncService: CloudSyncDomain, Sendable {
                 // would have, rather than this device guessing differently.
                 let billingKind = (data["billingKind"] as? String)
                     .flatMap { BurnBarBillingKind(rawValue: $0) } ?? .unknown
+                // Pricing provenance, so a fallback-priced estimate never
+                // arrives as exact spend. Docs uploaded before these fields
+                // existed keep the historical reading: exact tokens, unknown pricing.
+                let pricingSource = (data["pricingSource"] as? String)
+                    .flatMap { UsagePricingSource(rawValue: $0) } ?? .unknown
+                let tokenConfidence = (data["tokenConfidence"] as? String)
+                    .flatMap { UsageProvenanceConfidence(rawValue: $0) } ?? .exact
 
                 // Partition the local row id by origin device: local rows hash
                 // their identity with sourceDeviceId == nil, so preserving the
@@ -535,6 +542,7 @@ final class DownloadSyncService: CloudSyncDomain, Sendable {
                         costUsd: data["costUsd"] as? Double,
                         cost: data["cost"] as? Double
                     ),
+                    pricingSource: pricingSource,
                     startTime: startTime,
                     endTime: (data["endTime"] as? Timestamp)?.dateValue() ?? startTime,
                     usageSource: usageSource,
@@ -550,7 +558,7 @@ final class DownloadSyncService: CloudSyncDomain, Sendable {
                     providerAccountLabel: data["providerAccountLabel"] as? String,
                     providerAccountSource: providerAccountSource,
                     provenanceMethod: .cloudSync,
-                    provenanceConfidence: .exact,
+                    provenanceConfidence: tokenConfidence,
                     billingKind: billingKind
                 )
                 try await context.dataStore.insertRemoteUsage(usage)
