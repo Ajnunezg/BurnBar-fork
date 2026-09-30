@@ -140,7 +140,8 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
     "",
     `- Drill id: \`${drillId}\``,
     `- Webhook fingerprint: \`${sent.webhookFingerprint}\` (sha256 prefix; the URL is never printed)`,
-    `- Slack answered HTTP ${sent.status}. That proves acceptance, not that a human saw it.`,
+    // Only local values reach the summary file: the 2xx is implied by `sent.ok`.
+    "- Slack accepted the POST (HTTP 2xx). That proves acceptance, not that a human saw it.",
     "",
     "Once the page is on your phone, record it from the release machine:",
     "",
