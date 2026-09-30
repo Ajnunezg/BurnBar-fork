@@ -270,7 +270,10 @@ jobs:
   android-dependency-health:
     name: Android Dependency Health (dependency-analysis)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Cold hosted runs compile benchmarkRelease, debug, nonMinifiedRelease,
+    # and release serially. The 20m cap killed a progressing final variant
+    # (run 36669658030), so allow the complete analysis to finish.
+    timeout-minutes: 45
     env:
       TRUSTED_PR_SECRET_RUN: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)) }}
       HAS_ANDROID_FIREBASE_SECRET: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 != '' }}
@@ -293,6 +296,9 @@ jobs:
           OPENBURNBAR_ANDROID_FIREBASE_STRICT: "true"
         run: bash ./scripts/ci/inject-firebase-config-android.sh
 
+      - name: Self-test dependency-analysis failure propagation
+        run: node --test scripts/ci/android-dependency-health.test.mjs
+
       - name: Run dependency-analysis buildHealth
         run: |
           set -euo pipefail
@@ -312,7 +318,7 @@ jobs:
           ./gradlew :app:projectHealth --no-daemon --max-workers=1 \
             -Dorg.gradle.jvmargs=-Xmx6g \
             -Pkotlin.compiler.execution.strategy=in-process \
-            2>&1 | tee ../android-dep-health.txt || true
+            2>&1 | tee ../android-dep-health.txt
           if grep -qE "^BUILD FAILED" ../android-dep-health.txt; then
             echo "::error::Android dependency-analysis buildHealth FAILED. Review android-dep-health artifact."
             exit 1
