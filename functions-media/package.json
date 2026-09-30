@@ -46,7 +46,7 @@
     "brace-expansion@^1.1.7": "file:vendor/openburnbar/brace-expansion-cjs.tgz",
     "brace-expansion": "^5.0.9",
     "minimatch": "^10.0.3",
-    "ip-address": "10.5.1",
+    "ip-address": "10.7.1",
     "undici@^6.19.0": "6.28.1"
   },
   "license": "AGPL-3.0-only"
