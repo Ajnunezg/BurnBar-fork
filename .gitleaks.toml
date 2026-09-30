@@ -241,6 +241,7 @@ regexes = [
   '''AIzaSyBiAIHwf1MKZ6LN5HrsaPYsAR3UTe8hyw4''',
 ]
 paths = [
+  '''config/firebase-web-public\.json''',
   '''website/src/lib/firebaseClient\.ts''',
   '''website/scripts/test-firebase-config\.mjs''',
   '''website/dist/_assets/firebaseClient\.[A-Za-z0-9_-]+\.js''',
