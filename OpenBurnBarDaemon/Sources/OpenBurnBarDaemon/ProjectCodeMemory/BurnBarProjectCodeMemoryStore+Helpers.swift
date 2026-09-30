@@ -164,43 +164,119 @@ extension BurnBarProjectCodeMemoryStore {
         }
     }
 
-    static func enumerateIndexableFiles(root: URL, maxFiles: Int) -> [URL] {
-        let patterns = gitignorePatterns(root: root)
+    /// Walks the tree breadth-first, streaming each directory's children and
+    /// resolving ignores `batchSize` entries at a time, so memory is bounded
+    /// by the batch rather than by how wide a directory is, and each batch is
+    /// one git call when git has to be asked. At most `maxPendingDirectories`
+    /// directories wait to be walked; like `maxFiles`, directories past that
+    /// cap are skipped rather than held in memory.
+    static func enumerateIndexableFiles(
+        root: URL,
+        maxFiles: Int,
+        batchSize: Int = 4_096,
+        maxPendingDirectories: Int = 16_384
+    ) -> [URL] {
         let canonicalRoot = root.resolvingSymlinksInPath().standardizedFileURL
-        let gitIgnored = gitIgnoredPaths(root: canonicalRoot)
-        let useGitIgnore = isGitWorktree(root: canonicalRoot)
-        guard let enumerator = FileManager.default.enumerator(
-            at: root,
-            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
-
+        var ignoreRules = IgnoreRules(root: canonicalRoot, patterns: gitignorePatterns(root: root))
         var files: [URL] = []
-        for case let url as URL in enumerator {
-            if files.count >= maxFiles { break }
-            guard let relativePath = relativePath(url, root: canonicalRoot) else {
-                if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
-                    enumerator.skipDescendants()
+        var directories = [root]
+        var nextDirectory = 0
+        var batch: [IgnoreCandidate] = []
+
+        func resolveBatch() {
+            let ignored = ignoreRules.ignored(batch)
+            for entry in batch where ignored.contains(entry.relativePath) == false {
+                if entry.isDirectory {
+                    if directories.count - nextDirectory < maxPendingDirectories {
+                        directories.append(entry.url)
+                    }
+                    continue
                 }
+                guard files.count < maxFiles,
+                      indexedExtensions.contains(entry.url.pathExtension.lowercased()),
+                      isWithinRoot(entry.url.resolvingSymlinksInPath().standardizedFileURL, root: canonicalRoot)
+                else { continue }
+                files.append(entry.url)
+            }
+            batch.removeAll(keepingCapacity: true)
+        }
+
+        while files.count < maxFiles {
+            guard nextDirectory < directories.count else {
+                // Pending entries may still hold directories to walk.
+                guard batch.isEmpty == false else { break }
+                resolveBatch()
                 continue
             }
-            if let resource = try? url.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey]),
-               resource.isDirectory == true {
-                if ignoredDirectories.contains(url.lastPathComponent)
-                    || isGitIgnored(relativePath, isDirectory: true, ignoredPaths: gitIgnored)
-                    || (useGitIgnore == false && isIgnored(relativePath, isDirectory: true, patterns: patterns)) {
-                    enumerator.skipDescendants()
-                }
-                continue
+            let directory = directories[nextDirectory]
+            nextDirectory += 1
+            if nextDirectory >= 1_024 {
+                directories.removeFirst(nextDirectory)
+                nextDirectory = 0
             }
-            if isGitIgnored(relativePath, isDirectory: false, ignoredPaths: gitIgnored)
-                || (useGitIgnore == false && isIgnored(relativePath, isDirectory: false, patterns: patterns)) { continue }
-            let ext = url.pathExtension.lowercased()
-            guard indexedExtensions.contains(ext) else { continue }
-            guard isWithinRoot(url.resolvingSymlinksInPath().standardizedFileURL, root: canonicalRoot) else { continue }
-            files.append(url)
+            guard let children = FileManager.default.enumerator(
+                at: directory,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]
+            ) else { continue }
+            for case let url as URL in children {
+                guard let relativePath = relativePath(url, root: canonicalRoot) else { continue }
+                let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+                if isDirectory, ignoredDirectories.contains(url.lastPathComponent) { continue }
+                batch.append(IgnoreCandidate(url: url, relativePath: relativePath, isDirectory: isDirectory))
+                if batch.count >= batchSize {
+                    resolveBatch()
+                    if files.count >= maxFiles { break }
+                }
+            }
         }
         return files
+    }
+
+    struct IgnoreCandidate {
+        let url: URL
+        let relativePath: String
+        let isDirectory: Bool
+    }
+
+    /// Git's own ignore semantics (nested .gitignore files, negations,
+    /// .git/info/exclude, the global excludes file), bounded in memory:
+    /// one `git status` listing when it fits under the helper output cap,
+    /// otherwise one `git check-ignore` call per enumeration batch. The root
+    /// .gitignore patterns are only the last resort, outside a worktree or
+    /// when git itself fails; one failed check-ignore sticks for the rest of
+    /// the walk so a hung git costs one timeout, not one per batch.
+    struct IgnoreRules {
+        let root: URL
+        let patterns: [String]
+        let isRepository: Bool
+        let statusIgnored: Set<String>?
+        private var checkIgnoreFailed = false
+
+        init(root: URL, patterns: [String]) {
+            self.root = root
+            self.patterns = patterns
+            isRepository = BurnBarProjectCodeMemoryStore.isGitWorktree(root: root)
+            statusIgnored = isRepository ? BurnBarProjectCodeMemoryStore.gitIgnoredPaths(root: root) : nil
+        }
+
+        mutating func ignored(_ entries: [IgnoreCandidate]) -> Set<String> {
+            guard entries.isEmpty == false else { return [] }
+            if let statusIgnored {
+                return Set(entries.filter {
+                    BurnBarProjectCodeMemoryStore.isGitIgnored($0.relativePath, isDirectory: $0.isDirectory, ignoredPaths: statusIgnored)
+                }.map(\.relativePath))
+            }
+            if isRepository, checkIgnoreFailed == false {
+                if let checked = BurnBarProjectCodeMemoryStore.gitCheckIgnore(root: root, paths: entries.map(\.relativePath)) {
+                    return checked
+                }
+                checkIgnoreFailed = true
+            }
+            return Set(entries.filter {
+                BurnBarProjectCodeMemoryStore.isIgnored($0.relativePath, isDirectory: $0.isDirectory, patterns: patterns)
+            }.map(\.relativePath))
+        }
     }
 
     static func language(for fileURL: URL) -> String? {
@@ -470,18 +546,10 @@ extension BurnBarProjectCodeMemoryStore {
         guard let payload = try? JSONEncoder().encode(request) else { return nil }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: helperPath)
-        let input = Pipe()
-        let output = Pipe()
-        let stderr = Pipe()
-        process.standardInput = input
-        process.standardOutput = output
-        process.standardError = stderr
-        guard runHelperProcess(process, input: input, payload: payload) else {
+        guard let outputData = runHelperProcess(process, stdin: payload + Data("\n".utf8)),
+              process.terminationStatus == 0 else {
             return nil
         }
-        guard process.terminationStatus == 0 else { return nil }
-        let outputData = output.fileHandleForReading.readDataToEndOfFile()
-        guard outputData.count <= codeHelperMaxOutputBytes() else { return nil }
         guard let line = String(data: outputData, encoding: .utf8)?
             .split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: true)
             .first,
@@ -491,7 +559,6 @@ extension BurnBarProjectCodeMemoryStore {
             response.filePath == relativePath,
             response.errors.isEmpty
         else {
-            _ = stderr.fileHandleForReading.readDataToEndOfFile()
             return nil
         }
         let language = response.language
@@ -601,15 +668,8 @@ extension BurnBarProjectCodeMemoryStore {
 
     static func gitOutput(root: URL, arguments: [String]) -> String? {
         let process = hardenedGitProcess(root: root, arguments: arguments)
-        let input = Pipe()
-        let output = Pipe()
-        process.standardInput = input
-        process.standardOutput = output
-        process.standardError = Pipe()
-        guard runHelperProcess(process, input: input, payload: Data()) else { return nil }
-        guard process.terminationStatus == 0 else { return nil }
-        let outputData = output.fileHandleForReading.readDataToEndOfFile()
-        guard outputData.count <= codeHelperMaxOutputBytes(),
+        guard let outputData = runHelperProcess(process),
+              process.terminationStatus == 0,
               let value = String(data: outputData, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
               value.isEmpty == false else {
@@ -642,29 +702,115 @@ extension BurnBarProjectCodeMemoryStore {
         return environment
     }
 
-    static func runHelperProcess(_ process: Process, input: Pipe, payload: Data) -> Bool {
+    /// Runs a helper to completion (bounded by `codeHelperTimeoutSeconds`) and
+    /// returns everything it wrote to stdout, or nil when it could not launch,
+    /// timed out, or wrote more than `maxOutputBytes`. Callers read
+    /// `terminationStatus` afterwards.
+    ///
+    /// stdout and stderr are drained while the helper runs: a pipe holds only
+    /// ~64 KB, and a helper blocked writing to a full one never exits. stderr
+    /// is discarded. When `stdin` is set, it is written verbatim (line
+    /// protocols add their own newline) from another thread so a helper that answers before it has read all of
+    /// its input cannot deadlock against us; otherwise stdin is /dev/null.
+    static func runHelperProcess(
+        _ process: Process,
+        stdin payload: Data? = nil,
+        maxOutputBytes: Int = codeHelperMaxOutputBytes()
+    ) -> Data? {
+        let input = payload.map { _ in Pipe() }
+        let output = Pipe()
+        let errorOutput = Pipe()
+        process.standardInput = input ?? FileHandle.nullDevice
+        process.standardOutput = output
+        process.standardError = errorOutput
         do {
             try process.run()
-            input.fileHandleForWriting.write(payload)
-            input.fileHandleForWriting.write(Data("\n".utf8))
-            try? input.fileHandleForWriting.close()
         } catch {
-            return false
+            return nil
         }
-        let deadline = Date().addingTimeInterval(codeHelperTimeoutSeconds())
-        while process.isRunning, Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.01)
-        }
-        if process.isRunning {
-            process.terminate()
-            Thread.sleep(forTimeInterval: 0.05)
-            if process.isRunning {
-                process.interrupt()
+        if let input, let payload {
+            DispatchQueue.global(qos: .utility).async {
+                writeHelperInput(payload, to: input.fileHandleForWriting)
             }
-            return false
         }
-        return true
+
+        let deadline = Date().addingTimeInterval(codeHelperTimeoutSeconds())
+        var streams = [
+            pollfd(fd: output.fileHandleForReading.fileDescriptor, events: Int16(POLLIN), revents: 0),
+            pollfd(fd: errorOutput.fileHandleForReading.fileDescriptor, events: Int16(POLLIN), revents: 0)
+        ]
+        var collected = Data()
+        var buffer = [UInt8](repeating: 0, count: 64 * 1_024)
+        // Run until the helper has exited and both streams hit EOF, so no
+        // output written just before exit is lost.
+        while process.isRunning || streams.contains(where: { $0.fd >= 0 }) {
+            guard Date() < deadline else {
+                stopHelper(process)
+                return nil
+            }
+            guard poll(&streams, nfds_t(streams.count), 10) > 0 else { continue }
+            for index in streams.indices where streams[index].fd >= 0 && streams[index].revents != 0 {
+                let count = read(streams[index].fd, &buffer, buffer.count)
+                if count > 0 {
+                    guard index == 0 else { continue }
+                    collected.append(contentsOf: buffer[0..<count])
+                    if collected.count > maxOutputBytes {
+                        stopHelper(process)
+                        return nil
+                    }
+                } else if count == 0 || errno != EINTR {
+                    // EOF (or a broken stream): a negative fd makes poll skip it.
+                    streams[index].fd = -1
+                }
+            }
+        }
+        return collected
     }
+
+    private static func stopHelper(_ process: Process) {
+        guard process.isRunning else { return }
+        process.terminate()
+        Thread.sleep(forTimeInterval: 0.05)
+        if process.isRunning {
+            process.interrupt()
+        }
+    }
+
+    /// Writes to a helper's stdin pipe without ever raising SIGPIPE. EPIPE
+    /// (the helper closed stdin or already exited) surfaces as a thrown error
+    /// from `write(contentsOf:)` and is dropped: the helper's exit status is
+    /// the verdict, not whether it consumed its input.
+    private static func writeHelperInput(_ data: Data, to handle: FileHandle) {
+        defer { try? handle.close() }
+        #if canImport(Darwin)
+        _ = fcntl(handle.fileDescriptor, F_SETNOSIGPIPE, 1)
+        try? handle.write(contentsOf: data)
+        #else
+        // Linux has no per-descriptor SIGPIPE opt-out. A broken-pipe SIGPIPE
+        // is delivered to the writing thread, so block it here, then consume
+        // any instance this write raised before restoring the old mask.
+        var pipeSignal = sigset_t()
+        var previousMask = sigset_t()
+        sigemptyset(&pipeSignal)
+        sigaddset(&pipeSignal, SIGPIPE)
+        pthread_sigmask(SIG_BLOCK, &pipeSignal, &previousMask)
+        let wasAlreadyPending = isSignalPending(SIGPIPE)
+        try? handle.write(contentsOf: data)
+        if wasAlreadyPending == false, isSignalPending(SIGPIPE) {
+            var immediately = timespec(tv_sec: 0, tv_nsec: 0)
+            _ = sigtimedwait(&pipeSignal, nil, &immediately)
+        }
+        pthread_sigmask(SIG_SETMASK, &previousMask, nil)
+        #endif
+    }
+
+    #if !canImport(Darwin)
+    private static func isSignalPending(_ signal: Int32) -> Bool {
+        var pending = sigset_t()
+        sigpending(&pending)
+        return sigismember(&pending, signal) == 1
+    }
+    #endif
 
     static func tierEvidenceJSON(_ evidence: BurnBarProjectCodeTierEvidence) -> String? {
         guard let data = try? JSONEncoder().encode(evidence) else { return nil }
@@ -843,26 +989,44 @@ extension BurnBarProjectCodeMemoryStore {
         FileManager.default.fileExists(atPath: root.appendingPathComponent(".git", isDirectory: false).path)
     }
 
-    static func gitIgnoredPaths(root: URL) -> Set<String> {
-        guard isGitWorktree(root: root) else { return [] }
+    static func gitIgnoredPaths(root: URL) -> Set<String>? {
+        guard isGitWorktree(root: root) else { return nil }
         let process = hardenedGitProcess(
             root: root,
-            arguments: ["status", "--ignored", "--porcelain=v1", "-z", "--untracked-files=all"]
+            // Normal untracked mode: a fully ignored tree (node_modules/,
+            // .build/) is one `!! dir/` entry, which isGitIgnored matches by
+            // prefix, instead of one entry per file. Ignored files inside
+            // untracked directories are still listed individually.
+            // Explicit, so status.showUntrackedFiles=no can't hide them.
+            arguments: ["status", "--ignored", "--porcelain=v1", "-z", "--untracked-files=normal"]
         )
-        let input = Pipe()
-        let output = Pipe()
-        process.standardInput = input
-        process.standardOutput = output
-        process.standardError = Pipe()
-        guard runHelperProcess(process, input: input, payload: Data()) else { return [] }
-        guard process.terminationStatus == 0 else { return [] }
-        let data = output.fileHandleForReading.readDataToEndOfFile()
+        guard let data = runHelperProcess(process),
+              process.terminationStatus == 0 else {
+            return nil
+        }
         return Set(data.split(separator: 0).compactMap { raw -> String? in
             let entry = String(decoding: raw, as: UTF8.self)
             guard entry.hasPrefix("!! ") else { return nil }
             let ignoredPath = String(entry.dropFirst(3)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             return ignoredPath.isEmpty ? nil : ignoredPath
         })
+    }
+
+    /// The subset of `paths` git ignores, or nil when git can't answer. The
+    /// answer is a subset of the input, so its size is bounded by the batch.
+    static func gitCheckIgnore(root: URL, paths: [String]) -> Set<String>? {
+        let process = hardenedGitProcess(root: root, arguments: ["check-ignore", "-z", "--stdin"])
+        var payload = Data()
+        for path in paths {
+            payload.append(contentsOf: path.utf8)
+            payload.append(0)
+        }
+        // Exit 1 means "nothing ignored"; 128 is a fatal error.
+        guard let data = runHelperProcess(process, stdin: payload, maxOutputBytes: payload.count),
+              process.terminationStatus == 0 || process.terminationStatus == 1 else {
+            return nil
+        }
+        return Set(data.split(separator: 0).map { String(decoding: $0, as: UTF8.self) })
     }
 
     static func isGitIgnored(_ relativePath: String, isDirectory: Bool, ignoredPaths: Set<String>) -> Bool {
