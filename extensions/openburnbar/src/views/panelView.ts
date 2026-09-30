@@ -5,7 +5,10 @@ import { OpenBurnBarExtensionController } from '../state/controller';
 import { buildPanelViewModel } from '../state/panelViewModel';
 import { openBurnBarAppOrWarn } from '../host/openBurnBarApp';
 import type { BurnBarJSONValue } from '../types';
-import type { OpenBurnBarPanelWebviewMessage } from './panelProtocol';
+import type {
+  OpenBurnBarPanelHostMessage,
+  OpenBurnBarPanelWebviewMessage
+} from './panelProtocol';
 import { buildPanelHtml } from './panelHtml';
 import { OpenBurnBarWorkspacePanel } from './workspacePanel';
 
@@ -83,7 +86,11 @@ export class OpenBurnBarPanelView implements vscode.WebviewViewProvider {
       showOpenBurnBarApp: process.platform === 'darwin',
       sidebarStatusLineMode: readSidebarStatusLineMode()
     });
-    void this.view.webview.postMessage({ type: 'snapshot', viewModel, hostNonce: this.hostMessageNonce });
+    void this.view.webview.postMessage({
+      type: 'snapshot',
+      viewModel,
+      hostNonce: this.hostMessageNonce
+    } satisfies OpenBurnBarPanelHostMessage);
   }
 
   private async handleWebviewMessage(message: OpenBurnBarPanelWebviewMessage): Promise<void> {
@@ -151,7 +158,7 @@ export class OpenBurnBarPanelView implements vscode.WebviewViewProvider {
           type: 'error',
           hostNonce: this.hostMessageNonce,
           message: error instanceof Error ? error.message : 'OpenBurnBar encountered an unexpected error.'
-        });
+        } satisfies OpenBurnBarPanelHostMessage);
       }
     }
   }
