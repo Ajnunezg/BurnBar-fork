@@ -1,3 +1,4 @@
+import OpenBurnBarUI
 import SwiftUI
 import SnapshotTesting
 import XCTest
@@ -38,29 +39,65 @@ func requireVisualSnapshotHost() throws {
     }
 }
 
+// MARK: - Host Defaults Isolation
+
+/// The app-test host is the real app, so its `UserDefaults.standard` is the
+/// developer's own `com.openburnbar.app` plist. A leftover `appSkin = editorial`
+/// there light-locks every "dark" render.
+///
+/// `@AppStorage` in the rendered tree reads this empty suite instead. Nothing
+/// writes to it, so it never reaches disk.
+let snapshotAppStorage = UserDefaults(suiteName: "com.openburnbar.snapshot-tests") ?? .standard
+
+/// Runs `body` with the host's appearance preferences masked, then restores
+/// the argument domain exactly. The token layer reads these keys straight from
+/// `UserDefaults.standard`, so they are pinned to their unset defaults in the
+/// argument domain, which outranks the host's plist and stays in memory.
+@MainActor
+func withIsolatedSnapshotDefaults<T>(_ body: () throws -> T) rethrows -> T {
+    let pinned: [String: Any] = [
+        AppSkin.storageKey: AppSkin.aurora.rawValue,
+        DashboardLayout.storageKey: DashboardLayout.aurora.rawValue,
+        DashboardLaunchSurface.storageKey: DashboardLaunchSurface.home.rawValue,
+        LiquidGlassTransparency.contentSurfacesEnabledKey: LiquidGlassTransparency.defaultContentSurfacesEnabled,
+        LiquidGlassTransparency.mediaRichBackdropKey: false,
+    ]
+    let defaults = UserDefaults.standard
+    let domain = UserDefaults.argumentDomain
+    let saved = defaults.volatileDomain(forName: domain)
+    defaults.setVolatileDomain(saved.merging(pinned) { _, pin in pin }, forName: domain)
+    defer { defaults.setVolatileDomain(saved, forName: domain) }
+    return try body()
+}
+
 // MARK: - Visual Regression Support
 
+private let snapshotBackingScale: CGFloat = 2
+
 /// Renders a SwiftUI view into an NSImage at a fixed size and color scheme,
-/// disabling animations for deterministic snapshot capture.
+/// disabling animations for deterministic snapshot capture and masking the
+/// host's persisted appearance preferences.
 @MainActor
 func renderViewSnapshot<V: View>(
     _ view: V,
     size: CGSize,
     colorScheme: ColorScheme
 ) -> NSImage {
-    let appearance = NSAppearance(
-        named: colorScheme == .dark ? .darkAqua : .aqua
-    )
+    withIsolatedSnapshotDefaults { () -> NSImage in
+        let appearance = NSAppearance(
+            named: colorScheme == .dark ? .darkAqua : .aqua
+        )
 
-    var image = NSImage(size: size)
-    if let appearance {
-        appearance.performAsCurrentDrawingAppearance {
-            image = renderViewSnapshotBody(view, size: size, colorScheme: colorScheme, appearance: appearance)
+        var image = NSImage(size: size)
+        if let appearance {
+            appearance.performAsCurrentDrawingAppearance {
+                image = renderViewSnapshotBody(view, size: size, colorScheme: colorScheme, appearance: appearance)
+            }
+            return image
         }
-        return image
-    }
 
-    return renderViewSnapshotBody(view, size: size, colorScheme: colorScheme, appearance: nil)
+        return renderViewSnapshotBody(view, size: size, colorScheme: colorScheme, appearance: nil)
+    }
 }
 
 @MainActor
@@ -71,6 +108,7 @@ private func renderViewSnapshotBody<V: View>(
     appearance: NSAppearance?
 ) -> NSImage {
     let wrapped = view
+        .defaultAppStorage(snapshotAppStorage)
         .environment(\.colorScheme, colorScheme)
         .transaction { $0.disablesAnimations = true }
         .frame(width: size.width, height: size.height)
@@ -84,10 +122,25 @@ private func renderViewSnapshotBody<V: View>(
     // Force layout so AutoLayout / SwiftUI sizing resolves before capture.
     hostingView.layoutSubtreeIfNeeded()
 
-    guard let bitmapRep = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) else {
+    // Pinned at 2x, the scale the references are recorded at. The caching rep
+    // follows the host's main display, so a Mac driving a 1x monitor rendered
+    // half-size bitmaps that could never match.
+    guard let bitmapRep = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: Int(size.width * snapshotBackingScale),
+        pixelsHigh: Int(size.height * snapshotBackingScale),
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .calibratedRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0
+    ) else {
         XCTFail("Failed to create bitmap rep for snapshot")
         return NSImage(size: size)
     }
+    bitmapRep.size = size
 
     hostingView.cacheDisplay(in: hostingView.bounds, to: bitmapRep)
 
