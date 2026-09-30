@@ -343,6 +343,23 @@ final class TextExpansionTests: XCTestCase {
         XCTAssertNil(defaults.object(forKey: TextExpansionCloudSyncPreference.key))
     }
 
+    func testConsentObserverReportsEverySnippetSyncToggleAndNothingElse() {
+        let defaults = isolatedDefaults()
+        defaults.set(true, forKey: TextExpansionCloudSyncPreference.key)
+        let changes = LockedCounter()
+        let observer = TextExpansionCloudSyncConsentObserver(defaults: defaults) { changes.increment() }
+
+        defaults.set("unrelated", forKey: "textExpansion.someOtherSetting")
+        XCTAssertEqual(changes.value, 0)
+        defaults.set(false, forKey: TextExpansionCloudSyncPreference.key)
+        XCTAssertEqual(changes.value, 1, "switching sync off must reach a running store")
+        defaults.set(false, forKey: TextExpansionCloudSyncPreference.key)
+        XCTAssertEqual(changes.value, 1)
+        defaults.set(true, forKey: TextExpansionCloudSyncPreference.key)
+        XCTAssertEqual(changes.value, 2, "switching sync back on must reach a running store")
+        withExtendedLifetime(observer) {}
+    }
+
     private func snippet(source: String?) -> TextExpansionSnippet {
         TextExpansionSnippet(title: "Greeting", trigger: "hello", body: "Hi there", sourceDeviceID: source)
     }
@@ -351,5 +368,22 @@ final class TextExpansionTests: XCTestCase {
         let suiteName = "com.openburnbar.tests.text-expansion-sync.\(UUID().uuidString)"
         addTeardownBlock { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
         return UserDefaults(suiteName: suiteName)!
+    }
+}
+
+private final class LockedCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    func increment() {
+        lock.lock()
+        count += 1
+        lock.unlock()
     }
 }

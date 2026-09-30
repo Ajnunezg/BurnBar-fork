@@ -22,6 +22,7 @@ final class MobileTextExpansionStore {
     /// False when the snapshot exists but could not be read, so the one-time
     /// snippet-sync decision is never settled from a failed read.
     private var localSnapshotIsReadable = true
+    @ObservationIgnored private var consentObserver: TextExpansionCloudSyncConsentObserver?
 
     /// Darwin notification name for cross-process snippet updates.
     /// The keyboard extension listens for this to reload instantly.
@@ -31,6 +32,21 @@ final class MobileTextExpansionStore {
         load()
         scheduleCloudSync()
         startRealtimeListener()
+        // Settings flips the preference while this store lives; follow it so
+        // the switch starts or stops cloud traffic immediately.
+        consentObserver = TextExpansionCloudSyncConsentObserver(defaults: .standard) { [weak self] in
+            Task { @MainActor [weak self] in self?.applyCloudSyncConsent() }
+        }
+    }
+
+    private func applyCloudSyncConsent() {
+        if isCloudSyncEnabled {
+            startRealtimeListener()
+            scheduleCloudSync()
+        } else {
+            syncTask?.cancel()
+            stopRealtimeListener()
+        }
     }
 
     func load() {
@@ -335,6 +351,8 @@ final class MobileTextExpansionStore {
 
     /// Processes a real-time Firestore snapshot update.
     private func handleRealtimeUpdate(_ snapshot: QuerySnapshot) async {
+        // A snapshot can arrive after sync was switched off: never decrypt or merge it.
+        guard isCloudSyncEnabled else { return }
         do {
             guard let uid = Auth.auth().currentUser?.uid else { return }
 
@@ -343,7 +361,7 @@ final class MobileTextExpansionStore {
                 cachedVaultKey = try await unlockOrCreateCloudVaultKey(uid: uid)
                 cachedUID = uid
             }
-            guard let key = cachedVaultKey else { return }
+            guard let key = cachedVaultKey, isCloudSyncEnabled else { return }
 
             var merged = Dictionary(uniqueKeysWithValues: snippets.map { ($0.id, $0) })
             var changed = false

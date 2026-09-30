@@ -138,6 +138,42 @@ public enum TextExpansionCloudSyncPreference {
     }
 }
 
+/// Calls `onChange` whenever the stored snippet-sync choice changes, including
+/// a Settings toggle bound with `@AppStorage`. A store that holds a realtime
+/// listener re-reads the preference here, so switching sync off stops cloud
+/// traffic for the store's whole lifetime, not only at the next launch.
+public final class TextExpansionCloudSyncConsentObserver: @unchecked Sendable {
+    private let defaults: UserDefaults
+    private let lock = NSLock()
+    private var lastStoredChoice: Bool?
+    private var token: NSObjectProtocol?
+
+    public init(defaults: UserDefaults, onChange: @escaping @Sendable () -> Void) {
+        self.defaults = defaults
+        lastStoredChoice = defaults.object(forKey: TextExpansionCloudSyncPreference.key) as? Bool
+        token = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: defaults,
+            queue: nil
+        ) { [weak self] _ in
+            if self?.storedChoiceChanged() == true { onChange() }
+        }
+    }
+
+    deinit {
+        if let token { NotificationCenter.default.removeObserver(token) }
+    }
+
+    private func storedChoiceChanged() -> Bool {
+        let choice = defaults.object(forKey: TextExpansionCloudSyncPreference.key) as? Bool
+        lock.lock()
+        defer { lock.unlock() }
+        guard choice != lastStoredChoice else { return false }
+        lastStoredChoice = choice
+        return true
+    }
+}
+
 public struct TextExpansionSnapshot: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var exportedAt: Date
