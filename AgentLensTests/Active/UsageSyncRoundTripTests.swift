@@ -936,7 +936,8 @@ final class UsageSyncRoundTripTests: XCTestCase {
     /// an estimate: the pricing source and the token confidence both travel,
     /// so the receiver never rebuilds it as unknown pricing over exact tokens.
     func test_usageRoundTrip_preservesPricingProvenance() async throws {
-        let start = Date(timeIntervalSince1970: 1_700_030_000)
+        // Recent: the downloader only reads the last 90 days.
+        let start = Date()
         let fallbackPriced = TokenUsage(
             provider: .claudeCode,
             sessionId: "session-fallback-priced",
@@ -970,7 +971,8 @@ final class UsageSyncRoundTripTests: XCTestCase {
 
         await downloadSync.sync()
 
-        let downloaded = try XCTUnwrap(try await dataStore.fetchAllUsage().first { $0.isRemote })
+        let remoteRows = try await dataStore.fetchAllUsage().filter { $0.isRemote }
+        let downloaded = try XCTUnwrap(remoteRows.first)
         XCTAssertEqual(downloaded.pricingSource, .fallback)
         XCTAssertEqual(downloaded.tokenConfidence, .exact)
         XCTAssertEqual(downloaded.provenanceConfidence, .lowConfidenceEstimate)
