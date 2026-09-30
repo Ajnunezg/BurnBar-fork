@@ -455,7 +455,12 @@ public final class AiderParser: LogParser, Sendable {
             let end = session.end ?? start
             let pricing = ModelPricing.lookup(model: model)
             let cost = session.cost > 0 ? session.cost : (try? pricing.cost(inputTokens: session.input, outputTokens: session.output)) ?? 0
-            return LocalUsageParserSupport.usage(provider: .aider, sessionID: "aider-\(index)-\(Int(start.timeIntervalSince1970))", project: "Aider", model: model, input: session.input, output: session.output, cost: cost, pricingSource: session.cost > 0 ? .reported : pricing.source, start: start, end: end, method: .providerLog, confidence: .exact)
+            return LocalUsageParserSupport.usage(
+                provider: .aider, sessionID: "aider-\(index)-\(Int(start.timeIntervalSince1970))", project: "Aider",
+                model: model, input: session.input, output: session.output, cost: cost,
+                pricingSource: session.cost > 0 ? .reported : pricing.source,
+                start: start, end: end, method: .providerLog, confidence: .exact
+            )
         }
         if let signature {
             parseCache.fileEntries = [cacheKey: CachedUsageBundleEntry(signature: signature, usages: usages)]
@@ -537,7 +542,12 @@ public final class CursorParser: LogParser, Sendable {
             let output = count * 150
             let pricing = ModelPricing.lookup(model: model)
             let cost = (try? pricing.cost(inputTokens: input, outputTokens: output)) ?? 0
-            return LocalUsageParserSupport.usage(provider: .cursor, sessionID: session, project: "Cursor", model: model, input: input, output: output, cost: cost, pricingSource: pricing.source, start: start, end: end, method: .heuristicEstimate, confidence: .lowConfidenceEstimate, estimatorVersion: "cursor-hash-count-v1")
+            return LocalUsageParserSupport.usage(
+                provider: .cursor, sessionID: session, project: "Cursor", model: model,
+                input: input, output: output, cost: cost, pricingSource: pricing.source,
+                start: start, end: end, method: .heuristicEstimate,
+                confidence: .lowConfidenceEstimate, estimatorVersion: "cursor-hash-count-v1"
+            )
         }
         if let signature {
             parseCache.fileEntries = [cacheKey: CachedUsageBundleEntry(signature: signature, usages: usages)]

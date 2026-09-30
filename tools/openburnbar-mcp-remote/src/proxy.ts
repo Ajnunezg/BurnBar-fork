@@ -431,7 +431,7 @@ function readSecureTokenFile(filePath: string): string {
       fd = openPrivateFileNoFollow(filePath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ELOOP") {
-        throw new Error("token file must be a regular file, not a symlink");
+        throw new Error("token file must be a regular file, not a symlink", { cause: error });
       }
       throw error;
     }

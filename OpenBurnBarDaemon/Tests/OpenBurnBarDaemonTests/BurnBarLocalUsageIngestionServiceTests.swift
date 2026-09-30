@@ -287,9 +287,9 @@ final class BurnBarLocalUsageIngestionServiceTests: XCTestCase {
         XCTAssertEqual(parses.count, 4)
         guard parses.count == 4 else { return }
         XCTAssertNotNil(parses[0].governor, "daemon ingestion must never parse ungoverned")
-        XCTAssertTrue(parses[0].governor === parses[1].governor, "one governor bounds the whole pass")
-        XCTAssertTrue(parses[2].governor === parses[3].governor)
-        XCTAssertFalse(parses[0].governor === parses[2].governor, "every pass gets a fresh budget")
+        XCTAssertIdentical(parses[0].governor, parses[1].governor, "one governor bounds the whole pass")
+        XCTAssertIdentical(parses[2].governor, parses[3].governor)
+        XCTAssertNotIdentical(parses[0].governor, parses[2].governor, "every pass gets a fresh budget")
         XCTAssertTrue(parses.allSatisfy(\.isUsageAccounting))
         // Admission is soft at the boundary: budget-1 then 1 byte fit exactly,
         // the next byte is deferred. Pins the Mac app's refresh budget.

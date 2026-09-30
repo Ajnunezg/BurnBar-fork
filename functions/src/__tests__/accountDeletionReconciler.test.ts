@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const firestore = vi.hoisted(() => {
   type RecordedQuery = { collection: string; where: unknown[][]; orderBy: unknown[][]; limit?: number };
@@ -34,7 +34,7 @@ const firestore = vi.hoisted(() => {
 });
 
 vi.mock("firebase-functions/v2/scheduler", () => ({ onSchedule: (_options: unknown, handler: unknown) => ({ run: handler }) }));
-vi.mock("../../../packages/functions-shared/src/adminRuntime.js", () => ({ db: firestore.db, auth: {} }));
+vi.mock("../../../packages/functions-shared/src/adminRuntime.js", () => ({ db: firestore.db, auth: { revokeRefreshTokens: vi.fn(), deleteUser: vi.fn() } }));
 vi.mock("../../../packages/functions-shared/src/providerSecretErasure.js", () => ({
   reconcilePendingProviderSecretErasures: vi.fn(async (docs: unknown[]) => docs.map(() => ({ status: "completed" }))),
 }));
@@ -53,6 +53,23 @@ import {
   reconcileProviderSecretErasureQueue,
 } from "../domains/lifecycle/accountDeletionReconciler.js";
 import { reconcilePendingProviderSecretErasures } from "../../../packages/functions-shared/src/providerSecretErasure.js";
+import { auth } from "../../../packages/functions-shared/src/adminRuntime.js";
+import { eraseUserAccount, isAccountErasureResumable } from "../../../packages/functions-shared/src/accountDeletion.js";
+import { logError, logInfo } from "../../../packages/functions-shared/src/logging.js";
+import { destroyCredentialSecret } from "../../../packages/functions-shared/src/secrets.js";
+
+const completedErasure: Awaited<ReturnType<typeof eraseUserAccount>> = {
+  destroyedSecrets: 1,
+  failedSecretDestroys: 0,
+  deletedStoragePrefixes: 1,
+  failedStorageDeletes: 0,
+  failedStoragePrefixKinds: [],
+  deletedDocuments: 1,
+  cloudDataDeleted: true,
+  retryRequired: false,
+  deletedAuthUser: true,
+  authUserAlreadyMissing: false,
+};
 
 function tombstone(id: string, attemptCount = 0) {
   const patches: Record<string, unknown>[] = [];
@@ -72,6 +89,15 @@ function tombstone(id: string, attemptCount = 0) {
 
 describe("account erasure reconciler", () => {
   const now = new Date("2026-07-10T12:00:00.000Z");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    firestore.queries.length = 0;
+    firestore.docsByCollection.clear();
+    firestore.failingCollections.clear();
+    vi.mocked(isAccountErasureResumable).mockReset();
+    vi.mocked(eraseUserAccount).mockReset();
+  });
 
   it("quarantines a poison tombstone without removing the account barrier", async () => {
     const poison = tombstone("poison");
@@ -174,6 +200,93 @@ describe("account erasure reconciler", () => {
       "provider_account_secret_refs",
     ]);
     firestore.failingCollections.clear();
+  });
+
+  it("runs the scheduled account queue through canonical erasure and reports every outcome", async () => {
+    const completed = tombstone("completed");
+    const retry = tombstone("retry", 2);
+    const quarantined = tombstone("quarantined");
+    firestore.docsByCollection.set("account_erasure_tombstones", [
+      completed.document, retry.document, quarantined.document,
+    ]);
+    vi.mocked(isAccountErasureResumable).mockImplementation(async (_db, uid) => uid !== "quarantined");
+    vi.mocked(eraseUserAccount).mockImplementation(async (_db, uid, options) => {
+      if (uid === "retry") throw Object.assign(new Error("provider unavailable"), { code: "unavailable" });
+      await options?.revokeAuthTokens?.(uid);
+      await options?.deleteAuthUser?.(uid);
+      return completedErasure;
+    });
+
+    await reconcileAccountErasures.run({ scheduleTime: now.toISOString() });
+
+    expect(firestore.queries[0]).toEqual({
+      collection: "account_erasure_tombstones",
+      where: [["pending", "==", true]],
+      orderBy: [["updatedAt", "asc"]],
+      limit: 5,
+    });
+    expect(eraseUserAccount).toHaveBeenCalledWith(firestore.db, "completed", expect.objectContaining({
+      destroyCredentialSecret,
+      resumeExistingIntent: true,
+      audit: { actor: "system:account-erasure-reconciler", domain: "account" },
+    }));
+    expect(auth.revokeRefreshTokens).toHaveBeenCalledWith("completed");
+    expect(auth.deleteUser).toHaveBeenCalledWith("completed");
+    expect(completed.patches).toEqual([]);
+    expect(retry.patches).toEqual([expect.objectContaining({
+      reconciliationStatus: "retry_pending",
+      reconciliationErrorCode: "unavailable",
+      reconciliationAttemptCount: 3,
+    })]);
+    expect(quarantined.patches).toEqual([expect.objectContaining({
+      pending: false,
+      reconciliationStatus: "quarantined",
+      reconciliationErrorCode: "missing_resumable_receipt",
+    })]);
+    expect(logInfo).toHaveBeenCalledWith({
+      event: "account_erasure_reconcile_complete", attempted: 3, completed: 1, failed: 1, quarantined: 1,
+    });
+    expect(logError).toHaveBeenCalledTimes(2);
+    expect(logError).toHaveBeenCalledWith({
+      event: "account_erasure_reconcile_failed", error_code: "unavailable", status: "failed",
+    });
+    expect(logError).toHaveBeenCalledWith({
+      event: "account_erasure_reconcile_failed", error_code: "missing_resumable_receipt", status: "quarantined",
+    });
+    expect(firestore.queries.map((query) => query.collection)).toEqual([
+      "account_erasure_tombstones", "provider_account_secret_refs",
+    ]);
+  });
+
+  it("fails the scheduled run when the credential queue fails after account erasure succeeds", async () => {
+    const completed = tombstone("completed");
+    firestore.docsByCollection.set("account_erasure_tombstones", [completed.document]);
+    firestore.failingCollections.add("provider_account_secret_refs");
+    vi.mocked(isAccountErasureResumable).mockResolvedValue(true);
+    vi.mocked(eraseUserAccount).mockResolvedValue(completedErasure);
+
+    await expect(reconcileAccountErasures.run({ scheduleTime: now.toISOString() }))
+      .rejects.toThrow("provider_account_secret_refs query unavailable");
+
+    expect(completed.patches).toEqual([]);
+    expect(logInfo).toHaveBeenCalledWith({
+      event: "account_erasure_reconcile_complete", attempted: 1, completed: 1, failed: 0, quarantined: 0,
+    });
+    expect(firestore.queries.map((query) => query.collection)).toEqual([
+      "account_erasure_tombstones", "provider_account_secret_refs",
+    ]);
+  });
+
+  it("preserves the first failure when both scheduled queues fail", async () => {
+    firestore.failingCollections.add("account_erasure_tombstones");
+    firestore.failingCollections.add("provider_account_secret_refs");
+
+    await expect(reconcileAccountErasures.run({ scheduleTime: now.toISOString() }))
+      .rejects.toThrow("account_erasure_tombstones query unavailable");
+
+    expect(firestore.queries.map((query) => query.collection)).toEqual([
+      "account_erasure_tombstones", "provider_account_secret_refs",
+    ]);
   });
 
   it("declares the oldest-first pending tombstone index", () => {

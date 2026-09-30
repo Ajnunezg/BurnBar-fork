@@ -32,15 +32,15 @@ public enum UsageProvenanceConfidence: String, Codable, Hashable, CaseIterable, 
 /// were counted (`UsageProvenanceMethod`, token confidence).
 public enum UsagePricingSource: String, Codable, Hashable, CaseIterable, Sendable {
     /// Priced locally at a rate the bundled catalog lists for the model.
-    case catalog = "catalog"
+    case catalog
     /// Priced locally at the catalog's default rates because no rate is
     /// listed for the model. An estimate, never exact.
-    case fallback = "fallback"
+    case fallback
     /// Reported by the source itself (the tool's own log, a provider billing
     /// API, the daemon ledger), not priced locally.
-    case reported = "reported"
+    case reported
     /// Not recorded: rows written before pricing provenance existed.
-    case unknown = "unknown"
+    case unknown
 
     /// True when the dollar figure is a default-rate guess.
     public var isEstimated: Bool { self == .fallback }
