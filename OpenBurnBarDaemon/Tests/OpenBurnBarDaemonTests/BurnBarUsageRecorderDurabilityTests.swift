@@ -54,6 +54,29 @@ final class BurnBarUsageRecorderDurabilityTests: XCTestCase {
         XCTAssertEqual(projection.totals.outputTokens, 43)
     }
 
+    func testSpendWhoseSpoolWriteFailedIsReportedUnpersistedNotDeferred() async throws {
+        let fixture = try DurabilityFixture()
+        defer { fixture.remove() }
+        try fixture.makeLedgerUnwritable()
+        try fixture.makeSpoolUnwritable()
+        let recorder = fixture.recorder()
+
+        let outcome = await recorder.recordDurably(fixture.event(input: 5, output: 5, cost: 0.05), idempotencyKey: "k1")
+
+        // Nothing reached disk, so a restart would lose it: never claim it is queued for replay.
+        XCTAssertEqual(outcome, .unpersisted)
+        XCTAssertEqual(BurnBarDaemonMetricsCounters.snapshot()["usage_ledger_spool_write_failures_total"], 1)
+        let restartedPending = await fixture.recorder().deferredRecordCount()
+        XCTAssertEqual(restartedPending, 0)
+
+        // Still held in this process, so it lands once storage recovers without a restart.
+        try fixture.restoreLedger()
+        let replayed = await recorder.replayDeferred()
+        XCTAssertEqual(replayed, 1)
+        let records = try await recorder.records()
+        XCTAssertEqual(records.map(\.idempotencyKey), ["k1"])
+    }
+
     func testNewSpendWaitsBehindDeferredSpendAndDrainsOnTheNextWrite() async throws {
         let fixture = try DurabilityFixture()
         defer { fixture.remove() }
@@ -127,6 +150,11 @@ private final class DurabilityFixture {
     /// A directory where the ledger file should be: every read and append fails.
     func makeLedgerUnwritable() throws {
         try FileManager.default.createDirectory(at: ledgerURL, withIntermediateDirectories: true)
+    }
+
+    /// A file where the spool directory should be: the spool rewrite fails.
+    func makeSpoolUnwritable() throws {
+        try Data().write(to: spoolURL.deletingLastPathComponent())
     }
 
     func restoreLedger() throws {

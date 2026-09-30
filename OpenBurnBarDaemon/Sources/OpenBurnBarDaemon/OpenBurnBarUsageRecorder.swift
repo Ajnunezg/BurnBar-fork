@@ -60,6 +60,10 @@ public enum BurnBarUsageDurableRecordOutcome: Equatable, Sendable {
     /// and is replayed, under the same idempotency key, on the next write or
     /// replay tick.
     case deferred
+    /// The ledger append AND the retry-spool write failed. The event is held
+    /// in this process's memory and replayed with the spool, but a restart
+    /// before storage recovers loses it, so it is never reported as deferred.
+    case unpersisted
     /// The event itself can never be recorded (invalid fields, or a different
     /// event already holds its idempotency key). Counted, never retried.
     case rejected
@@ -370,7 +374,7 @@ public actor BurnBarUsageRecorder {
                 "error": error.map { "\($0)" } ?? "older events pending"
             ]
         )
-        return .deferred
+        return spooled ? .deferred : .unpersisted
     }
 
     private func loadDeferredRecordsIfNeeded() -> [BurnBarUsageRecord] {

@@ -103,7 +103,7 @@ When adding a new critical path, ship **one structured log event** and **one cou
 1. `openburnbar health` (CLI) or app Daemon settings → verify heartbeat PID matches running process.
 2. If heartbeat stale but process alive: check disk permissions on support directory.
 3. If gateway 5xx spike: inspect rate limit + provider executor logs; rotate auth token if compromised.
-4. If `usage_ledger_pending > 0`: the usage ledger (`usage-events.jsonl`) is rejecting appends — check disk space and support-directory permissions, then look for `usage_record_deferred` log events. The spool (`usage-events.deferred.jsonl`, same directory) replays every 60s and on the next request; once `usage_ledger_pending` returns to `0` no spend was lost. A buffered gateway response whose spend was not recorded carries `X-OpenBurnBar-Usage-Ledger: deferred` (or `rejected`).
+4. If `usage_ledger_pending > 0`: the usage ledger (`usage-events.jsonl`) is rejecting appends — check disk space and support-directory permissions, then look for `usage_record_deferred` log events. The spool (`usage-events.deferred.jsonl`, same directory) replays every 60s and on the next request; once `usage_ledger_pending` returns to `0` no spend was lost. A buffered gateway response whose spend was not recorded carries `X-OpenBurnBar-Usage-Ledger: deferred` (or `rejected`). `unpersisted` means the spool write failed too (`usage_ledger_spool_write_failures_total` rises): that spend lives only in daemon memory, so fix storage before restarting the daemon.
 
 ### Latency
 

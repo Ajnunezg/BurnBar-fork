@@ -11,7 +11,7 @@ import Network
 extension BurnBarHTTPGatewayServer {
 
     /// Response header a buffered completion carries when its spend did not
-    /// reach the usage ledger cleanly (`deferred` or `rejected`).
+    /// reach the usage ledger cleanly (`deferred`, `unpersisted` or `rejected`).
     static let usageLedgerHeader = "X-OpenBurnBar-Usage-Ledger"
 
     /// Records the attempt's spend. Never fails the proxied request: a ledger
@@ -80,6 +80,7 @@ extension BurnBarHTTPGatewayServer {
     static func usageLedgerHeaders(for outcome: BurnBarUsageDurableRecordOutcome?) -> [String: String] {
         switch outcome {
         case .deferred: return [usageLedgerHeader: "deferred"]
+        case .unpersisted: return [usageLedgerHeader: "unpersisted"]
         case .rejected: return [usageLedgerHeader: "rejected"]
         case .recorded, .none: return [:]
         }
