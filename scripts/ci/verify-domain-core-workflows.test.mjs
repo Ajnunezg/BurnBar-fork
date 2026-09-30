@@ -137,6 +137,19 @@ test("Wasm KAT reports bind distinct package execution contexts", () => {
   );
 });
 
+test("C# quota proof reports bind distinct runner contexts", () => {
+  const rustAndCsharp = workflowJob(core, "rust-and-csharp");
+  const linuxArm64 = workflowJob(core, "linux-arm64-native");
+  assert.match(
+    rustAndCsharp,
+    /printf '%s\\n' 'suite=csharp-quota-native'[\s\S]*tee "\$RUNNER_TEMP\/csharp-quota-native\.log"/u,
+  );
+  assert.match(
+    linuxArm64,
+    /printf '%s\\n' 'suite=linux-arm64-native'[\s\S]*tee "\$RUNNER_TEMP\/linux-arm64-native\.log"/u,
+  );
+});
+
 test("native consumer jobs keep their measured execution margin and emulator shell context", () => {
   const android = workflowJob(core, "android");
   const apple = workflowJob(core, "apple");

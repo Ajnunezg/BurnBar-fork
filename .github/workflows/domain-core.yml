@@ -274,8 +274,10 @@ jobs:
           OPENBURNBAR_REQUIRE_DOMAIN_CORE_NATIVE: "1"
         run: |
           set -o pipefail
-          dotnet test windows/tests/quota/OpenBurnBar.App.Quota.Tests.csproj --nologo \
-            2>&1 | tee "$RUNNER_TEMP/csharp-quota-native.log"
+          {
+            printf '%s\n' 'suite=csharp-quota-native'
+            dotnet test windows/tests/quota/OpenBurnBar.App.Quota.Tests.csproj --nologo
+          } 2>&1 | tee "$RUNNER_TEMP/csharp-quota-native.log"
 
       - name: Run C# CloudVault contracts through the native library
         env:
@@ -481,8 +483,10 @@ jobs:
           OPENBURNBAR_REQUIRE_DOMAIN_CORE_NATIVE: "1"
         run: |
           set -o pipefail
-          dotnet test windows/tests/quota/OpenBurnBar.App.Quota.Tests.csproj --nologo \
-            2>&1 | tee "$RUNNER_TEMP/linux-arm64-native.log"
+          {
+            printf '%s\n' 'suite=linux-arm64-native'
+            dotnet test windows/tests/quota/OpenBurnBar.App.Quota.Tests.csproj --nologo
+          } 2>&1 | tee "$RUNNER_TEMP/linux-arm64-native.log"
 
       - name: Emit Linux ARM64 native proof fragment
         run: >-
