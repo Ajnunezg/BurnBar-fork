@@ -121,9 +121,7 @@
     "ip-address": "10.7.1",
     "undici@^6.19.0": "6.28.1",
     "undici@^8.4.1": "8.10.2",
-    "@firebase/firestore": {
-      "@grpc/grpc-js": "1.13.6"
-    },
+    "@grpc/grpc-js@~1.9.0": "1.13.6",
     "google-gax": {
       "@grpc/grpc-js": "1.14.5"
     }
