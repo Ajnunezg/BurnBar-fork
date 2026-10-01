@@ -20,6 +20,7 @@ import asyncio
 import base64
 import collections
 import hashlib
+import importlib.util
 import json
 import logging
 import mimetypes
@@ -78,10 +79,29 @@ except ImportError:  # pragma: no cover - same environment that disables relay c
 from gateway.config import Platform, PlatformConfig
 from gateway.platforms.base import BasePlatformAdapter, MessageEvent, MessageType, SendResult
 
-try:
+if __package__:
     from .domain_core_hermes import HermesDomainAdapter
-except ImportError:
-    from domain_core_hermes import HermesDomainAdapter
+else:
+    # Hermes also loads adapters by file under an isolated module name. Load
+    # the sibling as its own package so its relative legacy imports resolve
+    # without adding this plugin to sys.path or sharing top-level modules.
+    _domain_name = f"{__name__}.domain_core_hermes"
+    _plugin_root = Path(__file__).resolve().parent
+    _domain_spec = importlib.util.spec_from_file_location(
+        _domain_name,
+        _plugin_root / "domain_core_hermes.py",
+        submodule_search_locations=[str(_plugin_root)],
+    )
+    if _domain_spec is None or _domain_spec.loader is None:
+        raise ImportError("Unable to load the BurnBar Hermes domain adapter")
+    _domain_module = importlib.util.module_from_spec(_domain_spec)
+    sys.modules[_domain_name] = _domain_module
+    try:
+        _domain_spec.loader.exec_module(_domain_module)
+    except Exception:
+        sys.modules.pop(_domain_name, None)
+        raise
+    HermesDomainAdapter = _domain_module.HermesDomainAdapter
 
 logger = logging.getLogger(__name__)
 

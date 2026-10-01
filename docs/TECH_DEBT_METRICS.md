@@ -16,7 +16,7 @@ Track trends monthly against targets in [TECH_DEBT_STRATEGY.md](TECH_DEBT_STRATE
 | Empty `catch {}` blocks (app + daemon) | 0 | 0 | 0 |
 | `Task.detached` in `AgentLens/Services/` | 30 | ≤ 10 | 0 |
 | `try?` in `AgentLens/Services/` (untagged debt / tagged `try?-ok` best-effort) | 0 untagged (485 tagged) | ≤ 120 | ≤ 50 |
-| Unsafe cast assert-zero gate | 2 | 0 | 0 |
+| Unsafe cast assert-zero gate | 0 | 0 | 0 |
 | Untyped GRDB row cast assert-zero gate | 0 | 0 | 0 |
 | Untyped `[String: Any]` dictionaries (App: 285, Mobile: 155, Core: 227, Daemon: 110) | 777 total | shrinking | ≤ 500 |
 | Knip dead-code budget (`budgets/knip-baseline.json`, functions) | 0 | 0 | 0 |
