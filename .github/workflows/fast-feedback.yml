@@ -1454,6 +1454,9 @@ jobs:
       - name: Verify production Functions deploy follows every codebase
         run: node --test scripts/ci/verify-functions-deploy-codebases.test.mjs
 
+      - name: Test Functions vendor sync preserves installed dependencies
+        run: node --test scripts/ci/sync-functions-vendors.test.mjs
+
   # ── Mac/iOS Swift twin-basename gate (stop new forked twins) ───────────────
   twin-basenames:
     name: Swift twin basenames

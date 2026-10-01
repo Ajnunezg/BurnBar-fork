@@ -32,7 +32,10 @@ for (const packageName of PACKAGES) {
   const manifest = JSON.parse(readFileSync(join(sourceRoot, "package.json"), "utf8"));
   for (const codebase of CODEBASES) {
     const targetRoot = join(repoRoot, codebase, "vendor", "openburnbar", packageName);
-    rmSync(targetRoot, { recursive: true, force: true });
+    // npm installs linked file: packages' transitives under this vendor root.
+    // Replacing the entire directory erases those node_modules after npm ci.
+    // Refresh only compiled output; keep the installed runtime dependencies.
+    rmSync(join(targetRoot, "lib"), { recursive: true, force: true });
     mkdirSync(targetRoot, { recursive: true });
     const out = {
       name: manifest.name,
