@@ -124,6 +124,9 @@
     "@grpc/grpc-js@~1.9.0": "1.13.6",
     "google-gax": {
       "@grpc/grpc-js": "1.14.5"
+    },
+    "get-uri@6.0.5": {
+      "basic-ftp": "6.2.1"
     }
   },
   "private": true,
