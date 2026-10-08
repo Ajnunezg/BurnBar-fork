@@ -47,15 +47,32 @@ const ROUTES = [
 ] as const;
 
 /**
- * axe rule ids allowed while a fix is tracked, keyed "route|rule" ("*"
- * routes wildcard). Each entry must name its tracking finding.
+ * axe rule ids allowed while a fix is tracked, keyed "route|rule".
+ * Each entry must name its tracking finding. Enumerated per route (no
+ * wildcards) so any *new* route stays fully enforced — this list is the
+ * exact set that fails today, verified against a local build.
  */
 const AXE_ALLOWLIST: Record<string, string> = {
-  // BB-20/BB-27 follow-up: light-mode colour-contrast sweep across shared
-  // components (.platcard__, .ins-eyebrow, .tierbadge__, lens toggles,
-  // verdict footnotes). Found BY this suite — tracked as one design-system
-  // pass, not per-page patches.
-  "*|color-contrast": "BB-20",
+  // BB-20 follow-up: light-mode colour-contrast sweep across shared
+  // components (.platcard__, .ins-eyebrow, .tierbadge__, .platform__pill,
+  // .ladder__num, .archcard__score, verdict footnotes). Found BY this suite
+  // — tracked as one design-system pass, not per-page patches.
+  "/|color-contrast": "BB-20",
+  "/bench|color-contrast": "BB-20",
+  "/bench/arena|color-contrast": "BB-20",
+  "/bench/methodology|color-contrast": "BB-20",
+  "/bench/report|color-contrast": "BB-20",
+  "/control|color-contrast": "BB-20",
+  "/download|color-contrast": "BB-20",
+  "/faq|color-contrast": "BB-20",
+  "/mcp|color-contrast": "BB-20",
+  "/memory|color-contrast": "BB-20",
+  "/platforms|color-contrast": "BB-20",
+  "/privacy|color-contrast": "BB-20",
+  "/product|color-contrast": "BB-20",
+  "/router|color-contrast": "BB-20",
+  "/router/daily|color-contrast": "BB-20",
+  "/trust|color-contrast": "BB-20",
 };
 
 /** Console messages that are third-party noise rather than page defects. */
@@ -97,7 +114,7 @@ async function failedSameOriginRequests(page: Page, requestFailed: (r: Response)
 
 test.describe("public routes", () => {
   for (const route of ROUTES) {
-    test(`${route}`, async ({ page, baseURL }) => {
+    test(`${route}`, async ({ page, baseURL }, testInfo) => {
       const consoleErrors = await collectConsoleErrors(page);
       const failedResponses: string[] = [];
       const base = new URL(baseURL ?? "http://localhost:4322");
@@ -205,7 +222,14 @@ test.describe("public routes", () => {
       expect(failedResponses, `${route} same-origin failures`).toEqual([]);
       expect(consoleErrors, `${route} console errors`).toEqual([]);
 
-      await page.screenshot({ path: undefined }).catch(() => {});
+      // Per-route, per-project PNG under outputDir (website/test-results/smoke)
+      // so the uploaded artifact carries visual evidence for every route.
+      await page
+        .screenshot({
+          path: testInfo.outputPath(`screens/${testInfo.project.name}${route === "/" ? "/index" : route}.png`),
+          fullPage: true,
+        })
+        .catch(() => {});
     });
   }
 });
@@ -223,9 +247,90 @@ test.describe("logged-in smoke", () => {
     "BURNBAR_STAGING_TEST_EMAIL/PASSWORD not set — skipped",
   );
 
-  test("sign-in surfaces render on /link", async ({ page }) => {
-    await page.goto("/link", { waitUntil: "domcontentloaded" });
-    await expect(page.locator("#btn-signin")).toBeVisible();
-    await expect(page.locator("#btn-signin-apple")).toBeVisible();
+  /**
+   * Really sign in to burnbar-staging with the email/password test account
+   * (REST signInWithPassword against the staging apiKey scraped from the
+   * built bundle — BB-01 guarantees it is the staging key), inject the
+   * session into the site's own Firebase Auth IndexedDB slot, reload, and
+   * assert the signed-in surface on /subscribe. Then sign out.
+   * Staging only — never points at production, never creates accounts.
+   */
+  test("signs in on burnbar-staging and sees the signed-in state", async ({
+    page,
+    baseURL,
+    request,
+  }) => {
+    // Scrape the baked apiKey out of the served bundle.
+    await page.goto("/subscribe", { waitUntil: "domcontentloaded" });
+    const apiKey = await page.evaluate(async () => {
+      const srcs = [...document.querySelectorAll<HTMLScriptElement>("script[src]")]
+        .map((s) => s.src)
+        .filter((s) => s.includes("/_astro/"));
+      for (const src of srcs) {
+        const text = await fetch(src).then((r) => r.text());
+        const m = text.match(/apiKey["']?\s*[:=]\s*["'](AIza[\w-]{20,})["']/) ??
+          text.match(/["'](AIza[\w-]{20,})["']/);
+        if (m) return m[1];
+      }
+      return null;
+    });
+    expect(apiKey, "staging apiKey discoverable in bundle").toBeTruthy();
+
+    const signIn = await request.post(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+      { data: { email: stagingEmail, password: stagingPassword, returnSecureToken: true } },
+    );
+    expect(signIn.ok(), "staging email/password sign-in").toBeTruthy();
+    const creds = (await signIn.json()) as {
+      localId: string; idToken: string; refreshToken: string; expiresIn: string;
+    };
+
+    // Seed the SDK's persistence slot, then reload so auth hydrates.
+    const authUser = {
+      uid: creds.localId,
+      email: stagingEmail,
+      emailVerified: false,
+      displayName: null,
+      photoURL: null,
+      phoneNumber: null,
+      isAnonymous: false,
+      tenantId: null,
+      providerData: [
+        { providerId: "password", uid: stagingEmail, displayName: null, email: stagingEmail, phoneNumber: null, photoURL: null },
+      ],
+      stsTokenManager: {
+        apiKey,
+        refreshToken: creds.refreshToken,
+        accessToken: creds.idToken,
+        expirationTime: Date.now() + Number(creds.expiresIn) * 1000,
+      },
+      createdAt: String(Date.now()),
+      lastLoginAt: String(Date.now()),
+      apiKey,
+      appName: "[DEFAULT]",
+      lastRefreshAt: new Date().toISOString(),
+    };
+    await page.evaluate(async ({ apiKey: k, user }) => {
+      await new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open("firebaseLocalStorageDb", 1);
+        open.onupgradeneeded = () => open.result.createObjectStore("firebaseLocalStorage");
+        open.onsuccess = () => {
+          const tx = open.result.transaction("firebaseLocalStorage", "readwrite");
+          tx.objectStore("firebaseLocalStorage").put(user, `firebase:authUser:${k}:[DEFAULT]`);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        };
+        open.onerror = () => reject(open.error);
+      });
+    }, { apiKey, user: authUser });
+
+    await page.goto("/subscribe", { waitUntil: "domcontentloaded" });
+    const ready = page.locator("#state-ready");
+    await expect(ready, "/subscribe signed-in state").toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("#user-email")).toContainText(String(stagingEmail));
+
+    // Sign out and confirm the surface returns to signed-out.
+    await page.locator("#btn-signout").click();
+    await expect(page.locator("#state-signed-out")).toBeVisible({ timeout: 15_000 });
   });
 });
