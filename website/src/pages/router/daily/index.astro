@@ -56,9 +56,9 @@ const months = [...groupedByMonth.keys()].sort((a, b) => (a < b ? 1 : -1));
           <span class="dot dot--mercury"></span> newest · {newestDate}
         </li>
         {boardIsStale && (
-          <li class="pagehead__stalewarn" role="status">
+          <li class="pagehead__stalewarn">
             <span class="dot dot--burn" aria-hidden="true"></span>
-            board refresh paused · newest rundown is {staleDays} day{staleDays === 1 ? "" : "s"} old
+            <span role="status">board refresh paused</span><span class="visually-hidden">:&nbsp;</span> · newest rundown is {staleDays} day{staleDays === 1 ? "" : "s"} old
           </li>
         )}
         <li>

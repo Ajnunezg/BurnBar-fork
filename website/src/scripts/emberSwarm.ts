@@ -13,7 +13,7 @@
   const canvas = document.getElementById("bgCanvas");
   // BB-33: on pages that reuse the id for a non-canvas element (e.g. the
   // arena vote stage), getContext is not a function — guard the type.
-  if (!(canvas instanceof HTMLCanvasElement)) return;
+  if (!canvas || typeof canvas.getContext !== "function") return;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 

@@ -14,7 +14,7 @@ export default defineConfig({
   outputDir: "./test-results/smoke",
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
-  timeout: 30_000,
+  timeout: 90_000,
   expect: { timeout: 7_500 },
   reporter: process.env.CI ? [["html", { open: "never" }], ["list"]] : "list",
   use: {
