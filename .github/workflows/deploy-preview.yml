@@ -1,0 +1,148 @@
+name: Preview Channel (burnbar-staging)
+
+# Per-PR Firebase Hosting preview channel on the burnbar-staging project.
+# Production is never touched: the only deploy target below is the staging
+# project, and the build refuses to package any production Firebase
+# identifier (BB-01). Pull requests from forks skip the deploy leg cleanly
+# because repository secrets are never exposed to them.
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "website/**"
+      - "firebase.json"
+      - ".firebaserc"
+      - ".github/workflows/deploy-preview.yml"
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-preview:
+    name: Build preview site (staging config)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Build with staging Firebase config
+        env:
+          # Repo *variable* (not secret): the burnbar-staging web-app config.
+          # Same input the trusted staging lane uses — one source of truth.
+          STAGING_FIREBASE_PUBLIC_CONFIG_JSON: ${{ vars.STAGING_FIREBASE_PUBLIC_CONFIG_JSON }}
+        run: |
+          set -euo pipefail
+          npm ci --prefix website
+          node website/scripts/build-staging.mjs
+          # BB-01: refuse to package any production identifier.
+          node website/scripts/verify-no-prod-config.mjs website/dist
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: preview-site-pr-${{ github.event.pull_request.number }}
+          path: website/dist
+          if-no-files-found: error
+          retention-days: 3
+
+  deploy-preview:
+    name: Deploy to burnbar-staging preview channel
+    needs: build-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Fork pull requests never see secrets; skip the deploy leg for them.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: preview-site-pr-${{ github.event.pull_request.number }}
+          path: public
+
+      - name: Deploy preview channel on burnbar-staging
+        uses: FirebaseExtended/action-hosting-deploy@089d92a23bfc2ef138d32817c0b9dee31d99ebaa # v0.9.0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BURNBAR_STAGING }}
+          projectId: burnbar-staging
+          target: marketing
+          channelId: pr-${{ github.event.pull_request.number }}
+          expires: 7d
+
+      - name: Sticky preview comment
+        uses: marocchino/sticky-pull-request-comment@68b872952ad05e78efb9e69ffda6f9bcc4a3809e # v2.9.4
+        with:
+          header: burnbar-staging-preview
+          message: |
+            **Staging preview** (project `burnbar-staging`, `noindex`):
+            https://burnbar-staging--pr-${{ github.event.pull_request.number }}-*.web.app
+
+            Preview channels expire after 7 days. The exact channel URL is
+            printed in the "Deploy preview channel" step above.
+
+  smoke-preview:
+    name: Playwright smoke on preview channel
+    needs: deploy-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Resolve preview channel URL
+        id: url
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # The channel id is pr-<n>; the hosting site slug strips dots so the
+          # generated URL is deterministic.
+          echo "base_url=https://burnbar-staging--pr-${PR_NUMBER}.web.app" >> "$GITHUB_OUTPUT"
+
+      - name: Install Playwright + run smoke
+        env:
+          BASE_URL: ${{ steps.url.outputs.base_url }}
+        run: |
+          set -euo pipefail
+          npm ci --prefix website
+          npx --yes playwright install --with-deps chromium
+          npm run test:smoke --prefix website
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: smoke-pr-${{ github.event.pull_request.number }}
+          path: |
+            website/test-results/smoke/
+            website/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
