@@ -261,12 +261,12 @@ const archive = archiveDates.filter((d) => d !== rundown.date).slice(0, 6);
     </div>
 
     {rundown.notes.length > 0 && (
-      <div class="rundown__notes">
-        <h3 class="rundown__lh mono">Operator notes</h3>
+      <details class="rundown__notes">
+        <summary class="rundown__lh mono">Methodology</summary>
         <ul>
           {rundown.notes.map((line) => <li>{line}</li>)}
         </ul>
-      </div>
+      </details>
     )}
 
     {archive.length > 0 && (

@@ -41,7 +41,7 @@ const linuxPubKeyHref = `${linuxDownloadBaseUrl}/${SITE.linuxPubKeyFile}`;
         <a class="platcard platcard--live" href="#macos">
           <DownloadPlatformIcon platform="macos" />
           <span class="sr-only">macOS</span>
-          <span class="platcard__ver mono">v{SITE.macReleaseLatest}</span>
+          <span class="platcard__ver mono">v{SITE.macReleaseDisplay}</span>
           <span class="platcard__status">Available now</span>
           <span class="platcard__cta">Download DMG →</span>
         </a>
@@ -119,7 +119,7 @@ const linuxPubKeyHref = `${linuxDownloadBaseUrl}/${SITE.linuxPubKeyFile}`;
     <div class="container dlsec__shell">
       <div class="dlsec__head">
         <div class="dlsec__intro">
-          <span class="tag tag--exact tag--plain mono">Release · {SITE.macReleaseLatest}</span>
+          <span class="tag tag--exact tag--plain mono">Release · {SITE.macReleaseDisplay}</span>
           <h2>macOS app</h2>
           <p class="lead">
             Native Swift app. Runs as a menu-bar utility. Requires {SITE.macMin} or later on an
@@ -134,7 +134,7 @@ const linuxPubKeyHref = `${linuxDownloadBaseUrl}/${SITE.linuxPubKeyFile}`;
             data-analytics-prop-placement="hero"
             data-analytics-prop-target-platform="macos"
           >
-            Download DMG · {SITE.macReleaseLatest}
+            Download DMG · {SITE.macReleaseDisplay}
             <span class="btn-arrow" aria-hidden="true">
               ↓
             </span>
@@ -157,7 +157,7 @@ const linuxPubKeyHref = `${linuxDownloadBaseUrl}/${SITE.linuxPubKeyFile}`;
             <h3>Download &amp; open the DMG</h3>
             <p>
               The macOS DMG is served from the signed GitHub Release for this cut. This link targets
-              the signed, notarized, smoke-tested {SITE.macReleaseLatest} release whose checksum
+              the signed, notarized, smoke-tested {SITE.macReleaseDisplay} release whose checksum
               matches the immutable GitHub Release asset.
             </p>
             {hasMacUpdateFeed && (
@@ -513,7 +513,7 @@ ln -sfn "$(pwd)/openburnbar-cursor-plugin" "$HOME/.cursor/plugins/local/openburn
       <div class="dlsec__head">
         <div class="dlsec__intro">
           <span class="tag tag--beta tag--plain mono">
-            Remediation in progress · Play Store pending
+            In development
           </span>
           <h2>Android companion</h2>
           <p class="lead">
