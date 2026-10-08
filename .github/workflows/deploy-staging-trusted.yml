@@ -345,6 +345,7 @@ jobs:
             [latestRouterRundown]=us-central1
             [startCliLink]=us-central1
             [pollCliLink]=us-central1
+            [benchAssistant]=us-central1
           )
           rewrite_count=0
           while IFS=$'\t' read -r function_id region; do
@@ -386,8 +387,8 @@ jobs:
               | @tsv
             ' "$FIREBASE_CONFIG_PATH"
           )
-          [[ "$rewrite_count" -eq 4 && "${#reviewed_rewrites[@]}" -eq 0 ]] || {
-            echo "::error::Staging marketing Hosting must contain exactly the four reviewed public rewrites."
+          [[ "$rewrite_count" -eq 5 && "${#reviewed_rewrites[@]}" -eq 0 ]] || {
+            echo "::error::Staging marketing Hosting must contain exactly the five reviewed public rewrites."
             exit 1
           }
 
