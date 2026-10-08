@@ -1,0 +1,73 @@
+# Captured 2026-10-08 12:37 CDT
+
+## curl -sI https://burnbar-staging.web.app/ (CSP omitted)
+HTTP/2 200 
+cache-control: no-cache, must-revalidate
+content-type: text/html; charset=utf-8
+cross-origin-embedder-policy: require-corp
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+etag: "552c7ebf9440076637bb9a5b206604b5f604f7f48fabc81d61d4033744c875c3"
+last-modified: Sat, 08 Aug 2026 22:49:23 GMT
+permissions-policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31556926; includeSubDomains; preload
+x-content-type-options: nosniff
+x-frame-options: DENY
+accept-ranges: bytes
+date: Thu, 08 Oct 2026 17:37:23 GMT
+x-served-by: cache-chi-klot8100067-CHI
+x-cache: MISS
+x-cache-hits: 0
+x-timer: S1791481043.034424,VS0,VE63
+vary: x-fh-requested-host, accept-encoding
+alt-svc: h3=":443";ma=86400,h3-29=":443";ma=86400,h3-27=":443";ma=86400
+
+
+## curl -sI https://burnbar.ai/ (CSP omitted)
+HTTP/2 200 
+date: Thu, 08 Oct 2026 17:37:23 GMT
+content-type: text/html; charset=utf-8
+cache-control: no-cache, must-revalidate
+cross-origin-embedder-policy: require-corp
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+last-modified: Sun, 20 Sep 2026 03:25:29 GMT
+permissions-policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=63072000; includeSubDomains; preload
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-served-by: cache-ewr-kewr1740027-EWR
+x-cache: MISS
+x-cache-hits: 0
+x-timer: S1791481043.216062,VS0,VE54
+vary: x-fh-requested-host, accept-encoding
+cf-cache-status: DYNAMIC
+server: cloudflare
+cf-ray: a476e9c7dfa2d64b-IAD
+
+## robots.txt staging
+User-agent: *
+Allow: /
+
+Sitemap: https://burnbar.ai/sitemap.xml
+
+## status of routes
+https://burnbar-staging.web.app/beta -> 404
+https://burnbar.ai/beta -> 404
+https://burnbar-staging.web.app/bench/arena/vote -> 404
+https://burnbar.ai/bench/arena/vote -> 200
+https://burnbar-staging.web.app/bench/data -> 404
+https://burnbar.ai/bench/data -> 200
+https://burnbar-staging.web.app/bench/methodology -> 404
+https://burnbar.ai/bench/methodology -> 200
+https://burnbar-staging.web.app/memory -> 404
+https://burnbar.ai/memory -> 200
+https://burnbar-staging.web.app/api/router-rundown/latest -> 404
+https://burnbar.ai/api/router-rundown/latest -> 200
+## consoles
+https://burnbar-staging-console.web.app/ -> 404
+https://burnbar-staging-console.firebaseapp.com/ -> 404
+https://burnbar-console.web.app/ -> 200
+https://app.burnbar.ai/ -> 200

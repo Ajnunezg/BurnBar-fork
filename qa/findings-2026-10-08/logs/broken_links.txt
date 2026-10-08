@@ -1,0 +1,7 @@
+401  https://artificialanalysis.ai/api/v2/data/llms/models  <- ['staging:/router/daily/2026-07-12']
+404  https://burnbar-staging.web.app/beta  <- ['staging:/beta']
+404  https://burnbar-staging.web.app/this-page-does-not-exist-qa  <- ['staging:/this-page-does-not-exist-qa']
+404  https://burnbar.ai/beta  <- ['prod:/beta']
+404  https://burnbar.ai/this-page-does-not-exist-qa  <- ['prod:/this-page-does-not-exist-qa']
+404  https://github.com/Imagine-That-Ai/BurnBar/blob/main/docs/pensieve-leakage-analysis.md  <- ['prod:/privacy', 'staging:/privacy']
+000  https://tikkas-mac-mini.tail602e93.ts.net:8443/arena  <- ['staging:/bench/arena']

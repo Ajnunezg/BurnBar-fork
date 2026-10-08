@@ -1,0 +1,7 @@
+# Captured 2026-10-08 12:37 CDT
+
+## Staging /_assets/firebaseClient.DDb0EQIj.js (loaded by /link, /hermes/connect, /subscribe)
+var Fc={apiKey:`AIzaSyBiAIHwf1MKZ6LN5HrsaPYsAR3UTe8hyw4`,authDomain:`burnbar.firebaseapp.com`,projectId:`burnbar`,storageBucket:`burnbar.appspot.com`,messagingSenderId:`246956661961`,appId:`1:246956661961:web:2e267f5d3a84a525480118`},Ic=`6Ld3bAktAAAAAABiZujpMLmUcvSMUPiJk6qENbOg`
+
+## Console warning captured on staging /link, /hermes/connect, /subscribe (mobile-light + mobile-dark):
+console.warning: Info: The current domain is not authorized for OAuth operations. This will prevent signInWithPopup, signInWithRedirect, linkWithPopup and linkWithRedirect from working. Add your domain (burnbar-staging.web.app) to the OAuth redirect domains list in the Firebase console -> Authentication -> Settings -> Authorized domains tab.  [src: https://burnbar.firebaseapp.com/__/auth/iframe.js]
