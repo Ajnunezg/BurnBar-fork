@@ -1,0 +1,26 @@
+name: Sync upstream
+
+# Fork-only workflow: keeps this fork's main in sync with Imagine-That-Ai/BurnBar.
+# Do not copy upstream. Uses only the built-in GITHUB_TOKEN; no secrets required.
+on:
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'Ajnunezg/BurnBar-fork'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Sync main from upstream
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh repo sync ${{ github.repository }} --source Imagine-That-Ai/BurnBar --branch main
