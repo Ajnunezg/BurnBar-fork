@@ -208,7 +208,7 @@ const detectedCount = totalCount - primaryCount;
        THE PILLARS
        ──────────────────────────────────────────────── -->
   <section class="pillars" aria-labelledby="pillars-h">
-    <div class="container">
+    <div class="container container--wide">
       <header class="sec-head">
         <span class="eyebrow eyebrow--ember">Three commitments</span>
         <h2 id="pillars-h">A developer tool, not a SaaS dashboard.</h2>
@@ -302,7 +302,7 @@ const detectedCount = totalCount - primaryCount;
        PROVIDER PREVIEW
        ──────────────────────────────────────────────── -->
   <section class="provshow" aria-labelledby="provshow-h">
-    <div class="container">
+    <div class="container container--wide">
       <header class="sec-head">
         <span class="eyebrow eyebrow--ember">Providers</span>
         <h2 id="provshow-h">The list of vendors it actually understands.</h2>
@@ -587,7 +587,7 @@ const detectedCount = totalCount - primaryCount;
        COMPANION — Floo + Agent Control
        ──────────────────────────────────────────────── -->
   <section class="companion" aria-labelledby="companion-h">
-    <div class="container">
+    <div class="container container--wide">
       <header class="sec-head">
         <span class="eyebrow eyebrow--mercury">Beyond the dashboard</span>
         <h2 id="companion-h">Reaches from the menu bar to your phone and agents.</h2>
@@ -1139,7 +1139,9 @@ const detectedCount = totalCount - primaryCount;
   }
   .surfaces__grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    /* BB-26: nine surfaces — 3×3 at desktop avoids the 9th-card orphan a
+       4-col grid leaves. */
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--s-4);
   }
   @media (max-width: 1080px) {
