@@ -79,7 +79,7 @@ const AXE_ALLOWLIST: Record<string, string> = {
 const CONSOLE_NOISE = [
   /Failed to load resource/i, // counted separately via requestFailed below
   /postMessage/i, // BB-33: Firebase/Google iframe internals, not repo code
-  /\[Report Only\]/i, // CSP report-only noise
+  /report[- ]only/i, // CSP report-only noise (both "[Report Only]" and "report-only Content Security Policy" wording)
   /Deprecat/i,
   /downloadable font/i,
   /net::ERR_/i,
@@ -87,12 +87,25 @@ const CONSOLE_NOISE = [
   /requestStorageAccess/i, // storage-access API probing, not a defect
 ];
 
-async function collectConsoleErrors(page: Page): Promise<string[]> {
+async function collectConsoleErrors(
+  page: Page,
+  opts: { loopback?: boolean } = {},
+): Promise<string[]> {
   const errors: string[] = [];
   page.on("console", (msg) => {
     if (msg.type() !== "error") return;
     const text = msg.text();
     if (CONSOLE_NOISE.some((re) => re.test(text))) return;
+    // Loopback-only: the local preview server has no CORS headers, so
+    // page→staging-backend fetches legitimately fail CORS there. Scoped to
+    // known cross-origin staging/Google backends; real deployments share
+    // origin/proxy, so CORS stays an error anywhere else.
+    if (
+      opts.loopback &&
+      /CORS|Cross-Origin/i.test(text) &&
+      /cloudfunctions\.net|\.run\.app|\.web\.dev|googleapis\.com|firebaseio\.com|identitytoolkit/i.test(text)
+    )
+      return;
     errors.push(text);
   });
   page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
@@ -115,9 +128,10 @@ async function failedSameOriginRequests(page: Page, requestFailed: (r: Response)
 test.describe("public routes", () => {
   for (const route of ROUTES) {
     test(`${route}`, async ({ page, baseURL }, testInfo) => {
-      const consoleErrors = await collectConsoleErrors(page);
       const failedResponses: string[] = [];
       const base = new URL(baseURL ?? "http://localhost:4322");
+      const loopback = ["127.0.0.1", "localhost", "::1"].includes(base.hostname);
+      const consoleErrors = await collectConsoleErrors(page, { loopback });
 
       page.on("response", (response) => {
         try {
